@@ -1,0 +1,14 @@
+##########################################################################################################
+# Parameter for plotting results
+kind: 'speed' # type of plot to produce
+outputDir: 'outputs'
+outputClass: 'GPRet_K_500_M_1000_Lot_100'
+outputModel: 'one_factor' # choose model name as number of factors + varying parameter
+varying_par: 'CostMultiplier'
+N_train : 1000000
+Values : [0.01]
+Var: ['GrossPNL','NetPNL','Reward','OptReward']
+start: 0
+plot_speed_post: 1
+##########################################################################################################
+

@@ -22,17 +22,23 @@ mpl_logger = logging.getLogger('matplotlib')
 mpl_logger.setLevel(logging.WARNING)
 
 # 1. Read config ------------------------------------------------------------- 
-Param = readConfigYaml(os.path.join(os.getcwd(),'config','paramGPRet.yaml'))
+Param = readConfigYaml(os.path.join(os.getcwd(),'config','paramGPRetDiscret.yaml'))
 logging.info('Successfully read config file with parameters...')
-
+#pdb.set_trace()
 if Param['algo'] == 'Q':
     # 2. Instantiate Q Learning Trader 
     QTrader = QTraderObject(Param)
     logging.info('QTrader initialized successfully...')
-    #pdb.set_trace()
+    pdb.set_trace()
     # 2. Run experiment ---------------------------------------------------------------- 
-    QTrader.TrainTestQTrader()
-    logging.info('Experiment carried out successfully...')
+    if Param['trainable'] == 1:
+        logging.info('Running experiment ex novo...')
+        QTrader.TrainQTrader()
+        logging.info('Experiment carried out successfully...')
+    else:
+        logging.info('Running experiment ex post...')
+        QTrader.TestFixedQ()
+        logging.info('Experiment carried out successfully...')
     
 elif Param['algo'] == 'Qlin': # TODO: finish to implement this part
     # 2. Instantiate Q Learning Trader with linear approximation
@@ -40,5 +46,5 @@ elif Param['algo'] == 'Qlin': # TODO: finish to implement this part
     logging.info('QTrader initialized successfully...')
         
     # 2. Run experiment ---------------------------------------------------------------- 
-    QTrader.TrainTestQTrader()
+    QTrader.TrainQTrader()
     logging.info('Experiment carried out successfully...')
