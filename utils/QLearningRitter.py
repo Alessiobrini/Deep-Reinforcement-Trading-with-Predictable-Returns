@@ -16,23 +16,75 @@ plt.rcParams['savefig.dpi'] = 90
 plt.rcParams['font.family'] = 'serif'
 plt.rcParams['font.size'] = 14
 
+from statsmodels.tsa.stattools import adfuller
+
 import pickle
 import os
 import pdb
+import sys
 
 from tqdm import tqdm
 
 from utils.format_tousands import format_tousands
-from utils.Base import Base
 
-class QTraderObject(Base):
+class QTraderObject(object):
     
     '''
-    This class inherits from QLearning class.
+    This class implements Q-learning algorithm and its extensions. 
     It is useful to implement a general Q-learning agent and produce simple 
     synthetic experiments as in Ritter (2017).
+    It is possible to easily extend that framework by incorporating
+    different form of transaction costs, objective function and state space representation
     '''
 
+    # ----------------------------------------------------------------------------
+    # Init method      
+    # ----------------------------------------------------------------------------
+    def __init__(self, Param):
+
+        '''
+        init method to initialize the class. Parameter inputs are stored 
+        as properties of the object.
+        '''
+        self.Param = Param
+        self._setSpaces(Param)
+        
+    # ----------------------------------------------------------------------------
+    # Private method      
+    # ----------------------------------------------------------------------------
+    def _setSpaces(self, Param):
+        '''
+        Create discrete action, holding and price spaces
+        '''
+        ParamSpace = { 
+                      'A_space' : np.arange(-Param['K'] ,Param['K']+1, Param['LotSize']),
+                      'H_space' : np.arange(-Param['M'],Param['M']+1, Param['LotSize']),
+                      'P_space' : np.arange(Param['P_min'],Param['P_max']+1)*Param['TickSize']
+                      }
+
+        self.ParamSpace = ParamSpace
+    # ----------------------------------------------------------------------------
+    # Public method       
+    # ----------------------------------------------------------------------------
+    
+    # ROUNDING FUNCTIONS
+    
+    def find_nearest_price(self, value):
+        '''
+        Function to ensure that prices don't exit the valid range
+        '''
+        array = np.asarray(self.ParamSpace['P_space'])
+        idx = (np.abs(array - value)).argmin()
+        return array[idx]
+
+
+    def find_nearest_holding(self, value):
+        '''
+        Function to ensure that holdings don't exit the valid range
+        '''
+        array = np.asarray(self.ParamSpace['H_space'])
+        idx = (np.abs(array - value)).argmin()
+        return array[idx]
 
     # PRICE SAMPLERS
     
@@ -52,15 +104,42 @@ class QTraderObject(Base):
         p = self.find_nearest_price(pe) 
       
         prices = [p]
-        for i in range(0,sampleSize):
+        ret = []
+        for i in tqdm(iterable=range(0,sampleSize),desc='Simulating Prices'):
             x = np.log(p / pe)
             x = (1 - lambda_) * x + sigma * eps[i] 
+            ret.append(x)
             pnew = pe * np.exp(x)
             pnew = np.min([pnew, self.Param['P_max']])
             # discretizing to make sure it appear in P_space
             prices.append(self.find_nearest_price(pnew))
             p = pnew
-
+            
+        # plots for factor, returns and prices
+        if self.Param['plot_inputs']:
+            fig2 = plt.figure()
+            fig3 = plt.figure()
+            
+            ax2 = fig2.add_subplot(111)
+            ax3 = fig3.add_subplot(111)
+            
+        
+            ax2.plot(ret)
+            ax2.set_title('Returns')
+            ax3.plot(prices)
+            ax3.set_title('Prices')
+            
+            # test=adfuller(ret)  
+            print(np.mean(ret))
+            # print('Test ADF for generated price series')
+            # print("Test Statistic: " + str(test[0]))
+            # print("P-value: " + str(test[1]))
+            # print("Used lag: " + str(test[2]))
+            # print("Number of observations: " + str(test[3]))
+            # print("Critical Values: " + str(test[4]))
+            # print("AIC: " + str(test[5]))
+            sys.exit()
+        
         return prices
 
 
@@ -91,7 +170,8 @@ class QTraderObject(Base):
         nextPrice = nextState[0]
         currHolding = currState[1]
         nextHolding = nextState[1]
-
+        
+        #pdb.set_trace()
         # Traded quantity between period
         dn = nextHolding - currHolding
         # Transaction costs
@@ -110,8 +190,11 @@ class QTraderObject(Base):
         else:
             reward = pnl - 0.5 * self.Param['kappa'] * (pnl **2)
         
+        pdb.set_trace()
+        
         # Store quantities
         result = {
+                  'pdiff': pdiff,
                   'currState': currState,
                   'nextState': nextState,
                   'pnl': pnl,
@@ -134,6 +217,10 @@ class QTraderObject(Base):
         Q_space = pd.DataFrame(index = State_space, columns = self.ParamSpace['A_space']).fillna(0)
         Q_space.index.set_names(['Price','Holding'],inplace=True)
         Q_space.columns.set_names(['Action'],inplace=True)
+        # initialize the Qvalues for action 0 as slightly greater than 0 so that
+        # 'doing nothing' becomes the default action, instead the default action to be the first column of
+        # the dataframe.
+        Q_space[0] = 0.001
 
         self.Q_space = Q_space
 
@@ -199,17 +286,16 @@ class QTraderObject(Base):
         pricePath = self.PriceSampler(self.Param['N_train'], seed)
         
         # initialize dataframe for keeping track of pnl
-        res_df = pd.DataFrame(0, columns = ['pnl','reward','cost','dn'], 
+        res_df = pd.DataFrame(0, columns = ['pnl','reward','cost','dn','pdiff'], 
                               index = np.arange(len(pricePath)))
 
         # initialize holding at first holding possible
         currHolding = self.find_nearest_holding(0)
         
-        for i in tqdm(range(0, self.Param['N_train'])):
+        for i in tqdm(iterable=range(0, self.Param['N_train']),desc='Training QLearning'):
             # indexing
             currPrice = pricePath[i]
             currState = (currPrice, currHolding)
-
             # choose action
             shares_traded = self.chooseAction(currState)
 
@@ -222,6 +308,7 @@ class QTraderObject(Base):
             res_df['reward'].iloc[i] = result['reward']
             res_df['cost'].iloc[i] = result['cost']
             res_df['dn'].iloc[i] = result['dn']
+            res_df['pdiff'].iloc[i] = result['pdiff']
             #train_results['TrainResult' + str(i+1)] = result
             q_sa = self.Q_space.loc[currState, shares_traded]
             increment = self.Param['alpha'] * ( result['reward'] + \
@@ -246,14 +333,14 @@ class QTraderObject(Base):
         
         pricePath = self.PriceSampler(self.Param['TestSteps'],seed)
         
-        res_df = pd.DataFrame(0, columns = ['pnl','reward','cost','dn'],
+        res_df = pd.DataFrame(0, columns = ['pnl','reward','cost','dn','pdiff'],
                               index = np.arange(len(pricePath)))
         
         currHolding = self.find_nearest_holding(0)
         # empty dict to store results
         test_results = {}
         
-        for i in tqdm(range(0, self.Param['TestSteps'])):
+        for i in tqdm(iterable=range(0, self.Param['TestSteps']),desc='Testing QLearning'):
             
             currPrice = pricePath[i]
             currState = (currPrice, currHolding)
@@ -269,6 +356,7 @@ class QTraderObject(Base):
             res_df['reward'].iloc[i] = result['reward']
             res_df['cost'].iloc[i] = result['cost']
             res_df['dn'].iloc[i] = result['dn']
+            res_df['pdiff'].iloc[i] = result['pdiff']
 
             test_results['TestResult' + str(i+1)] = result
 
@@ -296,6 +384,8 @@ class QTraderObject(Base):
         # TEST
         # fixed seed for reproducibility
         res_df = self.OutOfSample(seed=self.Param['Seed'])
+        pdb.set_trace()
+        
 
         # compute Sharpe Ratio of the PNL
         pnl_mean = np.array(res_df['pnl']).mean()
@@ -307,58 +397,59 @@ class QTraderObject(Base):
         pnl_sum = res_df['pnl'].cumsum()
 
 
-        # # set up figure and axes
-        # fig, ax = plt.subplots(1,1)
-        # anchored_text = AnchoredText('Sharpe Ratio: ' + str(np.around(sr,4)) + 
-        #                              '\n PnL mean: ' + str(np.around(pnl_mean,2)) + 
-        #                              '\n PnL std: ' + str(np.around(pnl_std,2)), loc=4 )
-        # ax.plot(pnl_sum)
-        # ax.add_artist(anchored_text)
-        # plt.xlabel('out−of−sample periods')
-        # plt.ylabel('PnL')
-        # plt.title('Simulated net PnL over 5000 out−of−sample periods \n' +
-        #           format_tousands(self.Param['N_train']) + ' training steps \n K=' +
-        #           str(self.Param['K']) + ' M=' + str(self.Param['M']) +
-        #           '\n CM=' + str(self.Param['CostMultiplier']))
+        # set up figure and axes
+        fig, ax = plt.subplots(1,1)
+        anchored_text = AnchoredText('Sharpe Ratio: ' + str(np.around(sr,4)) + 
+                                      '\n PnL mean: ' + str(np.around(pnl_mean,2)) + 
+                                      '\n PnL std: ' + str(np.around(pnl_std,2)), loc=4 )
+        ax.plot(pnl_sum)
+        ax.add_artist(anchored_text)
+        plt.xlabel('out−of−sample periods')
+        plt.ylabel('PnL')
+        plt.title('Simulated net PnL over 5000 out−of−sample periods \n' +
+                  format_tousands(self.Param['N_train']) + ' training steps \n K=' +
+                  str(self.Param['K']) + ' M=' + str(self.Param['M']) +
+                  '\n CM=' + str(self.Param['CostMultiplier']))
         
-        # # create figure path
-        # figpath = os.path.join('outputs', self.Param['outputDir'], 'Qlearning_'+ 
-        #                        format_tousands(self.Param['N_train']) +
-        #                        '_steps_K=' + str(self.Param['K']) +
-        #                        '_M=' + str(self.Param['M']) +
-        #                        '_CM=' + str(self.Param['CostMultiplier']) +
-        #                        '.PNG')#.replace("/","\\")
+        # create figure path
+        figpath = os.path.join('outputs', self.Param['outputDir'], 'Qlearning_'+ 
+                                format_tousands(self.Param['N_train']) +
+                                '_steps_K=' + str(self.Param['K']) +
+                                '_M=' + str(self.Param['M']) +
+                                '_CM=' + str(self.Param['CostMultiplier']) +
+                                '.PNG')#.replace("/","\\")
         
-        # # save figure
-        # plt.savefig(figpath)
+        # save figure
+        plt.savefig(figpath)
 
-        # # create table path
-        # tablepath = os.path.join('outputs', self.Param['outputDir'], 'QTable_' + 
-        #                           format_tousands(self.Param['N_train']) + 
-        #                           '_steps_K=' + str(self.Param['K']) + 
-        #                           '_M=' + str(self.Param['M']) +
-        #                           '_CM=' + str(self.Param['CostMultiplier']) +
-        #                           '.csv')#.replace("/","\\")
+        # create table path
+        tablepath = os.path.join('outputs', self.Param['outputDir'], 'QTable_' + 
+                                  format_tousands(self.Param['N_train']) + 
+                                  '_steps_K=' + str(self.Param['K']) + 
+                                  '_M=' + str(self.Param['M']) +
+                                  '_CM=' + str(self.Param['CostMultiplier']) +
+                                  '.csv')#.replace("/","\\")
 
-        # # save qtable as csv
-        # self.Q_space.to_csv(tablepath)
+        # save qtable as csv
+        self.Q_space.to_csv(tablepath)
         
         
-        # # create testresults path
-        # testpath = os.path.join('outputs', self.Param['outputDir'], 'test_results_'+ 
-        #                         format_tousands(self.Param['N_train']) + 
-        #                         '_steps_K=' + str(self.Param['K']) + 
-        #                         '_M=' + str(self.Param['M']) +
-        #                         '_CM=' + str(self.Param['CostMultiplier']))#.replace("/","\\")
+        # create testresults path
+        testpath = os.path.join('outputs', self.Param['outputDir'], 'test_results_'+ 
+                                format_tousands(self.Param['N_train']) + 
+                                '_steps_K=' + str(self.Param['K']) + 
+                                '_M=' + str(self.Param['M']) +
+                                '_CM=' + str(self.Param['CostMultiplier']))#.replace("/","\\")
 
-        # # save test results as pickle file
-        # with open(testpath,'wb') as filetosave:
+        # save test results as pickle file
+        with open(testpath,'wb') as filetosave:
 
-        #     pickle.dump(test_results, filetosave)
+            pickle.dump(test_results, filetosave)
             
         return res_df
             
-    # PLOT FUNCTIONS
+    # PLOT FUNCTIONS 
+    # TODO add alpha=0.1 in scatter plot to see areas with more density
     def plot_QValueFunction(self):
         
         '''

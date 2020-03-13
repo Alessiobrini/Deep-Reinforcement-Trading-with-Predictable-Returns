@@ -151,7 +151,7 @@ class QTraderObject(object):
          
         ParamSpace = {'A_space' : np.arange(-Param['K'] ,Param['K']+1, Param['LotSize']),
                       'H_space' : np.arange(-Param['M'],Param['M']+1, Param['LotSize']),
-                      'R_space' : np.arange(-Param['R_min'],Param['R_max']+1)*Param['TickSize']}
+                      'R_space' : np.arange(-Param['R'],Param['R']+1)*Param['TickSize']}
                       
         self.ParamSpace = ParamSpace
 
@@ -197,7 +197,6 @@ class QTraderObject(object):
         array = np.asarray(self.ParamSpace['H_space'])
         idx = (np.abs(array - value)).argmin()
         return array[idx]
-
 
     # PRICE SAMPLERS
     
@@ -255,6 +254,11 @@ class QTraderObject(object):
         '''
         # Set seed to make the out-of-sample experiment reproducible
         np.random.seed(seed)
+        
+        # use samplesize +2 because when iterating the algorithm is necessary to 
+        # have one observation more (the last space representation) and because
+        # we want be able to plot insample operation every tousand observation.
+        # Therefore we don't want the index ending at 999 instead of 1000
         
         # Generate stochastic factor component and compute speed of mean reversion
         eps = np.random.randn(sampleSize + 2) 
@@ -403,6 +407,8 @@ class QTraderObject(object):
         print('################################################################')
         print(self.ParamSpace['R_space'])
         
+        pdb.set_trace()
+        
         # plots for factor, returns and prices
         if self.Param['plot_inputs']:
             fig1 = plt.figure()
@@ -429,6 +435,8 @@ class QTraderObject(object):
             # print("Critical Values: " + str(test[4]))
             # print("AIC: " + str(test[5]))
             sys.exit()
+        
+        
         
         return realret,capret,factors
 
@@ -643,7 +651,9 @@ class QTraderObject(object):
         if (random_action < self.Param['epsilon']):
             # pick one action at random for exploration purposes
             A_space = self.ParamSpace['A_space'] 
+            #pdb.set_trace()
             dn = A_space[np.random.randint(len(A_space))]
+            #pdb.set_trace()
         else:
             # pick the greedy action
             dn = self.argmaxQ(state)
@@ -819,24 +829,20 @@ class QTraderObject(object):
         
         # generate a sample
         realret, ret, factors = self.ReturnSampler(self.Param['N_train'] , seed)
-      
-        # initialize empty dataframe
-        res_df = pd.DataFrame(np.nan, 
-                              columns = ['returns','factors'], 
-                              index = np.arange(len(ret)))
-        
-        # fill the dataframe with generated returns and factors TODO fill also with realret
-        res_df['returns'] = ret
-        res_df['factors'] = factors
+        # initialize dataframe
+        res_df = pd.DataFrame(np.concatenate([np.array(ret).reshape(-1,1),
+                                              np.array(factors).reshape(-1,1)], 
+                                             axis=1), 
+                              columns = ['returns','factors'])
         
         # initialize holding for the RL agent and the Optimal Agent
-        currHolding = self.find_nearest_holding(0)
-        curroptHolding = self.find_nearest_holding(0)
+        currHolding = self.find_nearest_holding(self.Param['Startholding'])
+        curroptHolding = self.find_nearest_holding(self.Param['Startholding'])
         
         # Compute optimal trading rate for analytical solution
         OptRate = self.OptTradingRate()
         
-        for i in tqdm(iterable=range(0, self.Param['N_train']+1), desc='Training QLearning'):
+        for i in tqdm(iterable=range(self.Param['N_train']+1), desc='Training QLearning'):
             ##########################################################################à
             # RL solution
             # represent the current state as tuple
@@ -850,7 +856,7 @@ class QTraderObject(object):
                 nextHolding = self.find_nearest_holding(currHolding + shares_traded)
                 nextRet = ret[i+1]
                 nextState = (nextRet, nextHolding)
-                
+                #pdb.set_trace()
                 # compute reward and update the Q function
                 Result = self.GetReward(currState, nextState)
                 
@@ -863,11 +869,12 @@ class QTraderObject(object):
                 # store quantities from the dictionary Result in the Dataframe
                 if i==0:
                     for key in Result.keys(): 
-                        res_df[key] = 0                 
-                        res_df[key].iloc[i] = Result[key]
+                        res_df[key] = 0
+                        #pdb.set_trace()
+                        res_df.at[i,key] = Result[key]
                 else:
-                    for key in Result.keys():
-                        res_df[key].iloc[i] = Result[key]  
+                    for key in Result.keys(): 
+                        res_df.at[i,key] = Result[key]
                 
                 # go to the nextholding for the subsequent step of the for loop
                 currHolding = nextHolding
@@ -890,10 +897,10 @@ class QTraderObject(object):
                 if i==0:
                     for key in OptResult.keys(): 
                         res_df[key] = 0                 
-                        res_df[key].iloc[i] = OptResult[key]
+                        res_df.at[i,key] = OptResult[key]
                 else:
                     for key in OptResult.keys():
-                        res_df[key].iloc[i] = OptResult[key] 
+                        res_df.at[i,key] = OptResult[key]
         
                 curroptHolding = OptResult['OptNextHolding']
                 
@@ -911,8 +918,9 @@ class QTraderObject(object):
             
             # save results as parquet
             self.Q_space.to_parquet(os.path.join(self.savedpath,
-                                             'QTable_' + format_tousands(self.Param['N_train']) 
+                                             'QTable_' + format_tousands(self.Param['N_train'])
                                              + '.parquet.gzip'), compression='gzip')
+        
         # store results
         if self.Param['save_results'] == 1:
             if self.Param['trainable'] == 1:
@@ -970,6 +978,9 @@ class QTraderObject(object):
         # Merge dictionaries
         NewParam = {**self.Param, **ParamTrain}
         NewParam['plot_insample'] = 0
+        NewParam['trainable'] = 0
+        NewParam['save_table'] = 0
+        NewParam['execute_GP'] = 1
         self.Param = NewParam
         
         # Load QTable from file and instantiate it as attribute
@@ -1113,16 +1124,20 @@ class QTraderObject(object):
                 
             # first plot
             axcost = fig2.add_subplot(4,1,1)
-            axcost.plot(res_df['OptCost'], label = 'OptCost', alpha=0.7, color = 'orange')             
+            axcost.plot(res_df['OptCost'], label = 'OptCost', alpha=0.7, color = 'orange') 
+            axcost.set_title('Cost', x=-0.1,y=0.5)     
             # second plot
             axrisk = fig2.add_subplot(4,1,2)
             axrisk.plot(res_df['OptRisk'], label = 'OptRisk', alpha=0.7, color = 'orange')
+            axrisk.set_title('Risk', x=-0.1,y=0.5)
             # third plot
             axaction = fig2.add_subplot(4,1,3)
             axaction.plot(res_df['OptNextAction'], label = 'OptNextAction', alpha=0.7, color = 'orange')
+            axaction.set_title('Action', x=-0.1,y=0.5)
             # fourth plot
             axholding = fig2.add_subplot(4,1,4)
             axholding.plot(res_df['OptNextHolding'],label = 'OptNextHolding', alpha=0.7, color = 'orange')
+            axholding.set_title('Holding', x=-0.1,y=0.5)
             
             if self.Param['executeRL']:
                 axcost.plot(res_df['Cost'], label = 'Cost', color = 'blue')
@@ -1203,25 +1218,25 @@ class QTraderObject(object):
             # first figure
             axcost = fig2.add_subplot(4,1,1)
             axcost.plot(res_df['Cost'], color = 'blue')
-            #axcost.set_title('Cost')
+            axcost.set_title('Cost', x=-0.1,y=0.5)
             axcost.legend(['Cost'])
                                  
             # second plot
             axrisk = fig2.add_subplot(4,1,2)
             axrisk.plot(res_df['Risk'], color = 'blue')
-            #axrisk.set_title('Risk')
+            axrisk.set_title('Risk', x=-0.1,y=0.5)
             axrisk.legend(['Risk'])
 
             # third plot
             axaction = fig2.add_subplot(4,1,3)
             axaction.plot(res_df['Action'], color = 'blue')
-            #axaction.set_title('Action')
+            axaction.set_title('Action', x=-0.1,y=0.5)
             axaction.legend(['Action'])
             
             # fourth plot
             axholding = fig2.add_subplot(4,1,4)
             axholding.plot(res_df['NextHolding'], color = 'blue')
-            #axholding.set_title('Holding')
+            axholding.set_title('Holding', x=-0.1,y=0.5)
             axholding.legend(['NextHolding'])
                         
             figpath = os.path.join(self.savedpath,'Qlearning_plot_'+ 
