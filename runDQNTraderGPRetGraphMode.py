@@ -18,12 +18,12 @@ from utils.generateLogger import generate_logger
 from utils.SavePath import GeneratePathFolder
 from utils.SimulateData import ReturnSampler
 from utils.MarketEnv import MarketEnv, ActionSpace
-from utils.DeepLearning import DQN
+from utils.DeepLearningGraphMode import DQN
 from utils.DQNOutputs import PlotLearningResults
 from tqdm import tqdm
 import datetime
 import tensorflow as tf
-
+import numpy as np
 
 
 # 0. Generate Logger-------------------------------------------------------------
@@ -122,6 +122,11 @@ TargetNet = DQN(tfseed, num_states, hidden_units, gamma, max_experiences,
                 summary_writer, activation, kernel_initializer,plot_steps,selected_loss, 
                 mom_batch_norm, trainable_batch_norm, DQN_type, clipgrad, clipnorm, 
                 clipmin, clipmax, optimizer_name, modelname='TargetNet')
+# BaselineNet = DQN(tfseed, num_states, hidden_units, gamma, max_experiences, 
+#                min_experiences, batch_size, learning_rate, action_space, batch_norm, 
+#                summary_writer, activation, kernel_initializer,plot_steps,selected_loss, 
+#                mom_batch_norm, trainable_batch_norm, DQN_type, clipgrad, clipnorm, 
+#                clipmin, clipmax, optimizer_name, modelname='BaselineNet')
 logging.info('Successfully initialized the Deep Q Networks...YOU ARE CURRENTLY USING A SEED TO INITIALIZE WEIGHTS. LEAVE IT IF YOU HAVE FOUND A PROPER NN SETTING')
 
 
@@ -129,25 +134,25 @@ for i in tqdm(iterable=range(N_train + 1), desc='Training DQNetwork'):
     
     if executeRL:
         epsilon = max(min_eps, epsilon - eps_decay) # linear decay
-        shares_traded = TrainNet.eps_greedy_action(CurrState, epsilon)
+        shares_traded = TrainNet.eps_greedy_action(tf.constant(np.atleast_2d(CurrState), dtype=tf.float32), epsilon)
         NextState, Result = env.step(CurrState, shares_traded, i)
         env.store_results(Result, i)
-
+        
         exp = {'s': CurrState, 'a': shares_traded, 'r': Result['Reward'], 's2': NextState}
         TrainNet.add_experience(exp)
         if i == min_experiences:
-            TrainNet.add_test_experience()
-            TrainNet.compute_test_target(TargetNet)
-
+            TrainNet.add_test_experience(exp)
         
-        TrainNet.train(TargetNet, i)
-        TrainNet.test(TargetNet, i)
+        TrainNet.train(TargetNet, tf.constant(i, dtype=tf.int64))
+        #pdb.set_trace()
+        # TrainNet.test(TargetNet, BaselineNet, tf.constant(i),summary_writer)
+
             
         CurrState = NextState
         iters += 1
         if iters % copy_step == 0:
             TargetNet.copy_weights(TrainNet)
-            TrainNet.compute_test_target(TargetNet)
+
         
         if plot_insample:
             if (i % (N_train/5) == 0) & (i != 0):
@@ -161,10 +166,8 @@ for i in tqdm(iterable=range(N_train + 1), desc='Training DQNetwork'):
     
     if execute_GP:
         NextOptState, OptResult = env.opt_step(CurrOptState, OptRate, i)
-        env.store_results(OptResult, i)        
+        env.store_results(OptResult, i)    
         CurrOptState = NextOptState
-        
-        
 logging.info('Successfully trained the Deep Q Network...')
 # 5. Plot and save outputs ----------------------------------------------------------     
 if save_results:

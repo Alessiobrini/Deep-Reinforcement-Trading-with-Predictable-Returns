@@ -123,6 +123,7 @@ class MarketEnv(gym.Env):
         Reward = GrossPNL - Risk - Cost
         
         Result = {
+                  'CurrHolding': currHolding,
                   'NextHolding': nextHolding,
                   'Action': shares_traded,
                   'GrossPNL': GrossPNL,
