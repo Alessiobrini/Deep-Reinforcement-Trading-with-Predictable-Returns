@@ -8,6 +8,7 @@ import numpy as np
 import pandas as pd
 import matplotlib.pyplot as plt
 from matplotlib.offsetbox import AnchoredText
+from matplotlib import cm
 
 import seaborn 
 seaborn.set_style('darkgrid')
@@ -471,14 +472,20 @@ class QTraderObject(object):
         # select values for xaxis
         p = QTable.index.get_level_values(0).unique()
     
+        
+        # get color from colormaps
+        viridis = cm.get_cmap('viridis', len(QTable.columns))
+        #pdb.set_trace()
+        
+        
         if self.Param['Aggregation']:
             Q_price = QTable.groupby(level = [0]).sum()
     
             fig, ax = plt.subplots(1,1)
     
             for i in range(0,len(Q_price.columns)):
-                ax.scatter(p,Q_price.iloc[:,i],label=Q_price.columns[i], s=15)
-    
+                ax.scatter(p,Q_price.iloc[:,i],label=Q_price.columns[i], s=15, c = Q_price.iloc[:,i], cmap='bwr')
+
             plt.xlabel('Prices')
             plt.ylabel(r'$\hat{q}((holding,p),a)$',rotation=0, labelpad=30)
             plt.title('Tabular QLearning Value Function by aggregated holding \n' +
@@ -492,12 +499,15 @@ class QTraderObject(object):
         else:
             Q_price = QTable[QTable.index.get_level_values('Holding') == self.Param['holding']]
     
-    
+
             fig, ax = plt.subplots(1,1)
     
             for i in range(0,len(Q_price.columns)):
-                ax.scatter(p,Q_price.iloc[:,i],label=Q_price.columns[i], s=15)
-    
+                #pdb.set_trace()
+                ax.scatter(p,Q_price.iloc[:,i],label=Q_price.columns[i], s=15,
+                           c = viridis.colors[i])
+
+
             plt.xlabel('Prices')
             plt.ylabel(r'$\hat{q}((holding,p),a)$',rotation=0, labelpad=30)
             plt.title('Tabular QLearning Value Function for holding ' +
@@ -527,11 +537,12 @@ class QTraderObject(object):
         
         # Read QTable
         QTable = pd.read_csv(tablepath,index_col= [0,1])
+        
        
         if self.Param['Aggregation']:
             Q_price = QTable.groupby(level = [0]).sum()
-            Q_action = Q_price.idxmax(axis = 1)
-    
+            Q_action = Q_price.idxmax(axis = 1).astype(float)
+            
             fig, ax = plt.subplots(1,1)
             ax.plot(Q_action)
     
@@ -546,8 +557,8 @@ class QTraderObject(object):
         else:
             Q_price = QTable[QTable.index.get_level_values('Holding') == self.Param['holding']]
             Q_price.index = Q_price.index.droplevel(1)
-            Q_action = Q_price.idxmax(axis = 1)
-    
+            Q_action = Q_price.idxmax(axis = 1).astype(float)
+
     
             fig, ax = plt.subplots(1,1)
             ax.plot(Q_action)

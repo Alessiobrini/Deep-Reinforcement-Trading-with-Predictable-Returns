@@ -16,8 +16,8 @@ import pdb, os
 from utils.format_tousands import format_tousands
 
 class ActionSpace(Space):
-    def __init__(self, K: int, lot: int):
-        self.values = np.arange(-K, K + 1, lot)
+    def __init__(self, KL: list):
+        self.values = np.arange(-KL[0], KL[0] + 1, KL[1])
         super().__init__(self.values.shape, self.values.dtype)
 
     def sample(self):
@@ -30,10 +30,8 @@ class ActionSpace(Space):
 class MarketEnv(gym.Env):
     '''Custom  Market Environment that follows gym interface'''
     
-    # metadata = {'render.modes': ['human']}
+
     def __init__(self,
-                 K: int,
-                 LotSize: int,
                  HalfLife: Union[int or list or np.ndarray],
                  Startholding: Union[int or float],
                  sigma: float,
@@ -49,8 +47,6 @@ class MarketEnv(gym.Env):
         
         super(MarketEnv, self).__init__()
         
-        self.K = K
-        self.LotSize = LotSize
         self.HalfLife = HalfLife
         self.Startholding = Startholding
         self.sigma = sigma
@@ -85,15 +81,7 @@ class MarketEnv(gym.Env):
     def reset(self):
         currState = np.array([self.returns[0],self.Startholding])
         return currState
-    
-    def render(self, iteration):
-        # produce in_sample plot
-        # if self.plot_insample:
-        #     if (iteration % (self.N_train/5) == 0) & (iteration != 0): # TODO insert this plot
-        #         self.PlotLearningResults(res_df.loc[:i], title='Qlearning iteration ' + str(i),
-        #                                  iteration=i)
-        pass
-         
+             
     def totalcost(self,shares_traded: Union[float or int]) -> Union[float or int]:
 
         Lambda = self.CostMultiplier * self.sigma**2
@@ -174,7 +162,7 @@ class MarketEnv(gym.Env):
         return currOptState
         
             
-    def opt_trading_rate(self):
+    def opt_trading_rate_disc_loads(self):
         
         # 1 percent annualized discount rate (same rate of Ritter)
         rho = 1 - np.exp(- self.discount_rate/260)  
@@ -186,23 +174,23 @@ class MarketEnv(gym.Env):
         a = (-num1 + num2)/ den
         
         OptRate = a / self.CostMultiplier
+        
+        DiscFactorLoads = self.f_param / (1 + self.f_speed * ((OptRate * self.CostMultiplier) / \
+                                                                 self.kappa))
     
-        return OptRate
+        return OptRate, DiscFactorLoads
     
     def opt_step(self, 
                  currOptState: Tuple, 
                  OptRate: float,
+                 DiscFactorLoads: np.ndarray,
                  iteration: int) -> dict:
         
         
         #CurrReturns = currOptState[0]
         CurrFactors = currOptState[1]
         OptCurrHolding = currOptState[2]
-        
-        DiscFactorLoads = self.f_param / (1 + self.f_speed * ((OptRate * self.CostMultiplier) / \
-                                                                         self.kappa))
-            
-      
+           
         # Optimal traded quantity between period
         OptNextHolding = (1 - OptRate) * OptCurrHolding + OptRate * \
                       (1/(self.kappa * (self.sigma)**2)) * \
@@ -258,7 +246,6 @@ class MarketEnv(gym.Env):
                   }
         
         return Result
-    
     
     
     def save_outputs(self, savedpath):

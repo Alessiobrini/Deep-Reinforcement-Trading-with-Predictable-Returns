@@ -55,7 +55,9 @@ def ReturnSampler(N_train : int,
         f0 = f1
     
     factors = np.vstack(f)
-
+    
+    np.random.seed(seed)
+    
     u = np.random.randn(N_train + 2)
     # now we add noise to the equation of return by default, while in the previous
     # implementation we were using a boolean
