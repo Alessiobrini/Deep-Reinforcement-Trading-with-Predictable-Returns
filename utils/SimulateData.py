@@ -53,7 +53,7 @@ def ReturnSampler(N_train : int,
         f1 = np.multiply((1 - lambdas),f0) + np.multiply(sigmaf,eps[i])
         f.append(f1)
         f0 = f1
-    
+
     factors = np.vstack(f)
     
     np.random.seed(seed)
@@ -98,4 +98,4 @@ def ReturnSampler(N_train : int,
         # print("AIC: " + str(test[5]))
     
     
-    return realret,factors, f_speed
+    return realret.astype(np.float32),factors.astype(np.float32), f_speed

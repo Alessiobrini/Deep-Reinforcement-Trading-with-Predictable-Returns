@@ -10,7 +10,7 @@ if any('SPYDER' in name for name in os.environ):
     from IPython import get_ipython
     get_ipython().magic('reset -sf')
 
-import os, logging, nbformat, sys, subprocess, time
+import os, logging, nbformat, sys, subprocess, time, pdb
 from nbconvert.preprocessors import ExecutePreprocessor
 from utils.generateLogger import generate_logger
 
@@ -31,19 +31,22 @@ def walklevel(some_dir, level=1):
             del dirs[:]
 
 # pass the name of the notebook and the folder of experiments
-notebook_filename = os.path.join(os.getcwd(),"Analyze DQN results.ipynb")
+init_folder = os.getcwd()
+notebook_filename = os.path.join(init_folder,"ExPostResults.ipynb")
 
 # one can provide different set of experiments by passing this list
-experiments_folders = ["outputs/DDQN_20200427/Decays/2M"]
-# experiments_folder_path = os.path.join(os.getcwd(),experiments_folder)
+experiments_folders = [os.path.join('outputs','FullTest20200531','PreTraining_multiseed_actsize_mineps','1M' )]
+# experiments_folder_path = os.path.join(os.getcwd(),experiments_folder) 
+
 
 # loop over the experiments provided
 for fld in experiments_folders:
+    os.chdir(init_folder)
     logging.info('Folder {} starting'.format(fld))
     experiments_folder_path = os.path.join(os.getcwd(),fld)
     # loop over the folders of experiment
     for subdir, _, _ in walklevel(experiments_folder_path): #subdir,dirs,files
-        
+        os.chdir(init_folder)
         # walklevel select also the current folder with the number of iteration, which is ok because we need 
         # to pass also that number to the nb
         if len(os.path.split(subdir)[-1]) < 5:
@@ -66,14 +69,21 @@ for fld in experiments_folders:
                 logging.info('Saved executed notebook.')
             
             # save the executed notebook in html format
+            # subprocess.call(['jupyter', 
+            #                  'nbconvert', 
+            #                  '{}'.format(os.path.join(os.environ['FOLDER'],
+            #                                           'ExecNbResult{}.ipynb'.format('*'))),
+            #                  '--output-dir', 
+            #                  '{}'.format(os.environ['FOLDER'])])
+            os.chdir(os.environ['FOLDER'])
             subprocess.call(['jupyter', 
-                             'nbconvert', 
-                             '{}'.format(os.path.join(os.environ['FOLDER'],'ExecNbResult_{}.ipynb'.format(os.path.split(subdir)[-1]))),
-                             '--output-dir', 
-                             '{}'.format(os.environ['FOLDER'])])
-                
+                          'nbconvert', 
+                          'ExecNbResult_{}.ipynb'.format('*')])
+            
+            logging.info('Converted executed notebook in HTML format.')
             logging.info('Experiment {} has ended'.format(os.path.split(subdir)[-1]))
          
 
 end = time.time()
-logging.info('Script has finshed in {} minutes'.format((end - start)/60))
+logging.info('Script has finished in {} minutes'.format((end - start)/60))
+
