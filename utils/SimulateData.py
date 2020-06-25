@@ -8,7 +8,7 @@ from typing import Tuple, Union
 import numpy as np
 from tqdm import tqdm
 import pdb
-
+from statsmodels.tsa.stattools import adfuller
 import matplotlib.pyplot as plt
 import seaborn 
 seaborn.set_style('darkgrid')
@@ -24,7 +24,8 @@ def ReturnSampler(N_train : int,
                   sigma: Union[float or list or np.ndarray],
                   plot_inputs: int,
                   HalfLife: Union[int or list or np.ndarray],
-                  seed: int = None) -> Tuple[Union[list or np.ndarray],
+                  seed: int = None,
+                  adftest: bool = False) -> Tuple[Union[list or np.ndarray],
                                                           Union[list or np.ndarray],
                                                           Union[list or np.ndarray]]:
 
@@ -65,14 +66,15 @@ def ReturnSampler(N_train : int,
     realret = np.sum(f_param * factors, axis=1) + sigma * u
     f_speed = lambdas
                 
-    print(str(len(np.atleast_2d(f_speed))), 'factor(s) simulated')
-    print('################################################################')
-    print('max realret ' + str(max(realret)))
-    print('min realret ' + str(min(realret)))
-    print('################################################################')
+
     
     # plots for factor, returns and prices
     if plot_inputs:
+        print(str(len(np.atleast_2d(f_speed))), 'factor(s) simulated')
+        print('################################################################')
+        print('max realret ' + str(max(realret)))
+        print('min realret ' + str(min(realret)))
+        print('################################################################')
         fig1 = plt.figure()
         fig2 = plt.figure()
 
@@ -88,7 +90,8 @@ def ReturnSampler(N_train : int,
 
         fig1.show()
         fig2.show()
-        # test=adfuller(realret)
+    if adftest:
+        test=adfuller(realret)
         # print('Test ADF for generated return series')
         # print("Test Statistic: " + str(test[0]))
         # print("P-value: " + str(test[1]))
@@ -96,6 +99,7 @@ def ReturnSampler(N_train : int,
         # print("Number of observations: " + str(test[3]))
         # print("Critical Values: " + str(test[4]))
         # print("AIC: " + str(test[5]))
+        return realret.astype(np.float32),factors.astype(np.float32), f_speed, test
     
     
     return realret.astype(np.float32),factors.astype(np.float32), f_speed

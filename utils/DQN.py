@@ -24,25 +24,27 @@ from tensorflow.keras.optimizers.schedules import PiecewiseConstantDecay
 from tensorflow.keras.experimental import LinearCosineDecay
 
 from utils.SumTreePER import PER_buffer
+from utils.ExplorativeNoises import OrnsteinUhlenbeckActionNoise
 
 #tf.debugging.set_log_device_placement(True)
 #tf.compat.v1.logging.set_verbosity(tf.compat.v1.logging.ERROR)
-
-
 # tf_config = tf.ConfigProto()
 # tf_config.gpu_options.allow_growth = True
 # tf_config.gpu_options.per_process_gpu_memory_fraction = 0.9
 # tf_config.allow_soft_placement = True
 
 
-# Class to create a Deep Neural Network model
-class DeepQNetworkModel(tf.keras.Model):
+################################ Class to create a Deep Q Network model ################################ 
+class DeepNetworkModel(tf.keras.Model):
     
     def __init__(self, seed, num_states, hidden_units, num_actions, batch_norm_input, batch_norm_hidden,
                  activation, kernel_initializer, mom_batch_norm, trainable_batch_norm, modelname='Deep Q Network'):
         # call the parent constructor
-        super(DeepQNetworkModel, self).__init__(name=modelname) # name='Deep Q Network'
-        #self.training = training
+        super(DeepNetworkModel, self).__init__(name=modelname)
+
+        # set dimensionality of input/output depending on the model
+        inp_shape = (num_states,)
+        out_shape = num_actions
         # set random seed 
         tf.random.set_seed(seed)
         # set flag for batch norm as attribute
@@ -50,7 +52,7 @@ class DeepQNetworkModel(tf.keras.Model):
         self.batch_norm_hidden = batch_norm_hidden
         # In setting input_shape, the batch dimension is not included.
         # input layer
-        self.input_layer = InputLayer(input_shape=(num_states,))
+        self.input_layer = InputLayer(input_shape=inp_shape)
         # batch norm layer for inputs
         if self.bnflag_input:
             self.bnorm_layer = BatchNormalization(momentum=mom_batch_norm,
@@ -63,7 +65,6 @@ class DeepQNetworkModel(tf.keras.Model):
         self.hids = []
         
         for i in hidden_units:
-            
             self.hids.append(Dense(i, kernel_initializer=kernel_initializer))
             # check what type of activation is set
             if activation == 'leaky_relu':
@@ -82,12 +83,12 @@ class DeepQNetworkModel(tf.keras.Model):
                 self.hids.append(BatchNormalization(momentum=mom_batch_norm,
                                                     trainable=trainable_batch_norm))
         # output layer with linear activation by default
-        self.output_layer = Dense(num_actions)
+        self.output_layer = Dense(out_shape)
 
 
     def call(self, inputs, training=True, store_intermediate_outputs=False):
         
-        if not store_intermediate_outputs:
+        if store_intermediate_outputs:
             # build the input layer
             if self.bnflag_input:
                 z = self.input_layer(inputs)
@@ -118,11 +119,10 @@ class DeepQNetworkModel(tf.keras.Model):
                 z = layer(z)
             # build the output layer
             z = self.output_layer(z)
-
-        
         return z
-
-# Class to create the DQN algorithm
+    
+    
+############################### DQN ALGORITHM ################################
 class DQN:
     
     def __init__(self, seed, num_states, hidden_units, gamma, start_train, max_experiences, min_experiences, 
@@ -130,8 +130,8 @@ class DQN:
                  batch_norm_hidden, summary_writer, activation, kernel_initializer, plot_hist, plot_steps_hist, plot_steps, 
                  selected_loss, mom_batch_norm, trainable_batch_norm, DQN_type, use_PER, PER_e,PER_a,PER_b,final_PER_b,PER_b_steps,
                  PER_b_growth, final_PER_a,PER_a_steps,PER_a_growth, clipgrad, clipnorm, clipvalue, clipglob_steps, 
-                 optimizer_name,optimizer_decay, beta_1, beta_2, eps_opt, update_target,tau,std_rwds, 
-                 modelname='Deep Q Network',pretraining_mode = False):
+                 optimizer_name,optimizer_decay, beta_1, beta_2, eps_opt, update_target,tau, std_rwds,
+                 modelname='Deep Network',pretraining_mode = False):
         self.batch_size = batch_size
         
         
@@ -202,9 +202,10 @@ class DQN:
         self.num_actions = len(self.action_space.values)
         self.batch_norm_input = batch_norm_input
         self.batch_norm_hidden = batch_norm_hidden
-        self.model = DeepQNetworkModel(seed, num_states, hidden_units, self.num_actions, 
+        self.model = DeepNetworkModel(seed, num_states, hidden_units, self.num_actions, 
                                        batch_norm_input, batch_norm_hidden, activation, kernel_initializer, 
                                        mom_batch_norm, trainable_batch_norm, modelname)
+        
         self.summary_writer = summary_writer
         self.plot_hist = plot_hist
         self.plot_steps = plot_steps
@@ -275,13 +276,18 @@ class DQN:
                 #compute fixed target for pretraining
                 OptRate, DiscFactorLoads = env.opt_trading_rate_disc_loads()
                 # Optimal traded quantity between period
-                # TODO modify for multiple factors cases
+
+                if len(DiscFactorLoads) == 1:
+                    retprod = factors * DiscFactorLoads
+                else:
+                    retprod = factors @ DiscFactorLoads
+                
                 OptNextHolding = (1 - OptRate) * states_next[:,1] + OptRate * \
-                              (1/(env.kappa * (env.sigma)**2)) * \
-                                np.sum(DiscFactorLoads * factors, axis=1)
+                              (1/(env.kappa * (env.sigma)**2)) * retprod
                 
                 OptAction = OptNextHolding - states[:,1]
                 DiscOptActionIdx = [(np.abs(self.action_space.values - a)).argmin() for a in OptAction]
+
                 #DiscOptAction = [self.action_space.values[i] for i in DiscOptActionIdx]
                 value_next = tf.math.reduce_sum(
                         TargetNet.predict(states_next) * tf.one_hot(DiscOptActionIdx, self.num_actions), axis=1)
@@ -462,46 +468,39 @@ class DQN:
                 tf.summary.scalar('Learning Rate/PReTrain_LR', self.optimizer._decayed_lr(tf.float32), step=iteration)
                 self.summary_writer.flush()
     
-    def test(self, TargetNet,iteration):
-        if ((iteration % self.plot_steps) == 0) or (iteration == self.start_train):
-            if self.test_experience:
+    # def test(self, TargetNet,iteration):
+    #     if ((iteration % self.plot_steps) == 0) or (iteration == self.start_train):
+    #         if self.test_experience:
     
-                encoded_test_actions = [self.action_space.values.tolist().index(act) 
-                                    for act in self.test_experience['a']]     
+    #             encoded_test_actions = [self.action_space.values.tolist().index(act) 
+    #                                 for act in self.test_experience['a']]     
                 
-                test_pred = self.predict(self.test_experience['s'])
+    #             test_pred = self.predict(self.test_experience['s'])
                 
-                selected_test_action_values = tf.math.reduce_sum( 
-                    test_pred * tf.one_hot(encoded_test_actions, self.num_actions), axis=1)
+    #             selected_test_action_values = tf.math.reduce_sum( 
+    #                 test_pred * tf.one_hot(encoded_test_actions, self.num_actions), axis=1)
                 
                 
-                test_loss = self.loss(self.actual_test_values,selected_test_action_values)
-                # compute average maximum Q values for the fixed test states
-                Q_avg = tf.reduce_mean(tf.reduce_max(test_pred, axis=1))
+    #             test_loss = self.loss(self.actual_test_values,selected_test_action_values)
+    #             # compute average maximum Q values for the fixed test states
+    #             Q_avg = tf.reduce_mean(tf.reduce_max(test_pred, axis=1))
                 
-                with self.summary_writer.as_default(): 
-                    tf.summary.scalar('Q_avg_test/TrainNet', Q_avg, step=iteration)
-                    tf.summary.scalar('Mean Squared Loss/Test', test_loss.numpy(), step=iteration)
-                    self.summary_writer.flush()
+    #             with self.summary_writer.as_default(): 
+    #                 tf.summary.scalar('Q_avg_test/TrainNet', Q_avg, step=iteration)
+    #                 tf.summary.scalar('Mean Squared Loss/Test', test_loss.numpy(), step=iteration)
+    #                 self.summary_writer.flush()
 
-    def compute_test_target(self, TargetNet):
-        if self.test_experience:
-            if self.DQN_type == 'DQN':
-                test_value_next = np.max(TargetNet.predict(self.test_experience['s2']), axis=1)
-            elif self.DQN_type == 'DDQN':
-                greedy_target_action = tf.math.argmax(self.predict(self.test_experience['s2']), 1)
-                test_value_next = tf.math.reduce_sum(
-                    TargetNet.predict(self.test_experience['s2']) * tf.one_hot(greedy_target_action, self.num_actions), axis=1)
+    # def compute_test_target(self, TargetNet):
+    #     if self.test_experience:
+    #         if self.DQN_type == 'DQN':
+    #             test_value_next = np.max(TargetNet.predict(self.test_experience['s2']), axis=1)
+    #         elif self.DQN_type == 'DDQN':
+    #             greedy_target_action = tf.math.argmax(self.predict(self.test_experience['s2']), 1)
+    #             test_value_next = tf.math.reduce_sum(
+    #                 TargetNet.predict(self.test_experience['s2']) * tf.one_hot(greedy_target_action, self.num_actions), axis=1)
             
-            actual_test_values = self.test_experience['r'] + self.gamma*test_value_next
-            
-            # compute here the argmax of the predicted action to produce in-sample measure of action distance
-            # between the DQN and the optimal solution
-            # max_action = self.action_space.values[tf.math.argmax(TargetNet.predict(self.test_experience['s2']),
-            #                                                      axis=1)]
-            
-            #self.max_action = max_action
-            self.actual_test_values = actual_test_values
+    #         actual_test_values = self.test_experience['r'] + self.gamma*test_value_next
+    #         self.actual_test_values = actual_test_values
 
     
     def compute_portfolio_distance(self, env, OptRate, DiscFactorLoads, iteration):
@@ -519,8 +518,9 @@ class DQN:
                         np.sum(DiscFactorLoads * factors, axis=1)
         
         OptAction = OptNextHolding - states[:,1]
-        
-        pdist = tf.reduce_mean(tf.math.squared_difference(max_action,OptAction))
+        DiscOptAction = [self.action_space.values[(np.abs(self.action_space.values - a)).argmin()] for a in OptAction]
+ 
+        pdist = tf.reduce_mean(tf.math.squared_difference(max_action,DiscOptAction))
 
         with self.summary_writer.as_default(): 
             tf.summary.scalar('Portfolio Distance/Test Squared Loss', pdist, step=iteration)
@@ -581,3 +581,4 @@ class DQN:
             variables2 = TrainNet.model.trainable_variables
             for v1, v2 in zip(variables1, variables2):
                 v1.assign(v2.numpy())
+                

@@ -155,13 +155,13 @@ class MarketEnv(gym.Env):
         self.res_df = res_df
 
     
-    def step(self, currState: Union[Tuple or np.ndarray],shares_traded: int, iteration: int):
+    def step(self, currState: Union[Tuple or np.ndarray],shares_traded: int, iteration: int, tag: str ='DQN'):
         nextFactors = self.factors[iteration + 1]
         nextRet = self.returns[iteration + 1]
         nextHolding = currState[1] + shares_traded
         nextState = np.array([nextRet, nextHolding])
         
-        Result = self.getreward(currState, nextState, 'DQN')
+        Result = self.getreward(currState, nextState, tag)
         
         return nextState, Result, nextFactors
        
@@ -276,7 +276,8 @@ class MarketEnv(gym.Env):
                  currOptState: Tuple, 
                  OptRate: float,
                  DiscFactorLoads: np.ndarray,
-                 iteration: int) -> dict:
+                 iteration: int,
+                 tag: str = 'Opt') -> dict:
         
         
         #CurrReturns = currOptState[0]
@@ -287,23 +288,42 @@ class MarketEnv(gym.Env):
         OptNextHolding = (1 - OptRate) * OptCurrHolding + OptRate * \
                       (1/(self.kappa * (self.sigma)**2)) * \
                        np.sum(DiscFactorLoads * CurrFactors)
+
                        
+        nextReturns = self.returns[iteration + 1]
+        nextFactors = self.factors[iteration + 1]
+        nextOptState = (nextReturns, nextFactors, OptNextHolding)
+        
+        OptResult = self.get_opt_reward(currOptState, nextOptState, tag)
+        
+        return nextOptState,OptResult
+    
+    
+    def mv_step(self, 
+                 currOptState: Tuple, 
+                 iteration: int,
+                 tag: str = 'MV') -> dict:
+        
+        #CurrReturns = currOptState[0]
+        CurrFactors = currOptState[1]
+        OptCurrHolding = currOptState[2]
+                                  
         # Traded quantity as for the Markovitz framework  (Mean-Variance framework)            
-        MVNextHolding =  (1/(self.kappa * (self.sigma)**2)) * \
+        OptNextHolding =  (1/(self.kappa * (self.sigma)**2)) * \
                         np.sum(self.f_param * CurrFactors)
                        
         nextReturns = self.returns[iteration + 1]
         nextFactors = self.factors[iteration + 1]
         nextOptState = (nextReturns, nextFactors, OptNextHolding)
         
-        OptResult = self.get_opt_reward(currOptState, nextOptState, MVNextHolding)
+        OptResult = self.get_opt_reward(currOptState, nextOptState, tag)
         
         return nextOptState,OptResult
         
     def get_opt_reward(self,
                        currOptState: Tuple[Union[float or int],Union[float or int]],
                        nextOptState: Tuple[Union[float or int],Union[float or int]],
-                       MVNextHolding) -> dict:
+                       tag: str) -> dict:
         
         # Remember that a state is a tuple (price, holding)
         #currRet = currOptState[0]
@@ -327,27 +347,26 @@ class MarketEnv(gym.Env):
         
         # Store quantities
         Result = {
-                  'OptNextAction': OptNextAction,
-                  'OptNextHolding': OptNextHolding,
-                  'OptGrossPNL': OptGrossPNL,
-                  'OptNetPNL': OptNetPNL,
-                  'OptRisk': OptRisk,
-                  'OptCost': OptCost,
-                  'OptReward' : OptReward,
-                  'MVNextHolding' : MVNextHolding
+                  '{}NextAction'.format(tag): OptNextAction,
+                  '{}NextHolding'.format(tag): OptNextHolding,
+                  '{}GrossPNL'.format(tag): OptGrossPNL,
+                  '{}NetPNL'.format(tag): OptNetPNL,
+                  '{}Risk'.format(tag): OptRisk,
+                  '{}Cost'.format(tag): OptCost,
+                  '{}Reward'.format(tag) : OptReward
                   }
         
         return Result
-    
-    
-    def save_outputs(self, savedpath, test= None):
+
+            
+    def save_outputs(self, savedpath, test=None, iteration=None):
         
         if not test:
             self.res_df.to_parquet(os.path.join(savedpath,
-                                  'Results_' + format_tousands(self.N_train) 
-                                  + '.parquet.gzip'),compression='gzip')
+                                  'Results_{}.parquet.gzip'.format(format_tousands(self.N_train))),compression='gzip')
         else:
             self.res_df.to_parquet(os.path.join(savedpath,
-                                  'TestResults_' + format_tousands(self.N_train) 
-                                  + '.parquet.gzip'),compression='gzip')
+                                  'TestResults_{}_iteration_{}.parquet.gzip'.format(format_tousands(self.N_train),iteration)),
+                                   compression='gzip')
+
         

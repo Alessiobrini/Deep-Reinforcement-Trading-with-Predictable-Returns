@@ -35,7 +35,7 @@ init_folder = os.getcwd()
 notebook_filename = os.path.join(init_folder,"ExPostResults.ipynb")
 
 # one can provide different set of experiments by passing this list
-experiments_folders = [os.path.join('outputs','FullTest20200531','PreTraining_multiseed_actsize_mineps','1M' )]
+experiments_folders = [os.path.join('outputs','FullTest20200618','Batch_size_sens_50kact','250k' )]
 # experiments_folder_path = os.path.join(os.getcwd(),experiments_folder) 
 
 

@@ -21,14 +21,16 @@ def GeneratePathFolder(outputDir: str,
     
     # Create directory for outputs
     if varying_pars:
-
         savedpath = os.path.join(os.getcwd(),
                                  outputDir,
                                  outputClass,
                                  outputModel,
                                  format_tousands(N_train),
-                                 '_'.join([str((v,str(Param[v]))) for v in varying_pars]))
+                                 '_'.join([str(v)+'_'+'_'.join([str(val) for val in Param[v]]) \
+                                           if isinstance(Param[v],list) else str(v)+'_' + str(Param[v]) \
+                                           for v in Param['varying_pars']]))
 
+#'_'.join([str((v,str(Param[v]))) for v in varying_pars]))
         
     else:
         savedpath = os.path.join(os.getcwd(),
