@@ -29,13 +29,14 @@ def walklevel(some_dir, level=1):
         num_sep_this = root.count(os.path.sep)
         if num_sep + level <= num_sep_this:
             del dirs[:]
-
 # pass the name of the notebook and the folder of experiments
 init_folder = os.getcwd()
-notebook_filename = os.path.join(init_folder,"ExPostResults.ipynb")
+algo = 'DQN'
+notebook_filename = os.path.join(init_folder,"{}_ExPostResults.ipynb".format(algo))
+# notebook_filename = os.path.join(init_folder,"TempDDPG.ipynb")
 
 # one can provide different set of experiments by passing this list
-experiments_folders = [os.path.join('outputs','FullTest20200618','Batch_size_sens_50kact','250k' )]
+experiments_folders = [os.path.join('outputs','DQN_20200716','Opt_exploration_bigaction','250k' )]
 # experiments_folder_path = os.path.join(os.getcwd(),experiments_folder) 
 
 

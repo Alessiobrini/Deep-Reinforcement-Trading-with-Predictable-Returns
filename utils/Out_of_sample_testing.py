@@ -6,20 +6,55 @@ Created on Wed Jun  3 12:04:21 2020
 """
 from tqdm import tqdm
 from utils.SimulateData import ReturnSampler
-from utils.TradersMarketEnv import MarketEnv
-from utils.TradersMarketEnv import ReturnSpace,HoldingSpace
+from utils.MarketEnv import MarketEnv, RecurrentMarketEnv
+from utils.MarketEnv import ReturnSpace,HoldingSpace
+from utils.SimulateData import create_lstm_tensor
 import numpy as np
+import pandas as pd
+from typing import Union, Optional
+from pathlib import Path
 
-def Out_sample_test(N_test, sigmaf, f0, f_param, sigma, plot_inputs, HalfLife, 
-                    seed,Startholding,CostMultiplier,kappa,discount_rate,executeDRL, 
-                    executeRL,executeMV,RT,KLM,executeGP,TrainNet,QTable,savedpath,iteration, tag='DQN'):
+def Out_sample_test(N_test : int,
+                    sigmaf : Union[float or list or np.ndarray],
+                    f0 : Union[float or list or np.ndarray],
+                    f_param: Union[float or list or np.ndarray],
+                    sigma: Union[float or list or np.ndarray],
+                    plot_inputs: int,
+                    HalfLife: Union[int or list or np.ndarray],
+                    Startholding: Union[float or int],
+                    CostMultiplier: float,
+                    kappa: float,
+                    discount_rate: float,
+                    executeDRL: bool, 
+                    executeRL: bool,
+                    executeMV: bool,
+                    RT: list,
+                    KLM: list,
+                    executeGP: bool,
+                    TrainNet,
+                    savedpath: Union[ str or Path],
+                    iteration: int,
+                    recurrent_env: bool = False,
+                    unfolding: int = 1,
+                    QTable: Optional[pd.DataFrame] = None,
+                    seed: int = None,
+                    action_limit=None, 
+                    tag='DQN'):
     
-    test_returns, test_factors, test_f_speed = ReturnSampler(N_test, sigmaf, f0, f_param, sigma, plot_inputs, HalfLife, seed)
-    test_env = MarketEnv(HalfLife, Startholding, sigma, CostMultiplier, kappa, 
-                         N_test, discount_rate, f_param, test_f_speed, test_returns, test_factors)
+    test_returns, test_factors, test_f_speed = ReturnSampler(N_test, sigmaf, f0, f_param, sigma, 
+                                                             plot_inputs, HalfLife, seed,
+                                                             offset=unfolding + 1)
+    if recurrent_env:
+        test_returns_tens = create_lstm_tensor(test_returns.reshape(-1,1), unfolding)
+        test_factors_tens = create_lstm_tensor(test_factors, unfolding)
+        test_env = RecurrentMarketEnv(HalfLife, Startholding, sigma, CostMultiplier, kappa,  N_test, discount_rate, 
+                             f_param, test_f_speed, test_returns, test_factors, test_returns_tens, test_factors_tens, action_limit)  
+    else:
+        test_env = MarketEnv(HalfLife, Startholding, sigma, CostMultiplier, kappa,  N_test, discount_rate, 
+                             f_param, test_f_speed, test_returns, test_factors, action_limit)
     
     if executeDRL:
-        CurrState = test_env.reset()
+        CurrState, _ = test_env.reset()
     if executeRL:
         test_env.returns_space = ReturnSpace(RT)
         test_env.holding_space = HoldingSpace(KLM)

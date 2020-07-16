@@ -16,8 +16,8 @@ import logging, os, pdb, sys, copy
 from utils.readYaml import readConfigYaml, saveConfigYaml 
 from utils.generateLogger import generate_logger
 from utils.SavePath import GeneratePathFolder
-from utils.SimulateData import ReturnSampler
-from utils.TradersMarketEnv import MarketEnv, ActionSpace,ReturnSpace,HoldingSpace,CreateQTable
+from utils.SimulateData import ReturnSampler, create_lstm_tensor
+from utils.MarketEnv import MarketEnv, RecurrentMarketEnv, ActionSpace,ReturnSpace,HoldingSpace,CreateQTable
 from utils.DDPG import DDPG
 from utils.PreTraining import PreTraining
 from utils.Out_of_sample_testing import Out_sample_test
@@ -39,11 +39,13 @@ def RunDDPGTraders(Param):
     epsilon = Param['epsilon']
     steps_to_min_eps = Param['steps_to_min_eps']
     min_eps = Param['min_eps']
+    mu = Param['mu']
+    noise = Param['noise']
     stddev_noise = Param['stddev_noise']
+    steps_to_min_stddev_noise = Param['steps_to_min_stddev_noise']
     theta = Param['theta']
     gamma = Param['gamma']
     kappa = Param['kappa']
-    DQN_type = Param['DQN_type']
     use_PER = Param['use_PER']
     PER_e = Param['PER_e']
     PER_a = Param['PER_a']
@@ -59,8 +61,6 @@ def RunDDPGTraders(Param):
     kernel_initializer = Param['kernel_initializer']
     batch_norm_input = Param['batch_norm_input']
     batch_norm_hidden = Param['batch_norm_hidden']
-    mom_batch_norm  = Param['mom_batch_norm']
-    trainable_batch_norm = Param['trainable_batch_norm']
     clipgrad = Param['clipgrad']
     clipnorm = Param['clipnorm']
     clipvalue = Param['clipvalue']
@@ -81,11 +81,18 @@ def RunDDPGTraders(Param):
     learning_rate_p = Param['learning_rate_p']
     lr_schedule = Param['lr_schedule']
     exp_decay_steps = Param['exp_decay_steps']
-    final_lr = Param['final_lr']
+    final_lr_Q = Param['final_lr_Q']
+    final_lr_p = Param['final_lr_p']
+    weight_decay = Param['weight_decay']
     KLM = Param['KLM']
     RT = Param['RT']
     tablr = Param['tablr']
     action_limit = Param['action_limit']
+    output_init = Param['output_init']
+    delayed_actions = Param['delayed_actions']
+    recurrent_env = Param['recurrent_env']
+    hidden_memory_units = Param['hidden_memory_units']
+    unfolding = Param['unfolding']
     # Data Simulation
     HalfLife = Param['HalfLife']
     f0 = Param['f0']
@@ -114,12 +121,15 @@ def RunDDPGTraders(Param):
     pdist_steps = Param['pdist_steps']
     save_model = Param['save_model']
     save_ckpt_model = Param['save_ckpt_model']
-    saveresultsNBs = Param['saveresultsNBs']
     use_GPU = Param['use_GPU']
     outputDir = Param['outputDir']
     outputClass = Param['outputClass']
     outputModel = Param['outputModel']
     varying_pars = Param['varying_pars']
+    
+    
+    Param['stddev_noise_decay'] = (stddev_noise)/steps_to_min_stddev_noise
+    stddev_noise_decay = Param['stddev_noise_decay']
     
     Param['eps_decay'] = (epsilon - min_eps)/steps_to_min_eps
     eps_decay = Param['eps_decay']
@@ -132,13 +142,16 @@ def RunDDPGTraders(Param):
         my_devices = tf.config.experimental.list_physical_devices(device_type='CPU')
         tf.config.experimental.set_visible_devices(devices= my_devices, device_type='CPU')
     
+    if not recurrent_env:
+        Param['unfolding'] = unfolding = 1 
+    
     if update_target == 'soft':
         copy_step = 1
         Param['copy_step'] = copy_step
         
-    exp_decay_rate_Q = np.exp((np.log(final_lr/learning_rate_Q) * exp_decay_steps)/ N_train)
+    exp_decay_rate_Q = np.exp((np.log(final_lr_Q/learning_rate_Q) * exp_decay_steps)/ N_train)
     Param['exp_decay_rate_Q'] = float(exp_decay_rate_Q)
-    exp_decay_rate_p = np.exp((np.log(final_lr/learning_rate_p) * exp_decay_steps)/ N_train)
+    exp_decay_rate_p = np.exp((np.log(final_lr_p/learning_rate_p) * exp_decay_steps)/ N_train)
     Param['exp_decay_rate_p'] = float(exp_decay_rate_p)
     
     if PER_b_anneal:
@@ -159,7 +172,6 @@ def RunDDPGTraders(Param):
         save_ckpt_steps = N_train/save_ckpt_model
         Param['save_ckpt_steps'] = save_ckpt_steps
 
-        
     # 1. PATH FOR MODEL (CKPT) AND TB OUTPUT, STORE CONFIG ---------------
     savedpath = GeneratePathFolder(outputDir, outputClass, outputModel, varying_pars, N_train, Param)
     saveConfigYaml(Param,savedpath)
@@ -171,12 +183,19 @@ def RunDDPGTraders(Param):
     
     # 2. SIMULATE FAKE DATA --------------------------------------------------------------
     returns, factors, f_speed = ReturnSampler(N_train, sigmaf, f0, f_param, sigma, plot_inputs, HalfLife, seed)
+    if recurrent_env:
+        returns_tens = create_lstm_tensor(returns.reshape(-1,1), unfolding)
+        factors_tens = create_lstm_tensor(factors, unfolding)
     logging.info('Successfully simulated data...YOU ARE CURRENTLY USING A SEED TO SIMULATE RETURNS. LEAVE IT IF YOU HAVE FOUND A PROPER NN SETTING')
     
     # 3. CREATE MARKET ENVIRONMENTS --------------------------------------------------------------
     # market env for DDPG or its variant
-    env = MarketEnv(HalfLife, Startholding, sigma, CostMultiplier, kappa, 
-                    N_train, discount_rate, f_param, f_speed, returns, factors)
+    if recurrent_env:
+        env = RecurrentMarketEnv(HalfLife, Startholding, sigma, CostMultiplier, kappa, 
+                        N_train, discount_rate, f_param, f_speed, returns, factors, returns_tens, factors_tens, action_limit)
+    else:
+        env = MarketEnv(HalfLife, Startholding, sigma, CostMultiplier, kappa, 
+                        N_train, discount_rate, f_param, f_speed, returns, factors, action_limit)
     # market env for tab Q learning
     if executeRL:
         epsilon = max(min_eps, epsilon - eps_decay)
@@ -188,7 +207,8 @@ def RunDDPGTraders(Param):
     
     # 4. CREATE INITIAL STATE AND NETWORKS ----------------------------------------------------------
     # instantiate the initial state (return, holding) for DDPG
-    CurrState = env.reset()
+
+    CurrState, CurrFactor = env.reset()
     # instantiate the initial state (return, holding) for TabQ
     if executeRL:
         env.returns_space = returns_space
@@ -205,27 +225,34 @@ def RunDDPGTraders(Param):
     
     # iteration count to decide when copying weights for the Target Network
     iters = 0
-    num_states = len(CurrState)
-    num_actions = int(num_states/2)
+    if recurrent_env:
+        num_states = CurrState.shape[-1]
+        num_actions = int(num_states/2)
+    else:
+        num_states = len(CurrState)
+        num_actions = int(num_states/2)
+
     
     # create train and target network
-    TrainNet = DDPG(seed, num_states, num_actions, hidden_units, gamma, start_train, max_experiences, 
-                       min_experiences, batch_size, learning_rate_Q, learning_rate_p, lr_schedule, exp_decay_steps, exp_decay_rate_Q,exp_decay_rate_p, 
-                       batch_norm_input, batch_norm_hidden, summary_writer, activation, 
-                       kernel_initializer, plot_hist, plot_steps_hist, plot_steps,selected_loss, 
-                       mom_batch_norm, trainable_batch_norm, DQN_type, use_PER, PER_e,PER_a,PER_b,final_PER_b,PER_b_steps,PER_b_growth,
-                       final_PER_a,PER_a_steps,PER_a_growth, clipgrad, clipnorm, clipvalue, clipglob_steps,
-                       optimizer_name, optimizer_decay, beta_1, beta_2, eps_opt, update_target,tau, 
-                       stddev_noise, theta, action_limit, modelname='Train')
-    
-    TargetNet = DDPG(seed, num_states, num_actions, hidden_units, gamma, start_train, max_experiences, 
-                        min_experiences, batch_size, learning_rate_Q, learning_rate_p, lr_schedule, exp_decay_steps, exp_decay_rate_Q,exp_decay_rate_p,
-                        batch_norm_input, batch_norm_hidden, summary_writer, activation,
-                        kernel_initializer, plot_hist, plot_steps_hist, plot_steps,selected_loss, 
-                        mom_batch_norm, trainable_batch_norm, DQN_type, use_PER, PER_e,PER_a,PER_b,final_PER_b,PER_b_steps,PER_b_growth,
-                        final_PER_a,PER_a_steps,PER_a_growth,clipgrad, clipnorm, clipvalue, clipglob_steps, optimizer_name, 
-                        optimizer_decay, beta_1, beta_2, eps_opt, update_target, tau, 
-                        stddev_noise, theta, action_limit, modelname='Target')
+    TrainNet = DDPG(seed, recurrent_env, gamma, max_experiences, min_experiences, 
+                    update_target, tau, num_states, 
+                    num_actions, hidden_units, hidden_memory_units, batch_size, selected_loss,
+                    learning_rate_Q, learning_rate_p, start_train, optimizer_name, batch_norm_input, batch_norm_hidden, 
+                    activation, kernel_initializer, plot_hist, plot_steps_hist, plot_steps, summary_writer,
+                    stddev_noise, theta, mu, action_limit, output_init, weight_decay, delayed_actions, 
+                    noise, use_PER, PER_e, PER_a, PER_b ,final_PER_b, PER_b_steps, PER_b_growth, 
+                    final_PER_a, PER_a_steps, PER_a_growth, clipgrad, clipnorm, clipvalue, clipglob_steps, beta_1, 
+                    beta_2, eps_opt, lr_schedule, exp_decay_steps, exp_decay_rate_Q, exp_decay_rate_p,modelname='Train')  
+                             
+    TargetNet = DDPG(seed, recurrent_env, gamma, max_experiences, min_experiences, 
+                    update_target, tau, num_states, 
+                    num_actions, hidden_units, hidden_memory_units, batch_size, selected_loss,
+                    learning_rate_Q, learning_rate_p, start_train, optimizer_name, batch_norm_input, batch_norm_hidden, 
+                    activation, kernel_initializer, plot_hist, plot_steps_hist, plot_steps, summary_writer,
+                    stddev_noise, theta, mu, action_limit, output_init, weight_decay, delayed_actions, 
+                    noise, use_PER, PER_e, PER_a, PER_b ,final_PER_b, PER_b_steps, PER_b_growth, 
+                    final_PER_a, PER_a_steps, PER_a_growth, clipgrad, clipnorm, clipvalue, clipglob_steps, beta_1, 
+                    beta_2, eps_opt, lr_schedule, exp_decay_steps, exp_decay_rate_Q, exp_decay_rate_p,modelname='Target')  
 
     logging.info('Successfully initialized the Deep Q Networks...YOU ARE CURRENTLY USING A SEED TO INITIALIZE WEIGHTS. LEAVE IT IF YOU HAVE FOUND A PROPER NN SETTING')
    
@@ -236,6 +263,8 @@ def RunDDPGTraders(Param):
             if i <= start_train:
                 shares_traded = TrainNet.uniform_action()
             else:
+                stddev_noise = max(0.0, stddev_noise - stddev_noise_decay)
+                TrainNet.action_noise.sigma = stddev_noise
                 shares_traded = TrainNet.noisy_action(CurrState)
 
             NextState, Result, NextFactors = env.step(CurrState, shares_traded, i, tag='DDPG')
@@ -279,10 +308,15 @@ def RunDDPGTraders(Param):
         
         if out_of_sample_test:
             if (i % save_ckpt_steps == 0) and (i != 0) and (i > TrainNet.start_train):
+                if not executeRL:
+                    QTable = None
                 Out_sample_test(N_test, sigmaf, f0, f_param, sigma, plot_inputs, HalfLife, 
-                                seed,Startholding,CostMultiplier,kappa,discount_rate,executeDRL, 
-                                executeRL,executeMV,RT,KLM,executeGP,TrainNet,QTable,savedpath,i,tag='DDPG')
-                                
+                                Startholding,CostMultiplier,kappa,discount_rate,executeDRL, 
+                                executeRL,executeMV,RT,KLM,executeGP,TrainNet,savedpath,i,
+                                recurrent_env=recurrent_env, unfolding=unfolding, 
+                                QTable = QTable,seed = seed,action_limit = action_limit,tag='DDPG')
+
+                           
     logging.info('Successfully trained the Deep Q Network...')
     # 6. STORE RESULTS ----------------------------------------------------------     
     if save_results:

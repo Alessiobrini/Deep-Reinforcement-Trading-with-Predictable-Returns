@@ -4,15 +4,25 @@ Created on Fri Jun 19 15:48:01 2020
 
 @author: aless
 """
+import pdb
 import numpy as np
+import matplotlib.pyplot as plt
 
-class ActionNoise(object):
-    def reset(self):
-        pass
-    
+# https://github.com/openai/baselines/blob/master/baselines/ddpg/noise.py
+class GaussianActionNoise():
+    def __init__(self, mu, sigma):
+        self.mu = mu
+        self.sigma = sigma
+
+    def __call__(self):
+        return np.random.normal(self.mu, self.sigma)
+
+    def __repr__(self):
+        return 'NormalActionNoise(mu={}, sigma={})'.format(self.mu, self.sigma)
+
 # Based on http://math.stackexchange.com/questions/1287634/implementing-ornstein-uhlenbeck-in-matlab
-class OrnsteinUhlenbeckActionNoise(ActionNoise):
-    def __init__(self, mu, sigma=0.2, theta=.15, dt=1e-2, x0=None):
+class OrnsteinUhlenbeckActionNoise():
+    def __init__(self, mu, sigma=0.2, theta=.15, dt=1, x0=None):
         self.theta = theta
         self.mu = mu
         self.sigma = sigma
@@ -31,7 +41,27 @@ class OrnsteinUhlenbeckActionNoise(ActionNoise):
     def __repr__(self):
         return 'OrnsteinUhlenbeckActionNoise(mu={}, sigma={})'.format(self.mu, self.sigma)
     
-# if __name__=='__main__':
-#     OU_process = OrnsteinUhlenbeckActionNoise(mu=np.array([0]), sigma=0.2)
+if __name__=='__main__':
+
+    sigma = 0.1
+    sigma_decay = (sigma- 0.01)/4000
+    # OU_process = OrnsteinUhlenbeckActionNoise(mu=np.array([0]), sigma=sigma, theta=0.05, x0=0)
+    G_process = GaussianActionNoise(mu=np.array([0]), sigma=sigma)
     
+    # noises_ou = [OU_process() for _ in range(5000)]
+    noises_g = [G_process() for _ in range(5000)]
+    fig = plt.figure()
+    plt.plot(noises_g, label = 'sigma_{}-{}'.format(sigma, 'G'))
+    
+    noises_g_decay = []
+    for _ in range(5000):
+        sigma = max(0.0, sigma - sigma_decay)
+        G_process.sigma = sigma
+        noises_g_decay.append(G_process())
+    # plt.plot(noises_ou, label = 'sigma_{}_{}'.format(sigma,'OU'))
+
+    plt.plot(noises_g_decay, label = 'sigma_{}-{}'.format(sigma, 'G_decay'))
+    plt.legend()
+    plt.show()
+
     

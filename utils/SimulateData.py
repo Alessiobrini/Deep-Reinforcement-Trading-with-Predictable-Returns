@@ -25,6 +25,7 @@ def ReturnSampler(N_train : int,
                   plot_inputs: int,
                   HalfLife: Union[int or list or np.ndarray],
                   seed: int = None,
+                  offset: int = 2,
                   adftest: bool = False) -> Tuple[Union[list or np.ndarray],
                                                           Union[list or np.ndarray],
                                                           Union[list or np.ndarray]]:
@@ -42,12 +43,12 @@ def ReturnSampler(N_train : int,
     # select proper speed of mean reversion and initialization point
     # it is faster to increase the size of a python list than a numpy array
     # therefore we convert later the list
-    eps = np.random.randn(N_train + 2) 
+    eps = np.random.randn(N_train + offset) 
     lambdas = np.around(np.log(2)/HalfLife,4)
     f = []
     
     # possibility of triple noise
-    for i in tqdm(iterable=range(N_train + 2), desc='Simulating Factors'):
+    for i in tqdm(iterable=range(N_train + offset), desc='Simulating Factors'):
         # multiply makes the hadamard (componentwise) product
         # if we want to add different volatility for different factors we could
         # add multiply also the the second part of the equation
@@ -59,7 +60,7 @@ def ReturnSampler(N_train : int,
     
     np.random.seed(seed)
     
-    u = np.random.randn(N_train + 2)
+    u = np.random.randn(N_train + offset)
     # now we add noise to the equation of return by default, while in the previous
     # implementation we were using a boolean
     # single noise
@@ -103,3 +104,12 @@ def ReturnSampler(N_train : int,
     
     
     return realret.astype(np.float32),factors.astype(np.float32), f_speed
+
+
+def create_lstm_tensor(X, look_back=5):
+        
+    dataX= []
+    for i in tqdm(iterable=range(len(X)-look_back+1), desc='Creating tensors for LSTM'):
+        a = X[i:(i+look_back), :]
+        dataX.append(a)
+    return np.array(dataX)

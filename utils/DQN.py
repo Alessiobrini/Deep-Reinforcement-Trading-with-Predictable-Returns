@@ -6,25 +6,19 @@ Created on Sat Jan  4 16:53:31 2020
 """
 
 # inspired by https://towardsdatascience.com/deep-reinforcement-learning-build-a-deep-q-network-dqn-to-play-cartpole-with-tensorflow-2-and-gym-8e105744b998
-
-import tensorflow as tf
-# from tensorflow_addons.optimizers import RectifiedAdam
 import numpy as np
 import pdb
-import copy
-from sys import getsizeof
+from typing import Union, Optional
 
+import tensorflow as tf
 from tensorflow.keras.layers import BatchNormalization
 from tensorflow.keras.layers import Activation
 from tensorflow.keras.layers import InputLayer
-from tensorflow.keras.layers import Dense
+from tensorflow.keras.layers import Dense, LSTM, Dropout
 from tensorflow.keras.optimizers.schedules import PiecewiseConstantDecay
 from tensorflow.keras.optimizers.schedules import ExponentialDecay
-from tensorflow.keras.optimizers.schedules import PiecewiseConstantDecay
-from tensorflow.keras.experimental import LinearCosineDecay
-
+# from tensorflow_addons.optimizers import RectifiedAdam
 from utils.SumTreePER import PER_buffer
-from utils.ExplorativeNoises import OrnsteinUhlenbeckActionNoise
 
 #tf.debugging.set_log_device_placement(True)
 #tf.compat.v1.logging.set_verbosity(tf.compat.v1.logging.ERROR)
@@ -37,13 +31,21 @@ from utils.ExplorativeNoises import OrnsteinUhlenbeckActionNoise
 ################################ Class to create a Deep Q Network model ################################ 
 class DeepNetworkModel(tf.keras.Model):
     
-    def __init__(self, seed, num_states, hidden_units, num_actions, batch_norm_input, batch_norm_hidden,
-                 activation, kernel_initializer, mom_batch_norm, trainable_batch_norm, modelname='Deep Q Network'):
+    def __init__(self, 
+                 seed: int, 
+                 input_shape: int, 
+                 hidden_units: list, 
+                 num_actions: int, 
+                 batch_norm_input: bool, 
+                 batch_norm_hidden: bool,
+                 activation: str, 
+                 kernel_initializer: str, 
+                 modelname: str = 'Deep Q Network'):
         # call the parent constructor
         super(DeepNetworkModel, self).__init__(name=modelname)
 
         # set dimensionality of input/output depending on the model
-        inp_shape = (num_states,)
+        inp_shape = input_shape
         out_shape = num_actions
         # set random seed 
         tf.random.set_seed(seed)
@@ -55,11 +57,7 @@ class DeepNetworkModel(tf.keras.Model):
         self.input_layer = InputLayer(input_shape=inp_shape)
         # batch norm layer for inputs
         if self.bnflag_input:
-            self.bnorm_layer = BatchNormalization(momentum=mom_batch_norm,
-                                                  epsilon=0.0,
-                                                  trainable=trainable_batch_norm,
-                                                  center=False, 
-                                                  scale=False)
+            self.bnorm_layer = BatchNormalization(center=False,scale=False)
         
         # set of hidden layers
         self.hids = []
@@ -80,13 +78,15 @@ class DeepNetworkModel(tf.keras.Model):
                 self.hids.append(Activation(activation))
                 
             if self.batch_norm_hidden:
-                self.hids.append(BatchNormalization(momentum=mom_batch_norm,
-                                                    trainable=trainable_batch_norm))
+                self.hids.append(BatchNormalization())
         # output layer with linear activation by default
         self.output_layer = Dense(out_shape)
 
 
-    def call(self, inputs, training=True, store_intermediate_outputs=False):
+    def call(self, 
+             inputs: Union[np.ndarray or tf.Tensor], 
+             training: bool = True, 
+             store_intermediate_outputs: bool = False):
         
         if store_intermediate_outputs:
             # build the input layer
@@ -100,7 +100,10 @@ class DeepNetworkModel(tf.keras.Model):
                 self.inputs = z
             # build the hidden layer
             for layer in self.hids:
-                z = layer(z)
+                if 'batch' in layer.name:
+                    z = layer(z, training)
+                else:
+                    z = layer(z)
                 layer.out = z
                 
             # build the output layer
@@ -116,32 +119,180 @@ class DeepNetworkModel(tf.keras.Model):
                 z = self.input_layer(inputs)
             # build the hidden layer
             for layer in self.hids:
-                z = layer(z)
+                if 'batch' in layer.name:
+                    z = layer(z, training)
+                else:
+                    z = layer(z)
+            # build the output layer
+            z = self.output_layer(z)
+        return z
+
+################################ Class to create a Deep Recurrent Q Network model ################################  
+class DeepRecurrentNetworkModel(tf.keras.Model):
+    
+    def __init__(self, 
+                 seed: int, 
+                 input_shape: int, 
+                 hidden_memory_units: list,
+                 hidden_units: list, 
+                 num_actions: int, 
+                 batch_norm_input: bool, 
+                 batch_norm_hidden: bool,
+                 activation: str, 
+                 kernel_initializer: str, 
+                 modelname: str = 'Deep Recurrent Q Network'):
+        # call the parent constructor
+        super(DeepRecurrentNetworkModel, self).__init__(name=modelname)
+        # set dimensionality of input/output depending on the model
+        inp_shape = input_shape
+        out_shape = num_actions
+        # set random seed 
+        tf.random.set_seed(seed)
+        # set flag for batch norm as attribute
+        self.bnflag_input = batch_norm_input
+        self.batch_norm_hidden = batch_norm_hidden
+        # In setting input_shape, the batch dimension is not included.
+        # input layer
+        self.input_layer = InputLayer(input_shape=inp_shape)
+        # batch norm layer for inputs
+        if self.bnflag_input:
+            self.bnorm_layer = BatchNormalization(center=False,scale=False)
+        
+        # set of hidden layers
+        self.hids = []
+        
+        for i in range(len(hidden_memory_units)):
+            if i == len(hidden_memory_units)-1:
+                self.hids.append(LSTM(hidden_memory_units[i]))
+            else:
+                self.hids.append(LSTM(hidden_memory_units[i], return_sequences=True))           
+            if self.batch_norm_hidden:
+                self.hids.append(BatchNormalization())
+        if hidden_units:
+            for i in hidden_units:
+                self.hids.append(Dense(i, kernel_initializer=kernel_initializer))
+                # check what type of activation is set
+                if activation == 'leaky_relu':
+                    leaky_relu = tf.nn.leaky_relu
+                    self.hids.append(Activation(leaky_relu))
+                elif activation == 'relu6':
+                    relu6 = tf.nn.relu6
+                    self.hids.append(Activation(relu6))
+                elif activation == 'elu':
+                    elu = tf.nn.elu
+                    self.hids.append(Activation(elu))
+                else:
+                    self.hids.append(Activation(activation))
+                    
+                if self.batch_norm_hidden:
+                    self.hids.append(BatchNormalization())
+        # output layer with linear activation by default
+        self.output_layer = Dense(out_shape)
+
+
+    def call(self, 
+             inputs: Union[np.ndarray or tf.Tensor], 
+             training: bool = True, 
+             store_intermediate_outputs: bool = False):
+
+        if len(inputs.shape) != 3:
+            inputs = tf.reshape(inputs, [1] + inputs.shape)
+        
+        if store_intermediate_outputs:
+            # build the input layer
+            if self.bnflag_input:
+                z = self.input_layer(inputs)
+                self.inputs = z
+                z = self.bnorm_layer(z, training)
+                self.bninputs = z
+            else:
+                z = self.input_layer(inputs)
+                self.inputs = z
+            # build the hidden layer
+            for layer in self.hids:
+                if 'batch' in layer.name:
+                    z = layer(z, training)
+                else:
+                    z = layer(z)
+                layer.out = z
+                
+            # build the output layer
+            z = self.output_layer(z)
+            self.output_layer.out = z 
+ 
+        else:
+            # build the input layer
+            if self.bnflag_input:
+                z = self.input_layer(inputs)
+                z = self.bnorm_layer(z, training)
+            else:
+                z = self.input_layer(inputs)
+            # build the hidden layer
+            for layer in self.hids:
+                if 'batch' in layer.name:
+                    z = layer(z, training)
+                else:
+                    z = layer(z)
             # build the output layer
             z = self.output_layer(z)
         return z
     
-    
+ 
 ############################### DQN ALGORITHM ################################
 class DQN:
     
-    def __init__(self, seed, num_states, hidden_units, gamma, start_train, max_experiences, min_experiences, 
-                 batch_size, lr, lr_schedule, exp_decay_steps, exp_decay_rate, action_space, batch_norm_input, 
-                 batch_norm_hidden, summary_writer, activation, kernel_initializer, plot_hist, plot_steps_hist, plot_steps, 
-                 selected_loss, mom_batch_norm, trainable_batch_norm, DQN_type, use_PER, PER_e,PER_a,PER_b,final_PER_b,PER_b_steps,
-                 PER_b_growth, final_PER_a,PER_a_steps,PER_a_growth, clipgrad, clipnorm, clipvalue, clipglob_steps, 
-                 optimizer_name,optimizer_decay, beta_1, beta_2, eps_opt, update_target,tau, std_rwds,
-                 modelname='Deep Network',pretraining_mode = False):
+    def __init__(self, 
+                 seed: int,
+                 DQN_type: str,
+                 recurrent_env: bool,
+                 gamma: float,
+                 max_experiences: int, 
+                 min_experiences: int, 
+                 update_target: str,
+                 tau: float,
+                 input_shape: int, 
+                 hidden_units: list, 
+                 hidden_memory_units: list,
+                 batch_size: int, 
+                 selected_loss: str,
+                 lr: float, 
+                 start_train: int, 
+                 optimizer_name: str,
+                 batch_norm_input: str, 
+                 batch_norm_hidden: str, 
+                 activation: str, 
+                 kernel_initializer: str, 
+                 plot_hist: bool, 
+                 plot_steps_hist: int, 
+                 plot_steps: int,  
+                 summary_writer, #TODO need to add proper type hint
+                 action_space, 
+                 use_PER: bool = False, 
+                 PER_e: Optional[float] = None,
+                 PER_a: Optional[float] = None,
+                 PER_b: Optional[float] = None,
+                 final_PER_b: Optional[float] = None,
+                 PER_b_steps: Optional[int] = None,
+                 PER_b_growth: Optional[float] = None, 
+                 final_PER_a: Optional[float] = None,
+                 PER_a_steps: Optional[int] = None,
+                 PER_a_growth: Optional[float] = None, 
+                 clipgrad: bool = False, 
+                 clipnorm: Optional[Union[str or float]] = None, 
+                 clipvalue: Optional[Union[str or float]] = None, 
+                 clipglob_steps: Optional[int] = None, 
+                 beta_1: float = 0.9, 
+                 beta_2: float = 0.999, 
+                 eps_opt: float = 1e-07, 
+                 std_rwds: bool = False,
+                 lr_schedule: Optional[str] = None, 
+                 exp_decay_steps: Optional[int] = None, 
+                 exp_decay_rate: Optional[float] = None,
+                 modelname: str = 'Deep Network',
+                 pretraining_mode: bool = False):
+        
         self.batch_size = batch_size
-        
-        
-        # if lr_schedule == 'linearcos':
-        #     tf.keras.experimental.LinearCosineDecay(initial_learning_rate = lr, 
-        #                                             decay_steps, 
-        #                                             num_periods=0.5, 
-        #                                             alpha=0.0, 
-        #                                             beta=0.001)
-            
+                    
         if lr_schedule == 'exponential':
             lr = ExponentialDecay(initial_learning_rate=lr, 
                                   decay_steps=exp_decay_steps, 
@@ -153,38 +304,39 @@ class DQN:
         
         if optimizer_name == 'sgd':
             self.optimizer = tf.keras.optimizers.SGD(learning_rate=lr, momentum=0.0, 
-                                                     nesterov=False, decay=optimizer_decay)
+                                                     nesterov=False)
         elif optimizer_name == 'sgdmom':
             self.optimizer = tf.keras.optimizers.SGD(learning_rate=lr, momentum=0.95, 
-                                                     nesterov=False, decay=optimizer_decay)
+                                                     nesterov=False)
         elif optimizer_name == 'sgdnest':
             self.optimizer = tf.keras.optimizers.SGD(learning_rate=lr, momentum=0.0, 
-                                                     nesterov=True, decay=optimizer_decay)
+                                                     nesterov=True)
         elif optimizer_name == 'adadelta':
             self.optimizer = tf.keras.optimizers.Adadelta(learning_rate=1.0, rho=0.95, 
-                                                          epsilon=eps_opt, decay=optimizer_decay)
+                                                          epsilon=eps_opt)
         elif optimizer_name == 'adagrad':
             self.optimizer = tf.keras.optimizers.Adagrad(learning_rate=lr, initial_accumulator_value=0.1,
-                                                         epsilon=eps_opt, decay=optimizer_decay)
+                                                         epsilon=eps_opt)
         elif optimizer_name == 'adamax':
             self.optimizer = tf.keras.optimizers.Adamax(learning_rate=lr, beta_1=beta_1, beta_2=beta_2,
-                                                        epsilon=eps_opt, decay=optimizer_decay)
+                                                        epsilon=eps_opt)
         elif optimizer_name == 'adam':
             self.optimizer = tf.keras.optimizers.Adam(learning_rate=lr, beta_1=beta_1, beta_2=beta_2, 
-                                                      epsilon=eps_opt, amsgrad=False, decay=optimizer_decay)
+                                                      epsilon=eps_opt, amsgrad=False)
         elif optimizer_name == 'amsgrad':
             self.optimizer = tf.keras.optimizers.Adam(learning_rate=lr, beta_1=beta_1, beta_2=beta_2, 
-                                                      epsilon=eps_opt, amsgrad=True, decay=optimizer_decay)
+                                                      epsilon=eps_opt, amsgrad=True)
         elif optimizer_name == 'nadam':
             self.optimizer = tf.keras.optimizers.Nadam(learning_rate=lr, beta_1=beta_1, beta_2=beta_2, 
-                                                      epsilon=eps_opt, decay=optimizer_decay)
+                                                      epsilon=eps_opt)
         elif optimizer_name == 'rmsprop':
             self.optimizer = tf.keras.optimizers.RMSprop(learning_rate=lr, rho=beta_1, momentum=0.0, epsilon=eps_opt,
-                                                         centered=False, decay=optimizer_decay)
+                                                         centered=False)
         # elif optimizer_name == 'radam':
         #     self.optimizer = RectifiedAdam(lr=lr,total_steps=1500000,warmup_proportion=0.025,min_lr=1e-5,
-        #                                    epsilon=eps_opt, decay=optimizer_decay)
+        #                                     epsilon=eps_opt)
         
+        self.recurrent_env = recurrent_env
         self.beta_1 = beta_1
         self.eps_opt = eps_opt
         self.gamma = gamma
@@ -202,9 +354,14 @@ class DQN:
         self.num_actions = len(self.action_space.values)
         self.batch_norm_input = batch_norm_input
         self.batch_norm_hidden = batch_norm_hidden
-        self.model = DeepNetworkModel(seed, num_states, hidden_units, self.num_actions, 
-                                       batch_norm_input, batch_norm_hidden, activation, kernel_initializer, 
-                                       mom_batch_norm, trainable_batch_norm, modelname)
+        if recurrent_env:
+            self.model = DeepRecurrentNetworkModel(seed, input_shape, hidden_memory_units, hidden_units, self.num_actions, 
+                                           batch_norm_input, batch_norm_hidden, activation, kernel_initializer, 
+                                           modelname)
+        else:
+            self.model = DeepNetworkModel(seed, input_shape, hidden_units, self.num_actions, 
+                                           batch_norm_input, batch_norm_hidden, activation, kernel_initializer, 
+                                           modelname)
         
         self.summary_writer = summary_writer
         self.plot_hist = plot_hist
@@ -231,12 +388,7 @@ class DQN:
             self.loss = tf.keras.losses.MeanSquaredError()
         elif self.selected_loss == 'huber':
             self.loss = tf.keras.losses.Huber()
-
-
-    def predict(self, inputs, training=True, store_intermediate_outputs=False):
-        return self.model(np.atleast_2d(inputs.astype('float32')), training, store_intermediate_outputs)
-        # return self.model(inputs, training=training)
-    
+  
     def train(self, TargetNet, iteration, env=None):
 
         #if len(self.experience['s']) < self.min_experiences:
@@ -269,7 +421,8 @@ class DQN:
             encoded_actions = [self.action_space.values.tolist().index(act) 
                                 for act in actions]
             selected_action_values = tf.math.reduce_sum(
-                self.predict(states,store_intermediate_outputs=True) * tf.one_hot(encoded_actions, self.num_actions), axis=1)
+                self.model(np.atleast_2d(states.astype('float32')),
+                           store_intermediate_outputs=True) * tf.one_hot(encoded_actions, self.num_actions), axis=1)
             
             if self.pretraining_mode:
                 assert env, "Market Env not passed as argument"
@@ -290,15 +443,15 @@ class DQN:
 
                 #DiscOptAction = [self.action_space.values[i] for i in DiscOptActionIdx]
                 value_next = tf.math.reduce_sum(
-                        TargetNet.predict(states_next) * tf.one_hot(DiscOptActionIdx, self.num_actions), axis=1)
+                        TargetNet.model(np.atleast_2d(states_next.astype('float32'))) * tf.one_hot(DiscOptActionIdx, self.num_actions), axis=1)
             else:
                 # compute target action values
                 if self.DQN_type == 'DQN':
-                    value_next = np.max(TargetNet.predict(states_next), axis=1)
+                    value_next = np.max(TargetNet.model(states_next.astype('float32')), axis=1)
                 elif self.DQN_type == 'DDQN':
-                    greedy_target_action = tf.math.argmax(self.predict(states_next), 1)
+                    greedy_target_action = tf.math.argmax(self.model(states_next.astype('float32')), 1)
                     value_next = tf.math.reduce_sum(
-                        TargetNet.predict(states_next) * tf.one_hot(greedy_target_action, self.num_actions), axis=1)
+                        TargetNet.model(states_next.astype('float32')) * tf.one_hot(greedy_target_action, self.num_actions), axis=1)
 
 
             if self.std_rwds:
@@ -339,10 +492,9 @@ class DQN:
                 
                 # update priorities
                 self.PERmemory.batch_update(b_idx, np.abs(actual_values-selected_action_values))
-  
                 # compute loss function for the train model
                 loss = self.loss(y_true=actual_values,y_pred=selected_action_values,
-                                 sample_weight=scaled_w_IS)
+                                 sample_weight=scaled_w_IS.reshape(-1,1))
             else:
                 loss = self.loss(y_true=actual_values,y_pred=selected_action_values)
             
@@ -509,7 +661,7 @@ class DQN:
         states = self.test_experience['s2']
         factors = self.test_experience['f']
         
-        max_action = self.action_space.values[tf.math.argmax(self.predict(states),
+        max_action = self.action_space.values[tf.math.argmax(self.model(np.atleast_2d(states.astype('float32'))),
                                                      axis=1)]
                 
         # Optimal traded quantity between period
@@ -531,12 +683,41 @@ class DQN:
         if np.random.random() < epsilon:
             return np.random.choice(self.action_space.values)
         else:
-            # return self.action_space.values[tf.math.argmax(self.predict(states, 
-            #                                                        training = tf.constant(False))[0])]
-            return self.action_space.values[np.argmax(self.predict(np.atleast_2d(states), training = False)[0])]
+            return self.action_space.values[np.argmax(self.model(np.atleast_2d(states.astype('float32')), training = False)[0])]
+    
+    def alpha_beta_greedy_action(self, states, factors, epsilon, OptRate, DiscFactorLoads, alpha, env):
+        if np.random.random() < epsilon:
+            if np.random.random() < alpha:
+                return np.random.choice(self.action_space.values)
+            else:
+                if not self.recurrent_env:
+                    if len(DiscFactorLoads) == 1:
+                        retprod = factors * DiscFactorLoads
+                    else:
+                        retprod = factors @ DiscFactorLoads
+                        
+                        OptNextHolding = (1 - OptRate) * states[1] + OptRate * \
+                                      (1/(env.kappa * (env.sigma)**2)) * retprod
+                        
+                        OptAction = OptNextHolding - states[1]
+                else:
+                    if len(DiscFactorLoads) == 1:
+                        retprod = factors[-1,:] * DiscFactorLoads
+                    else:
+                        retprod = factors[-1,:] @ DiscFactorLoads
+                    
+                    OptNextHolding = (1 - OptRate) * states[-1,1] + OptRate * \
+                                  (1/(env.kappa * (env.sigma)**2)) * retprod
+                    
+                    OptAction = OptNextHolding - states[-1,1]
+                DiscOptActionIdx = (np.abs(self.action_space.values - OptAction)).argmin()
+                DiscOptAction = self.action_space.values[DiscOptActionIdx]
+                return DiscOptAction
+        else:
+            return self.action_space.values[np.argmax(self.model(np.atleast_2d(states.astype('float32')), training = False)[0])]
         
     def greedy_action(self, states):
-        return self.action_space.values[np.argmax(self.predict(np.atleast_2d(states), training = False)[0])]
+        return self.action_space.values[np.argmax(self.model(np.atleast_2d(states.astype('float32')), training = False)[0])]
         
     def add_experience(self, exp):
         
