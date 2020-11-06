@@ -16,9 +16,16 @@ from utils.readYaml import readConfigYaml
 from utils.generateLogger import generate_logger
 from runDDPG import RunDDPGTraders
 import pdb
+import time
+import numpy as np
 from itertools import combinations
 # import multiprocessing
 from joblib import Parallel, delayed
+
+def chunks(lst, n):
+    """Yield successive n-sized chunks from lst."""
+    for i in range(0, len(lst), n):
+        yield lst[i:i + n]
 
 #0. Generate Logger-------------------------------------------------------------
 logger = generate_logger()
@@ -43,6 +50,13 @@ elif Param['varying_type'] == 'subset_combination':
         iterables = [combinations(Param[param_name],i+1) for param_name in Param['varying_pars']]
         for tup in zip(*iterables): 
             variables.append([list(tup_el) for tup_el in tup])
+elif Param['varying_type'] == 'random_search':
+    for xs in itertools.product(*[Param[v] for v in Param['varying_pars']]):
+        variables.append(xs)
+    variables = [variables[i] for i in np.random.randint(0,len(variables)-1,Param['num_rnd_search'])]
+elif Param['varying_type'] == 'chunk':
+    for xs in itertools.product(*[Param[v] for v in Param['varying_pars']]):
+        variables.append(xs)
 else: 
     print('Choose proper way to combine varying parameters')
     sys.exit()
@@ -57,5 +71,16 @@ def RunMultiParallelExp(var_par,Param):
     RunDDPGTraders(Param)
 
 
-if __name__ == "__main__":
-    Parallel(n_jobs=num_cores)(delayed(RunMultiParallelExp)(var_par,Param) for var_par in variables)
+if __name__ == "__main__":   
+    if Param['varying_type'] == 'random_search':
+        Parallel(n_jobs=num_cores)(delayed(RunMultiParallelExp)(var_par,Param) for var_par in variables)
+        time.sleep(300)
+        os.execv(sys.executable, ['python']+ sys.argv)
+        # os.execv(__file__, sys.argv)
+    if Param['varying_type'] == 'chunk':
+        num_cores = Param['num_rnd_search']
+        for chunk_var in chunks(variables,num_cores):
+            Parallel(n_jobs=num_cores)(delayed(RunMultiParallelExp)(var_par,Param) for var_par in chunk_var)
+            time.sleep(60)
+    else:
+        Parallel(n_jobs=num_cores)(delayed(RunMultiParallelExp)(var_par,Param) for var_par in variables)

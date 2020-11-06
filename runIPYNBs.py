@@ -14,8 +14,9 @@ import os, logging, nbformat, sys, subprocess, time, pdb
 from nbconvert.preprocessors import ExecutePreprocessor
 from utils.generateLogger import generate_logger
 
-start = time.time()
 
+start = time.time()
+# time.sleep(7200)
 #create logger
 logger = generate_logger()
 
@@ -31,14 +32,16 @@ def walklevel(some_dir, level=1):
             del dirs[:]
 # pass the name of the notebook and the folder of experiments
 init_folder = os.getcwd()
-algo = 'DQN'
-notebook_filename = os.path.join(init_folder,"{}_ExPostResults.ipynb".format(algo))
-# notebook_filename = os.path.join(init_folder,"TempDDPG.ipynb")
+algo = os.environ['TAG'] = 'DDPG'
+# notebook_filename = os.path.join(init_folder,"{}_ExPostResults.ipynb".format(algo))
+notebook_filename = os.path.join(init_folder,"Picture_for_paper_msteps.ipynb")
+
 
 # one can provide different set of experiments by passing this list
-experiments_folders = [os.path.join('outputs','DQN_20200716','Opt_exploration_bigaction','250k' )]
-# experiments_folder_path = os.path.join(os.getcwd(),experiments_folder) 
+experiments_folders = [os.path.join('outputs','{}'.format(algo),'20201103_seeds','100k')]
 
+
+# experiments_folder_path = os.path.join(os.getcwd(),experiments_folder) 
 
 # loop over the experiments provided
 for fld in experiments_folders:
@@ -48,14 +51,15 @@ for fld in experiments_folders:
     # loop over the folders of experiment
     for subdir, _, _ in walklevel(experiments_folder_path): #subdir,dirs,files
         os.chdir(init_folder)
+
         # walklevel select also the current folder with the number of iteration, which is ok because we need 
         # to pass also that number to the nb
-        if len(os.path.split(subdir)[-1]) < 5:
+        if len(os.path.split(subdir)[-1]) < 7:
             os.environ['N_TRAIN'] = os.path.split(subdir)[-1]
         
         if len(os.path.split(subdir)[-1]) > 5:
             os.environ['FOLDER'] = subdir
-            
+
             # read and execute notebook
             logging.info('Reading notebook...')
             with open(notebook_filename) as f:
@@ -63,7 +67,7 @@ for fld in experiments_folders:
                 logging.info('Executing notebook...')
                 ep = ExecutePreprocessor(timeout=600)#, kernel_name='python3')
                 ep.preprocess(nb, {'metadata': {'path': os.getcwd()}})
-                
+            
             # save executed notebook in the proper folder
             with open(os.path.join(os.environ['FOLDER'],'ExecNbResult_{}.ipynb'.format(os.path.split(subdir)[-1])), 'w', encoding='utf-8') as f:
                 nbformat.write(nb, f)
@@ -77,9 +81,13 @@ for fld in experiments_folders:
             #                  '--output-dir', 
             #                  '{}'.format(os.environ['FOLDER'])])
             os.chdir(os.environ['FOLDER'])
+            
             subprocess.call(['jupyter', 
                           'nbconvert', 
-                          'ExecNbResult_{}.ipynb'.format('*')])
+                          'ExecNbResult_{}.ipynb'.format('*'),
+                          '--to',
+                          'html',
+                          '--no-input'])
             
             logging.info('Converted executed notebook in HTML format.')
             logging.info('Experiment {} has ended'.format(os.path.split(subdir)[-1]))

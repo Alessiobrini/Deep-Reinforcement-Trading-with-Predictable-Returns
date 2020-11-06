@@ -9,7 +9,7 @@ import logging,sys
 
 def generate_logger():    
     root = logging.getLogger()
-    root.setLevel(logging.DEBUG)
+    root.setLevel(logging.INFO)
     if root.handlers:
         root.handlers = []
     handler = logging.StreamHandler(sys.stdout)

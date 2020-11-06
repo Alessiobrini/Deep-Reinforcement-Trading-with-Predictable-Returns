@@ -43,6 +43,9 @@ def GeneratePathFolder(outputDir: str,
     if not os.path.exists(savedpath):
         os.makedirs(savedpath)
     else:
-        sys.exit('Folder already exists. This experiment has already been run.')
+        if Param['varying_type'] == 'random_search':
+            pass
+        else:
+            sys.exit('Folder already exists. This experiment has already been run.')
         
     return savedpath

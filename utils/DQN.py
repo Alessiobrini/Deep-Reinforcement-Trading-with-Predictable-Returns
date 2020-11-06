@@ -15,8 +15,10 @@ from tensorflow.keras.layers import BatchNormalization
 from tensorflow.keras.layers import Activation
 from tensorflow.keras.layers import InputLayer
 from tensorflow.keras.layers import Dense, LSTM, Dropout
-from tensorflow.keras.optimizers.schedules import PiecewiseConstantDecay
 from tensorflow.keras.optimizers.schedules import ExponentialDecay
+from tensorflow.keras.optimizers.schedules import InverseTimeDecay
+from tensorflow.keras.optimizers.schedules import PiecewiseConstantDecay
+from tensorflow.keras.optimizers.schedules import PolynomialDecay
 # from tensorflow_addons.optimizers import RectifiedAdam
 from utils.SumTreePER import PER_buffer
 
@@ -196,7 +198,7 @@ class DeepRecurrentNetworkModel(tf.keras.Model):
              store_intermediate_outputs: bool = False):
 
         if len(inputs.shape) != 3:
-            inputs = tf.reshape(inputs, [1] + inputs.shape)
+            inputs = tf.reshape(inputs, tf.TensorShape([1]).concatenate(inputs.shape))
         
         if store_intermediate_outputs:
             # build the input layer
@@ -205,9 +207,11 @@ class DeepRecurrentNetworkModel(tf.keras.Model):
                 self.inputs = z
                 z = self.bnorm_layer(z, training)
                 self.bninputs = z
+
             else:
                 z = self.input_layer(inputs)
                 self.inputs = z
+
             # build the hidden layer
             for layer in self.hids:
                 if 'batch' in layer.name:
@@ -225,8 +229,10 @@ class DeepRecurrentNetworkModel(tf.keras.Model):
             if self.bnflag_input:
                 z = self.input_layer(inputs)
                 z = self.bnorm_layer(z, training)
+
             else:
                 z = self.input_layer(inputs)
+
             # build the hidden layer
             for layer in self.hids:
                 if 'batch' in layer.name:
@@ -247,7 +253,6 @@ class DQN:
                  recurrent_env: bool,
                  gamma: float,
                  max_experiences: int, 
-                 min_experiences: int, 
                  update_target: str,
                  tau: float,
                  input_shape: int, 
@@ -288,8 +293,12 @@ class DQN:
                  lr_schedule: Optional[str] = None, 
                  exp_decay_steps: Optional[int] = None, 
                  exp_decay_rate: Optional[float] = None,
+                 rng = None,
                  modelname: str = 'Deep Network',
-                 pretraining_mode: bool = False):
+                 pretraining_mode: bool = False,
+                 stop_train: int = 1e+10):
+        
+        if rng is not None: self.rng = rng
         
         self.batch_size = batch_size
                     
@@ -298,8 +307,17 @@ class DQN:
                                   decay_steps=exp_decay_steps, 
                                   decay_rate=exp_decay_rate)
         elif lr_schedule == 'piecewise':
-            lr = PiecewiseConstantDecay(boundaries=[500000], 
+            lr = PiecewiseConstantDecay(boundaries=[100000], 
                                         values=[0.001, 0.0001])
+        elif lr_schedule == 'inverse_time':
+            lr = InverseTimeDecay(initial_learning_rate=lr, 
+                                  decay_steps=exp_decay_steps, 
+                                  decay_rate=exp_decay_rate)
+        elif lr_schedule == 'polynomial':
+            lr = PolynomialDecay(initial_learning_rate=lr, 
+                                 decay_steps=exp_decay_steps, 
+                                 end_learning_rate=1e-6, 
+                                 power=1.0,)
             
         
         if optimizer_name == 'sgd':
@@ -348,8 +366,8 @@ class DQN:
             self.experience = {'s': [], 'a': [], 'r': [], 's2': [], 'f': []}
         self.test_experience = None
         self.start_train = start_train
+        self.stop_train = stop_train
         self.max_experiences = max_experiences
-        self.min_experiences = min_experiences
         self.action_space = action_space
         self.num_actions = len(self.action_space.values)
         self.batch_norm_input = batch_norm_input
@@ -379,7 +397,7 @@ class DQN:
         self.optimizer_name = optimizer_name
         self.pretraining_mode = pretraining_mode
         self.std_rwds = std_rwds
-        
+                
         if self.std_rwds:
             self.rwds_run_mean = 0
             self.rwds_run_std = 0
@@ -390,11 +408,9 @@ class DQN:
             self.loss = tf.keras.losses.Huber()
   
     def train(self, TargetNet, iteration, env=None):
-
-        #if len(self.experience['s']) < self.min_experiences:
-        if iteration < self.start_train:
+        if iteration < self.start_train or iteration > self.stop_train:
             return 0
-        
+
         if self.use_PER:
             b_idx, minibatch = self.PERmemory.sample_batch(self.batch_size)
             states = np.asarray(minibatch['s'])
@@ -406,7 +422,7 @@ class DQN:
         else:
             # find the index of streams included in the experience buffer that will 
             #composed the training batch
-            ids = np.random.randint(low=0, high=len(self.experience['s']), size=self.batch_size)
+            ids = self.rng.randint(low=0, high=len(self.experience['s']), size=self.batch_size)
             states = np.asarray([self.experience['s'][i] for i in ids])
             actions = np.asarray([self.experience['a'][i] for i in ids])
             rewards = np.asarray([self.experience['r'][i] for i in ids])
@@ -680,15 +696,15 @@ class DQN:
         
     
     def eps_greedy_action(self, states, epsilon):
-        if np.random.random() < epsilon:
-            return np.random.choice(self.action_space.values)
+        if self.rng.random() < epsilon:
+            return self.rng.choice(self.action_space.values)
         else:
             return self.action_space.values[np.argmax(self.model(np.atleast_2d(states.astype('float32')), training = False)[0])]
     
     def alpha_beta_greedy_action(self, states, factors, epsilon, OptRate, DiscFactorLoads, alpha, env):
-        if np.random.random() < epsilon:
-            if np.random.random() < alpha:
-                return np.random.choice(self.action_space.values)
+        if self.rng.random() < epsilon:
+            if self.rng.random() < alpha:
+                return self.rng.choice(self.action_space.values)
             else:
                 if not self.recurrent_env:
                     if len(DiscFactorLoads) == 1:
@@ -730,23 +746,23 @@ class DQN:
             for key, value in exp.items():
                 self.experience[key].append(value)
             
-    def add_test_experience(self):
+    # def add_test_experience(self):
 
-        if self.use_PER:
-            ids = np.random.randint(low=0, high=self.min_experiences, size=self.batch_size)
-            self.test_experience = {'s': np.asarray([self.PERmemory.experience['s'][i] for i in ids]),
-                                    'a': np.asarray([self.PERmemory.experience['a'][i] for i in ids]),
-                                    'r': np.asarray([self.PERmemory.experience['r'][i] for i in ids]),
-                                    's2':np.asarray([self.PERmemory.experience['s2'][i] for i in ids]),
-                                    'f':np.asarray([self.PERmemory.experience['f'][i] for i in ids])}
+    #     if self.use_PER:
+    #         ids = np.random.randint(low=0, high=self.min_experiences, size=self.batch_size)
+    #         self.test_experience = {'s': np.asarray([self.PERmemory.experience['s'][i] for i in ids]),
+    #                                 'a': np.asarray([self.PERmemory.experience['a'][i] for i in ids]),
+    #                                 'r': np.asarray([self.PERmemory.experience['r'][i] for i in ids]),
+    #                                 's2':np.asarray([self.PERmemory.experience['s2'][i] for i in ids]),
+    #                                 'f':np.asarray([self.PERmemory.experience['f'][i] for i in ids])}
 
-        else:
-            ids = np.random.randint(low=0, high=len(self.experience['s']), size=self.batch_size)
-            self.test_experience = {'s': np.asarray([self.experience['s'][i] for i in ids]),
-                                    'a': np.asarray([self.experience['a'][i] for i in ids]),
-                                    'r': np.asarray([self.experience['r'][i] for i in ids]),
-                                    's2':np.asarray([self.experience['s2'][i] for i in ids]),
-                                    'f':np.asarray([self.experience['f'][i] for i in ids])}
+    #     else:
+    #         ids = np.random.randint(low=0, high=len(self.experience['s']), size=self.batch_size)
+    #         self.test_experience = {'s': np.asarray([self.experience['s'][i] for i in ids]),
+    #                                 'a': np.asarray([self.experience['a'][i] for i in ids]),
+    #                                 'r': np.asarray([self.experience['r'][i] for i in ids]),
+    #                                 's2':np.asarray([self.experience['s2'][i] for i in ids]),
+    #                                 'f':np.asarray([self.experience['f'][i] for i in ids])}
 
 
 

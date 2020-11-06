@@ -1,10 +1,9 @@
 # -*- coding: utf-8 -*-
 """
-Created on Sat Mar 14 00:56:05 2020
+Created on Tue Sep  8 18:33:38 2020
 
 @author: aless
 """
-#!/usr/bin/env python
 import os
 
 
@@ -17,7 +16,7 @@ if any('SPYDER' in name for name in os.environ):
 import logging, os, itertools, sys
 from utils.readYaml import readConfigYaml 
 from utils.generateLogger import generate_logger
-from runDQN import RunDQNTraders
+from runRealDQN import RunRealDQNTraders
 import pdb
 from itertools import combinations
 import numpy as np
@@ -35,9 +34,10 @@ logger = generate_logger()
 
 # 1. Read config ---------------------------------------------------------------- 
 # maybe substitute with argparse
-Param = readConfigYaml(os.path.join(os.getcwd(),'config','paramDQN.yaml'))
+Param = readConfigYaml(os.path.join(os.getcwd(),'config','paramRealDQN.yaml'))
 assert Param['runtype'] == 'multi'
 logging.info('Successfully read config file with parameters...')
+
 
 
 variables = []
@@ -54,7 +54,8 @@ elif Param['varying_type'] == 'subset_combination':
     for i in range(maxsubset):
         iterables = [combinations(Param[param_name],i+1) for param_name in Param['varying_pars']]
         for tup in zip(*iterables): 
-            variables.append([list(tup_el) for tup_el in tup])        
+            variables.append([list(tup_el) for tup_el in tup])
+            
 elif Param['varying_type'] == 'random_search':
     for xs in itertools.product(*[Param[v] for v in Param['varying_pars']]):
         variables.append(xs)
@@ -62,30 +63,28 @@ elif Param['varying_type'] == 'random_search':
 elif Param['varying_type'] == 'chunk':
     for xs in itertools.product(*[Param[v] for v in Param['varying_pars']]):
         variables.append(xs)
-        
+    
 else: 
     print('Choose proper way to combine varying parameters')
     sys.exit()
-
+    
 num_cores = len(variables)
-
 
 def RunMultiParallelExp(var_par,Param):
     
     for i in range(len(var_par)):
         Param[Param['varying_pars'][i]] = var_par[i]
     
-    RunDQNTraders(Param)
+    RunRealDQNTraders(Param)
 
 
 if __name__ == "__main__":
-
     if Param['varying_type'] == 'random_search':
         Parallel(n_jobs=num_cores)(delayed(RunMultiParallelExp)(var_par,Param) for var_par in variables)
-        time.sleep(60)
+        time.sleep(300)
         os.execv(sys.executable, ['python']+ sys.argv)
         # os.execv(__file__, sys.argv)
-    if Param['varying_type'] == 'chunk':
+    elif Param['varying_type'] == 'chunk':
         num_cores = Param['num_rnd_search']
         for chunk_var in chunks(variables,num_cores):
             Parallel(n_jobs=num_cores)(delayed(RunMultiParallelExp)(var_par,Param) for var_par in chunk_var)

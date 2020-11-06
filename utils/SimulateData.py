@@ -9,6 +9,8 @@ import numpy as np
 from tqdm import tqdm
 import pdb
 from statsmodels.tsa.stattools import adfuller
+from statsmodels.stats.diagnostic import het_breuschpagan
+from statsmodels.stats.diagnostic import het_arch
 import matplotlib.pyplot as plt
 import seaborn 
 seaborn.set_style('darkgrid')
@@ -24,14 +26,22 @@ def ReturnSampler(N_train : int,
                   sigma: Union[float or list or np.ndarray],
                   plot_inputs: int,
                   HalfLife: Union[int or list or np.ndarray],
-                  seed: int = None,
+                  rng: int = None,
                   offset: int = 2,
-                  adftest: bool = False) -> Tuple[Union[list or np.ndarray],
+                  adftest: bool = False,
+                  uncorrelated: bool = False,
+                  seed_test: int = None,
+                  hetersk : bool = False,
+                  alpha_h : float = None,
+                  beta_h : float = None) -> Tuple[Union[list or np.ndarray],
                                                           Union[list or np.ndarray],
                                                           Union[list or np.ndarray]]:
 
+    
     # Set seed to make the out-of-sample experiment reproducible
-    np.random.seed(seed)
+    #np.random.seed(seed)
+    if seed_test is not None:
+        rng = np.random.RandomState(seed_test*2)
     
     # use samplesize +2 because when iterating the algorithm is necessary to 
     # have one observation more (the last space representation) and because
@@ -43,7 +53,11 @@ def ReturnSampler(N_train : int,
     # select proper speed of mean reversion and initialization point
     # it is faster to increase the size of a python list than a numpy array
     # therefore we convert later the list
-    eps = np.random.randn(N_train + offset) 
+    if uncorrelated:
+        eps = rng.randn(N_train + offset, len(HalfLife)) 
+    else:
+        eps = rng.randn(N_train + offset)
+
     lambdas = np.around(np.log(2)/HalfLife,4)
     f = []
     
@@ -57,18 +71,35 @@ def ReturnSampler(N_train : int,
         f0 = f1
 
     factors = np.vstack(f)
-    
-    np.random.seed(seed)
-    
-    u = np.random.randn(N_train + offset)
-    # now we add noise to the equation of return by default, while in the previous
-    # implementation we were using a boolean
-    # single noise
-    realret = np.sum(f_param * factors, axis=1) + sigma * u
-    f_speed = lambdas
+
+    if hetersk:
+        u = rng.randn(N_train + offset)
+        # now we add noise to the equation of return by default, while in the previous
+        # implementation we were using a boolean
+        # single noise
+        
+        noises = []
+        n0 = sigma * float(rng.randn(1))
+        for i in tqdm(iterable=range(N_train + offset), desc='Simulating Returns'):
+            sigma_sq = (alpha_h * n0**2) + (beta_h *  sigma**2)
+            news = np.sqrt(sigma_sq) * u[i]
+            n0=news
+            sigma = np.sqrt(sigma_sq)
+            noises.append(news)
+        pdb.set_trace()
+        realret = np.sum(f_param * factors, axis=1) + noises
+        f_speed = lambdas
+    else:
+        #np.random.seed(seed)
+        u = rng.randn(N_train + offset)
+        # now we add noise to the equation of return by default, while in the previous
+        # implementation we were using a boolean
+        # single noise
+        realret = np.sum(f_param * factors, axis=1) + sigma * u
+        f_speed = lambdas
+        
                 
 
-    
     # plots for factor, returns and prices
     if plot_inputs:
         print(str(len(np.atleast_2d(f_speed))), 'factor(s) simulated')
@@ -113,3 +144,34 @@ def create_lstm_tensor(X, look_back=5):
         a = X[i:(i+look_back), :]
         dataX.append(a)
     return np.array(dataX)
+
+if __name__=='__main__':
+    
+    N = 10000
+    sigmaf = [0.2, 0.1, 0.05] 
+    # sigmaf = [0.59239224, 0.06442296, 0.02609584]
+    f0 = [0.0,0.0,0.0]
+    f_param = [-0.000279  ,  0.00368725, -0.00037637] 
+    # f_param = [0.0214, 0.0231, -0.0225]
+    sigma = 0.01498
+    plot_inputs = False
+    HalfLife = [2.82,  233.38, 1432.94]
+    seed_ret = 345
+    offset=2
+    uncorrelated=True
+    hetersk = True
+    alpha_h = 0.2
+    beta_h = 0.8
+    
+    rng = np.random.RandomState(seed_ret)
+    
+    ret, factors, f_speed = ReturnSampler(N, sigmaf, f0, f_param, sigma, plot_inputs, 
+                                        HalfLife, rng, offset=offset, adftest = False,
+                                        uncorrelated=uncorrelated,
+                                        hetersk=hetersk, alpha_h=alpha_h, beta_h=beta_h)
+    
+
+    
+    
+    
+    

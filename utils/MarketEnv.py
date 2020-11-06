@@ -34,22 +34,23 @@ class HoldingSpace(Space):
 
 
 class ActionSpace(Space):
-    def __init__(self, KLM: list, zero_action: str = True):
+    def __init__(self, KLM: list, zero_action: str = True,):
         self.values = np.arange(-KLM[0], KLM[0] + 1, KLM[1])
         if not zero_action:
             self.values = self.values[self.values != 0]
         super().__init__(self.values.shape, self.values.dtype)
 
-    def sample(self):
-        return np.random.choice(self.values)
+    # def sample(self):
+    #     return self.rng.choice(self.values)
 
     def contains(self, x: int):
         return x in self.values
 
 class CreateQTable():
-    def __init__(self, ReturnSpace, HoldingSpace, ActionSpace, tablr, gamma):
+    def __init__(self, ReturnSpace, HoldingSpace, ActionSpace, tablr, gamma, seed):
         # generate row index of the dataframe with every possible combination
         # of state space variables
+        self.rng = np.random.RandomState(seed)
         self.ReturnSpace = ReturnSpace
         self.HoldingSpace = HoldingSpace
         self.ActionSpace = ActionSpace
@@ -85,10 +86,12 @@ class CreateQTable():
 
 
     def chooseAction(self,state, epsilon):
-        random_action = np.random.rand()
+        random_action = self.rng.random()
         if (random_action < epsilon):
             # pick one action at random for exploration purposes
-            dn = self.ActionSpace.sample()
+            # dn = self.ActionSpace.sample()
+            dn = self.rng.choice(self.ActionSpace.values)
+
         else:
             # pick the greedy action
             dn = self.argmaxQ(state)
@@ -106,10 +109,12 @@ class CreateQTable():
 
     
     def save(self, savedpath, N_train):
+        tmp_cols = self.Q_space.columns
         self.Q_space.columns = [str(c) for c in self.Q_space.columns]
         self.Q_space.to_parquet(os.path.join(savedpath,
                               'QTable' + format_tousands(N_train) 
                               + '.parquet.gzip'),compression='gzip')
+        self.Q_space.columns = tmp_cols
     
 
 class MarketEnv(gym.Env):
@@ -127,7 +132,8 @@ class MarketEnv(gym.Env):
                  f_speed: Union[float or list or np.ndarray],
                  returns: Union[list or np.ndarray], 
                  factors: Union[list or np.ndarray],
-                 action_limit: int = None):
+                 action_limit: int = None,
+                 dates: pd.DatetimeIndex = None):
         
         super(MarketEnv, self).__init__()
         
@@ -148,7 +154,8 @@ class MarketEnv(gym.Env):
         # self.colnames = colnames
         res_df = pd.DataFrame(np.concatenate([np.array(self.returns).reshape(-1,1),
                                               np.array(self.factors)],axis=1),columns = colnames)
-        
+
+        self.dates = dates
         res_df = res_df.astype(np.float32)
         self.res_df = res_df
 
@@ -250,16 +257,29 @@ class MarketEnv(gym.Env):
             for key in Result.keys(): 
                 self.res_df.at[iteration,key] = Result[key]
                 
-                
-    def save_outputs(self, savedpath, test=None, iteration=None):
+
+    def save_outputs(self, savedpath, test=None, iteration=None, include_dates=False):
         
         if not test:
-            self.res_df.to_parquet(os.path.join(savedpath,
-                                  'Results_{}.parquet.gzip'.format(format_tousands(self.N_train))),compression='gzip')
+            if include_dates:
+                self.res_df['date'] = self.dates
+                self.res_df.to_parquet(os.path.join(savedpath,
+                                      'Results_{}.parquet.gzip'.format(format_tousands(self.N_train))),
+                                       compression='gzip')
+            else:
+                self.res_df.to_parquet(os.path.join(savedpath,
+                                      'Results_{}.parquet.gzip'.format(format_tousands(self.N_train))),
+                                       compression='gzip')
         else:
-            self.res_df.to_parquet(os.path.join(savedpath,
-                                  'TestResults_{}_iteration_{}.parquet.gzip'.format(format_tousands(self.N_train),iteration)),
-                                   compression='gzip')
+            if include_dates:
+                self.res_df['date'] = self.dates
+                self.res_df.to_parquet(os.path.join(savedpath,
+                                      'TestResults_{}_iteration_{}.parquet.gzip'.format(format_tousands(self.N_train),iteration)),
+                                       compression='gzip')
+            else:
+                self.res_df.to_parquet(os.path.join(savedpath,
+                                      'TestResults_{}_iteration_{}.parquet.gzip'.format(format_tousands(self.N_train),iteration)),
+                                       compression='gzip')
 
     def opt_trading_rate_disc_loads(self):
         
@@ -385,7 +405,8 @@ class RecurrentMarketEnv(gym.Env):
                  factors: Union[list or np.ndarray],
                  returns_tens: Union[list or np.ndarray], 
                  factors_tens: Union[list or np.ndarray],
-                 action_limit: int = None):
+                 action_limit: int = None,
+                 dates: pd.DatetimeIndex = None):
         
         super(RecurrentMarketEnv, self).__init__()
         
@@ -409,6 +430,8 @@ class RecurrentMarketEnv(gym.Env):
         res_df = pd.DataFrame(np.concatenate([np.array(self.returns).reshape(-1,1),
                                               np.array(self.factors)],axis=1),columns = colnames)
         
+        
+        self.dates = dates
         res_df = res_df.astype(np.float32)
         self.res_df = res_df
 
@@ -514,15 +537,28 @@ class RecurrentMarketEnv(gym.Env):
                 self.res_df.at[iteration,key] = Result[key]
                 
                 
-    def save_outputs(self, savedpath, test=None, iteration=None):
+    def save_outputs(self, savedpath, test=None, iteration=None, include_dates=False):
         
         if not test:
-            self.res_df.to_parquet(os.path.join(savedpath,
-                                  'Results_{}.parquet.gzip'.format(format_tousands(self.N_train))),compression='gzip')
+            if include_dates:
+                self.res_df['date'] = self.dates
+                self.res_df.to_parquet(os.path.join(savedpath,
+                                      'Results_{}.parquet.gzip'.format(format_tousands(self.N_train))),
+                                       compression='gzip')
+            else:
+                self.res_df.to_parquet(os.path.join(savedpath,
+                                      'Results_{}.parquet.gzip'.format(format_tousands(self.N_train))),
+                                       compression='gzip')
         else:
-            self.res_df.to_parquet(os.path.join(savedpath,
-                                  'TestResults_{}_iteration_{}.parquet.gzip'.format(format_tousands(self.N_train),iteration)),
-                                   compression='gzip')
+            if include_dates:
+                self.res_df['date'] = self.dates
+                self.res_df.to_parquet(os.path.join(savedpath,
+                                      'TestResults_{}_iteration_{}.parquet.gzip'.format(format_tousands(self.N_train),iteration)),
+                                       compression='gzip')
+            else:
+                self.res_df.to_parquet(os.path.join(savedpath,
+                                      'TestResults_{}_iteration_{}.parquet.gzip'.format(format_tousands(self.N_train),iteration)),
+                                       compression='gzip')
 
     def opt_trading_rate_disc_loads(self):
         
@@ -628,3 +664,4 @@ class RecurrentMarketEnv(gym.Env):
                   }
         
         return Result
+    
