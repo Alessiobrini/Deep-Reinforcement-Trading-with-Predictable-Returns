@@ -5,62 +5,102 @@ Created on Wed Jun  3 12:04:21 2020
 @author: aless
 """
 from tqdm import tqdm
-from utils.SimulateData import ReturnSampler
+from utils.SimulateData import ReturnSampler, GARCHSampler
 from utils.MarketEnv import MarketEnv, RecurrentMarketEnv
-from utils.MarketEnv import ReturnSpace,HoldingSpace
+from utils.MarketEnv import ReturnSpace, HoldingSpace
 from utils.SimulateData import create_lstm_tensor
+from utils.Regressions import CalculateLaggedSharpeRatio, RunModels
+from utils.format_tousands import format_tousands
+import os
 import numpy as np
 import pandas as pd
 from typing import Union, Optional
 from pathlib import Path
-import pdb
+import pdb, sys
 
-def Out_sample_test(N_test : int,
-                    sigmaf : Union[float or list or np.ndarray],
-                    f0 : Union[float or list or np.ndarray],
-                    f_param: Union[float or list or np.ndarray],
-                    sigma: Union[float or list or np.ndarray],
-                    plot_inputs: int,
-                    HalfLife: Union[int or list or np.ndarray],
-                    Startholding: Union[float or int],
-                    CostMultiplier: float,
-                    kappa: float,
-                    discount_rate: float,
-                    executeDRL: bool, 
-                    executeRL: bool,
-                    executeMV: bool,
-                    RT: list,
-                    KLM: list,
-                    executeGP: bool,
-                    TrainNet,
-                    savedpath: Union[ str or Path],
-                    iteration: int,
-                    recurrent_env: bool = False,
-                    unfolding: int = 1,
-                    QTable: Optional[pd.DataFrame] = None,
-                    rng: int = None,
-                    seed_test: int = None,
-                    action_limit=None,
-                    uncorrelated = False,
-                    hetersk : bool = False,
-                    alpha_h : float = None,
-                    beta_h : float = None,
-                    tag='DQN'):
-    
-    test_returns, test_factors, test_f_speed = ReturnSampler(N_test, sigmaf, f0, f_param, sigma, 
-                                                             plot_inputs, HalfLife, rng,
-                                                             offset=unfolding + 1, seed_test=seed_test,
-                                                             uncorrelated=uncorrelated, hetersk=hetersk, alpha_h=alpha_h, beta_h=beta_h)
-    
+
+def Out_sample_test(
+    N_test: int,
+    sigmaf: Union[float or list or np.ndarray],
+    f0: Union[float or list or np.ndarray],
+    f_param: Union[float or list or np.ndarray],
+    sigma: Union[float or list or np.ndarray],
+    plot_inputs: int,
+    HalfLife: Union[int or list or np.ndarray],
+    Startholding: Union[float or int],
+    CostMultiplier: float,
+    kappa: float,
+    discount_rate: float,
+    executeDRL: bool,
+    executeRL: bool,
+    executeMV: bool,
+    RT: list,
+    KLM: list,
+    executeGP: bool,
+    TrainNet,
+    savedpath: Union[str or Path],
+    iteration: int,
+    recurrent_env: bool = False,
+    unfolding: int = 1,
+    QTable: Optional[pd.DataFrame] = None,
+    rng: int = None,
+    seed_test: int = None,
+    action_limit=None,
+    uncorrelated=False,
+    t_stud: bool = False,
+    tag="DQN",
+):
+
+    test_returns, test_factors, test_f_speed = ReturnSampler(
+        N_test,
+        sigmaf,
+        f0,
+        f_param,
+        sigma,
+        plot_inputs,
+        HalfLife,
+        rng,
+        offset=unfolding + 1,
+        seed_test=seed_test,
+        uncorrelated=uncorrelated,
+        t_stud=t_stud,
+    )
+
     if recurrent_env:
-        test_returns_tens = create_lstm_tensor(test_returns.reshape(-1,1), unfolding)
+        test_returns_tens = create_lstm_tensor(test_returns.reshape(-1, 1), unfolding)
         test_factors_tens = create_lstm_tensor(test_factors, unfolding)
-        test_env = RecurrentMarketEnv(HalfLife, Startholding, sigma, CostMultiplier, kappa,  N_test, discount_rate, 
-                             f_param, test_f_speed, test_returns, test_factors, test_returns_tens, test_factors_tens, action_limit)  
+        test_env = RecurrentMarketEnv(
+            HalfLife,
+            Startholding,
+            sigma,
+            CostMultiplier,
+            kappa,
+            N_test,
+            discount_rate,
+            f_param,
+            test_f_speed,
+            test_returns,
+            test_factors,
+            test_returns_tens,
+            test_factors_tens,
+            action_limit,
+        )
     else:
-        test_env = MarketEnv(HalfLife, Startholding, sigma, CostMultiplier, kappa,  N_test, discount_rate, 
-                             f_param, test_f_speed, test_returns, test_factors, action_limit)
-    
+        test_env = MarketEnv(
+            HalfLife,
+            Startholding,
+            sigma,
+            CostMultiplier,
+            kappa,
+            N_test,
+            discount_rate,
+            f_param,
+            test_f_speed,
+            test_returns,
+            test_factors,
+            action_limit,
+        )
+
     if executeDRL:
         CurrState, _ = test_env.reset()
     if executeRL:
@@ -69,77 +109,242 @@ def Out_sample_test(N_test : int,
         DiscrCurrState = test_env.discrete_reset()
     if executeGP:
         CurrOptState = test_env.opt_reset()
-        OptRate, DiscFactorLoads = test_env.opt_trading_rate_disc_loads()  
+        OptRate, DiscFactorLoads = test_env.opt_trading_rate_disc_loads()
     if executeMV:
         CurrMVState = test_env.opt_reset()
-    
-    for i in tqdm(iterable=range(N_test + 1), desc='Testing DQNetwork'):
+
+    for i in tqdm(iterable=range(N_test + 1), desc="Testing DQNetwork"):
         if executeDRL:
-            if tag == 'DQN':
+            if tag == "DQN":
                 shares_traded = TrainNet.greedy_action(CurrState)
-                NextState, Result, NextFactors = test_env.step(CurrState, shares_traded, i)
+                NextState, Result, NextFactors = test_env.step(
+                    CurrState, shares_traded, i
+                )
                 test_env.store_results(Result, i)
-            elif tag == 'DDPG':
-                shares_traded = TrainNet.p_model(np.atleast_2d(CurrState.astype('float32')),training=False)
-                NextState, Result, NextFactors = test_env.step(CurrState, shares_traded, i, tag=tag)
+            elif tag == "DDPG":
+                shares_traded = TrainNet.p_model(
+                    np.atleast_2d(CurrState.astype("float32")), training=False
+                )
+                NextState, Result, NextFactors = test_env.step(
+                    CurrState, shares_traded, i, tag=tag
+                )
                 test_env.store_results(Result, i)
             CurrState = NextState
 
         if executeRL:
             shares_traded = int(QTable.chooseGreedyAction(DiscrCurrState))
-            DiscrNextState, Result = test_env.discrete_step(DiscrCurrState, shares_traded, i)
+            DiscrNextState, Result = test_env.discrete_step(
+                DiscrCurrState, shares_traded, i
+            )
             test_env.store_results(Result, i)
             DiscrCurrState = DiscrNextState
-        
+
         if executeGP:
-            NextOptState, OptResult = test_env.opt_step(CurrOptState, OptRate, DiscFactorLoads, i)
-            test_env.store_results(OptResult, i) 
+            NextOptState, OptResult = test_env.opt_step(
+                CurrOptState, OptRate, DiscFactorLoads, i
+            )
+            test_env.store_results(OptResult, i)
             CurrOptState = NextOptState
-            
+
         if executeMV:
             NextMVState, MVResult = test_env.mv_step(CurrMVState, i)
-            test_env.store_results(MVResult, i) 
+            test_env.store_results(MVResult, i)
             CurrMVState = NextMVState
 
     test_env.save_outputs(savedpath, test=True, iteration=iteration)
-    
-    
-    
-def Out_sample_real_test(N_test : int,
-                         test_returns: np.ndarray,
-                         test_factors: np.ndarray,
-                         test_f_speed: np.ndarray,
-                        f_param: Union[float or list or np.ndarray],
-                        sigma: Union[float or list or np.ndarray],
-                        HalfLife: Union[int or list or np.ndarray],
-                        Startholding: Union[float or int],
-                        CostMultiplier: float,
-                        kappa: float,
-                        discount_rate: float,
-                        executeDRL: bool, 
-                        executeRL: bool,
-                        executeMV: bool,
-                        RT: list,
-                        KLM: list,
-                        executeGP: bool,
-                        TrainNet,
-                        savedpath: Union[ str or Path],
-                        iteration: int,
-                        recurrent_env: bool = False,
-                        unfolding: int = 1,
-                        QTable: Optional[pd.DataFrame] = None,
-                        action_limit=None, 
-                        tag='DQN'):
-    
-    if recurrent_env:
-        test_returns_tens = create_lstm_tensor(test_returns.reshape(-1,1), unfolding)
-        test_factors_tens = create_lstm_tensor(test_factors, unfolding)
-        test_env = RecurrentMarketEnv(HalfLife, Startholding, sigma, CostMultiplier, kappa,  N_test, discount_rate, 
-                             f_param, test_f_speed, test_returns, test_factors, test_returns_tens, test_factors_tens, action_limit)  
+
+
+def Out_sample_Misspec_test(
+    N_test: int,
+    df: np.ndarray,
+    factor_lb: list,
+    Startholding: Union[float or int],
+    CostMultiplier: float,
+    kappa: float,
+    discount_rate: float,
+    executeDRL: bool,
+    executeRL: bool,
+    executeMV: bool,
+    RT: list,
+    KLM: list,
+    executeGP: bool,
+    TrainNet,
+    savedpath: Union[str or Path],
+    iteration: int,
+    recurrent_env: bool = False,
+    unfolding: int = 1,
+    QTable: Optional[pd.DataFrame] = None,
+    action_limit=None,
+    datatype: str = "real",
+    mean_process: str = "Constant",
+    lags_mean_process: Union[int or None] = None,
+    vol_process: str = "GARCH",
+    distr_noise: str = "normal",
+    seed: int = None,
+    seed_param: int = None,
+    sigmaf: Union[float or list or np.ndarray] = None,
+    f0: Union[float or list or np.ndarray] = None,
+    f_param: Union[float or list or np.ndarray] = None,
+    sigma: Union[float or list or np.ndarray] = None,
+    HalfLife: Union[int or list or np.ndarray] = None,
+    uncorrelated: bool = False,
+    degrees: int = None,
+    rng=None,
+    tag="DQN",
+):
+
+    if datatype == "real":
+        y, X = df[df.columns[0]], df[df.columns[1:]]
+        dates = df.index
+
+    elif datatype == "garch":
+        return_series, params = GARCHSampler(
+            N_test + factor_lb[-1] + unfolding + 1,
+            mean_process=mean_process,
+            lags_mean_process=lags_mean_process,
+            vol_process=vol_process,
+            distr_noise=distr_noise,
+            seed=seed,
+            seed_param=seed_param,
+        )
+        df = CalculateLaggedSharpeRatio(
+            return_series, factor_lb, nameTag=datatype, seriestype="return"
+        )
+        y, X = df[df.columns[0]], df[df.columns[1:]]
+        dates = df.index
+    elif datatype == "t_stud":
+        plot_inputs = False
+        # df freedom for t stud distribution are hard coded inside the function
+        returns, factors, test_f_speed = ReturnSampler(
+            N_test + factor_lb[-1],
+            sigmaf,
+            f0,
+            f_param,
+            sigma,
+            plot_inputs,
+            HalfLife,
+            rng=rng,
+            offset=unfolding + 1,
+            uncorrelated=uncorrelated,
+            seed_test=seed,
+            t_stud=True,
+            degrees=degrees,
+        )
+
+        df = CalculateLaggedSharpeRatio(
+            returns, factor_lb, nameTag=datatype, seriestype="return"
+        )
+        y, X = df[df.columns[0]], df[df.columns[1:]]
+        dates = df.index
+    elif datatype == "t_stud_mfit":
+        plot_inputs = False
+        # df freedom for t stud distribution are hard coded inside the function
+        if factor_lb:
+            returns, factors, test_f_speed = ReturnSampler(
+                N_test + factor_lb[-1],
+                sigmaf,
+                f0,
+                f_param,
+                sigma,
+                plot_inputs,
+                HalfLife,
+                rng=rng,
+                offset=unfolding + 1,
+                uncorrelated=uncorrelated,
+                seed_test=seed,
+                t_stud=True,
+                degrees=degrees,
+            )
+            df = pd.DataFrame(
+                data=np.concatenate([returns.reshape(-1, 1), factors], axis=1)
+            ).loc[factor_lb[-1] :]
+            y, X = df[df.columns[0]], df[df.columns[1:]]
+        else:
+            returns, factors, test_f_speed = ReturnSampler(
+                N_test,
+                sigmaf,
+                f0,
+                f_param,
+                sigma,
+                plot_inputs,
+                HalfLife,
+                rng=rng,
+                offset=unfolding + 1,
+                uncorrelated=uncorrelated,
+                seed_test=seed,
+                t_stud=True,
+                degrees=degrees,
+            )
+            df = pd.DataFrame(
+                data=np.concatenate([returns.reshape(-1, 1), factors], axis=1)
+            )
+            y, X = df[df.columns[0]], df[df.columns[1:]]
+        dates = df.index
     else:
-        test_env = MarketEnv(HalfLife, Startholding, sigma, CostMultiplier, kappa,  N_test, discount_rate, 
-                             f_param, test_f_speed, test_returns, test_factors, action_limit)
-    
+        print("Datatype not correct")
+        sys.exit()
+
+    if datatype == "t_stud_mfit":
+        params_meanrev, _ = RunModels(y, X, mr_only=True)
+    else:
+        # do regressions
+        params_retmodel, params_meanrev, _, _ = RunModels(y, X)
+        # get results
+    test_returns = df.iloc[:, 0].values
+    test_factors = df.iloc[:, 1:].values
+
+    if datatype != "t_stud_mfit":
+        sigma_fit = df.iloc[:, 0].std()
+        f_param_fit = params_retmodel["params"]
+    else:
+        sigma_fit = sigma
+        f_param_fit = f_param
+    test_f_speed_fit = np.abs(
+        np.array([*params_meanrev.values()]).ravel()
+    )  # TODO check if abs is correct
+    HalfLife_fit = np.around(np.log(2) / test_f_speed_fit, 2)
+    # print(sigma,sigma_fit)
+    # print(HalfLife,HalfLife_fit)
+    # print(test_f_speed,test_f_speed_fit)
+    # print(f_param,f_param_fit)
+    # pdb.set_trace()
+    if recurrent_env:
+        test_returns_tens = create_lstm_tensor(test_returns.reshape(-1, 1), unfolding)
+        test_factors_tens = create_lstm_tensor(test_factors, unfolding)
+        test_env = RecurrentMarketEnv(
+            HalfLife_fit,
+            Startholding,
+            sigma_fit,
+            CostMultiplier,
+            kappa,
+            N_test,
+            discount_rate,
+            f_param_fit,
+            test_f_speed_fit,
+            test_returns,
+            test_factors,
+            test_returns_tens,
+            test_factors_tens,
+            action_limit,
+            dates=dates,
+        )
+    else:
+        test_env = MarketEnv(
+            HalfLife_fit,
+            Startholding,
+            sigma_fit,
+            CostMultiplier,
+            kappa,
+            N_test,
+            discount_rate,
+            f_param_fit,
+            test_f_speed_fit,
+            test_returns,
+            test_factors,
+            action_limit,
+            dates=dates,
+        )
+
     if executeDRL:
         CurrState, _ = test_env.reset()
     if executeRL:
@@ -148,36 +353,373 @@ def Out_sample_real_test(N_test : int,
         DiscrCurrState = test_env.discrete_reset()
     if executeGP:
         CurrOptState = test_env.opt_reset()
-        OptRate, DiscFactorLoads = test_env.opt_trading_rate_disc_loads()  
+        OptRate, DiscFactorLoads = test_env.opt_trading_rate_disc_loads()
     if executeMV:
         CurrMVState = test_env.opt_reset()
-    
-    for i in tqdm(iterable=range(len(test_returns) - 1), desc='Testing DQNetwork'):
+
+    if datatype == "real":
+        cycle_len = N_test - 1
+    elif datatype != "real":
+        cycle_len = N_test + 1
+
+    for i in tqdm(iterable=range(cycle_len), desc="Testing DQNetwork"):
         if executeDRL:
-            if tag == 'DQN':
+            if tag == "DQN":
                 shares_traded = TrainNet.greedy_action(CurrState)
-                NextState, Result, NextFactors = test_env.step(CurrState, shares_traded, i)
+                NextState, Result, NextFactors = test_env.step(
+                    CurrState, shares_traded, i
+                )
                 test_env.store_results(Result, i)
-            elif tag == 'DDPG':
-                shares_traded = TrainNet.p_model(np.atleast_2d(CurrState.astype('float32')),training=False)
-                NextState, Result, NextFactors = test_env.step(CurrState, shares_traded, i, tag=tag)
+            elif tag == "DDPG":
+                shares_traded = TrainNet.p_model(
+                    np.atleast_2d(CurrState.astype("float32")), training=False
+                )
+                NextState, Result, NextFactors = test_env.step(
+                    CurrState, shares_traded, i, tag=tag
+                )
                 test_env.store_results(Result, i)
             CurrState = NextState
 
         if executeRL:
             shares_traded = int(QTable.chooseGreedyAction(DiscrCurrState))
-            DiscrNextState, Result = test_env.discrete_step(DiscrCurrState, shares_traded, i)
+            DiscrNextState, Result = test_env.discrete_step(
+                DiscrCurrState, shares_traded, i
+            )
             test_env.store_results(Result, i)
             DiscrCurrState = DiscrNextState
-        
+
         if executeGP:
-            NextOptState, OptResult = test_env.opt_step(CurrOptState, OptRate, DiscFactorLoads, i)
-            test_env.store_results(OptResult, i) 
+            NextOptState, OptResult = test_env.opt_step(
+                CurrOptState, OptRate, DiscFactorLoads, i
+            )
+            test_env.store_results(OptResult, i)
             CurrOptState = NextOptState
-            
+
         if executeMV:
             NextMVState, MVResult = test_env.mv_step(CurrMVState, i)
-            test_env.store_results(MVResult, i) 
+            test_env.store_results(MVResult, i)
             CurrMVState = NextMVState
 
-    test_env.save_outputs(savedpath, test=True, iteration=iteration)
+    test_env.save_outputs(savedpath, test=True, iteration=iteration, include_dates=True)
+
+
+
+def Out_sample_real_test(
+    N_test: int,
+    df: np.ndarray,
+    factor_lb: list,
+    Startholding: Union[float or int],
+    CostMultiplier: float,
+    kappa: float,
+    discount_rate: float,
+    executeDRL: bool,
+    executeMV: bool,
+    KLM: list,
+    executeGP: bool,
+    TrainNet,
+    savedpath: Union[str or Path],
+    iteration: int,
+    recurrent_env: bool = False,
+    unfolding: int = 1,
+    action_limit=None,
+    sigmaf: Union[float or list or np.ndarray] = None,
+    f0: Union[float or list or np.ndarray] = None,
+    f_param: Union[float or list or np.ndarray] = None,
+    sigma: Union[float or list or np.ndarray] = None,
+    HalfLife: Union[int or list or np.ndarray] = None,
+    tag="DQN",
+):
+
+
+    
+    y, X = df[df.columns[0]], df[df.columns[1:]]
+    dates = df.index
+
+
+    params_retmodel, params_meanrev, _, _ = RunModels(y, X)
+    test_returns = df.iloc[:, 0].values
+    test_factors = df.iloc[:, 1:].values
+    sigma = df.iloc[:, 0].std()
+    f_param = params_retmodel["params"]
+    f_speed = np.abs(np.array([*params_meanrev.values()]).ravel())
+    HalfLife = np.around(np.log(2) / f_speed, 2)
+
+
+    if recurrent_env:
+        test_returns_tens = create_lstm_tensor(test_returns.reshape(-1, 1), unfolding)
+        test_factors_tens = create_lstm_tensor(test_factors, unfolding)
+        test_env = RecurrentMarketEnv(
+            HalfLife,
+            Startholding,
+            sigma,
+            CostMultiplier,
+            kappa,
+            N_test,
+            discount_rate,
+            f_param,
+            f_speed,
+            test_returns,
+            test_factors,
+            test_returns_tens,
+            test_factors_tens,
+            action_limit,
+            dates=dates,
+        )
+    else:
+        test_env = MarketEnv(
+            HalfLife,
+            Startholding,
+            sigma,
+            CostMultiplier,
+            kappa,
+            N_test,
+            discount_rate,
+            f_param,
+            f_speed,
+            test_returns,
+            test_factors,
+            action_limit,
+            dates=dates,
+        )
+
+    if executeDRL:
+        CurrState, _ = test_env.reset()
+    if executeGP:
+        CurrOptState = test_env.opt_reset()
+        OptRate, DiscFactorLoads = test_env.opt_trading_rate_disc_loads()
+    # if executeMV:
+    #     CurrMVState = test_env.opt_reset()
+
+
+    cycle_len = N_test - 1
+    for i in tqdm(iterable=range(cycle_len), desc="Testing DQNetwork"):
+        if executeDRL:
+            if tag == "DQN":
+                shares_traded = TrainNet.greedy_action(CurrState)
+                NextState, Result, NextFactors = test_env.step(
+                    CurrState, shares_traded, i
+                )
+                test_env.store_results(Result, i)
+            elif tag == "DDPG":
+                shares_traded = TrainNet.p_model(
+                    np.atleast_2d(CurrState.astype("float32")), training=False
+                )
+                NextState, Result, NextFactors = test_env.step(
+                    CurrState, shares_traded, i, tag=tag
+                )
+                test_env.store_results(Result, i)
+            CurrState = NextState
+
+        if executeGP:
+            NextOptState, OptResult = test_env.opt_step(
+                CurrOptState, OptRate, DiscFactorLoads, i
+            )
+            test_env.store_results(OptResult, i)
+            CurrOptState = NextOptState
+
+        # if executeMV:
+        #     NextMVState, MVResult = test_env.mv_step(CurrMVState, i)
+        #     test_env.store_results(MVResult, i)
+        #     CurrMVState = NextMVState
+
+    # test_env.save_outputs(savedpath, test=True, iteration=iteration, include_dates=True)
+
+    variables = []
+    variables.append("NetPNL_{}".format(tag))
+    variables.append("Reward_{}".format(tag))
+    variables.append("OptNetPNL")
+    variables.append("OptReward")
+
+    # select interesting variables and express as a percentage of the GP results
+    pnl_str = list(filter(lambda x: "NetPNL_{}".format(tag) in x, variables))
+    opt_pnl_str = list(filter(lambda x: "OptNetPNL" in x, variables))
+    rew_str = list(filter(lambda x: "Reward_{}".format(tag) in x, variables))
+    opt_rew_str = list(filter(lambda x: "OptReward" in x, variables))
+
+    # pnl
+    pnl = test_env.res_df[pnl_str + opt_pnl_str].iloc[:-1]
+    cum_pnl = pnl.cumsum()
+    ref_pnl = np.array(cum_pnl[pnl_str]) - np.array(cum_pnl[opt_pnl_str])
+
+
+    # rewards
+    rew = test_env.res_df[rew_str + opt_rew_str].iloc[:-1]
+    cum_rew = rew.cumsum()
+    ref_rew = np.array(cum_rew[rew_str]) - np.array(cum_rew[opt_rew_str])
+
+    # SR
+    # pnl = test_env.res_df[pnl_str+opt_pnl_str].iloc[:-1]
+    mean = np.array(pnl[pnl_str]).mean()
+    std = np.array(pnl[pnl_str]).std()
+    sr = (mean / std) * (252 ** 0.5)
+
+    # Holding
+    hold = test_env.res_df["NextHolding_{}".format(tag)].iloc[
+        -2
+    ]  # avoid last observation
+    opthold = test_env.res_df["OptNextHolding"].iloc[-2]
+
+    opt_mean = np.array(pnl[opt_pnl_str]).mean()
+    opt_std = np.array(pnl[opt_pnl_str]).std()
+    optsr = (opt_mean / opt_std) * (252 ** 0.5)
+
+    perc_SR = (sr / optsr) * 100
+
+    return (
+        ref_pnl[-1][0], # [0] to get the value instead of the numpy array
+        ref_rew[-1][0],
+        perc_SR,
+        cum_pnl.iloc[-1].values[0],
+        cum_pnl.iloc[-1].values[1],
+        cum_rew.iloc[-1].values[0],
+        cum_rew.iloc[-1].values[1],
+        sr,
+        optsr,
+        hold,
+        opthold,
+    )
+
+
+class empty_series:
+    
+    def __init__(self,iterations):
+        self.mean_series_pnl = pd.DataFrame(index=range(1), columns=iterations)
+        self.mean_series_rew = pd.DataFrame(index=range(1), columns=iterations)
+        self.mean_series_sr = pd.DataFrame(index=range(1), columns=iterations)
+    
+        self.abs_series_pnl_rl = pd.DataFrame(index=range(1), columns=iterations)
+        self.abs_series_pnl_gp = pd.DataFrame(index=range(1), columns=iterations)
+        
+        self.abs_series_rew_rl = pd.DataFrame(index=range(1), columns=iterations)
+        self.abs_series_rew_gp = pd.DataFrame(index=range(1), columns=iterations)
+        
+        self.abs_series_sr_rl = pd.DataFrame(index=range(1), columns=iterations)
+        self.abs_series_sr_gp = pd.DataFrame(index=range(1), columns=iterations)
+        
+        self.abs_series_hold_rl = pd.DataFrame(index=range(1), columns=iterations)
+        self.abs_series_hold_gp = pd.DataFrame(index=range(1), columns=iterations)
+        
+        
+    def collect(self,pnl,
+                rew,
+                sr,
+                abs_prl,
+                abs_pgp,
+                abs_rewrl,
+                abs_rewgp,
+                abs_srrl,
+                abs_srgp,
+                abs_hold,
+                abs_opthold,
+                ckpt_it):
+        
+        self.mean_series_pnl.loc[0, str(ckpt_it)] = pnl
+        self.mean_series_rew.loc[0, str(ckpt_it)] = rew
+        self. mean_series_sr.loc[0, str(ckpt_it)] = sr
+       
+        self.abs_series_pnl_rl.loc[0, str(ckpt_it)] = abs_prl
+        self.abs_series_pnl_gp.loc[0, str(ckpt_it)] = abs_pgp
+        
+        self.abs_series_rew_rl.loc[0, str(ckpt_it)] = abs_rewrl
+        self.abs_series_rew_gp.loc[0, str(ckpt_it)] = abs_rewgp
+        
+        self.abs_series_sr_rl.loc[0, str(ckpt_it)] = abs_srrl
+        self.abs_series_sr_gp.loc[0, str(ckpt_it)] = abs_srgp
+        
+        self.abs_series_hold_rl.loc[0, str(ckpt_it)] = abs_hold
+        self.abs_series_hold_gp.loc[0, str(ckpt_it)] = abs_opthold
+            
+        
+    def save(self,exp_path,tag, N_test):
+        self.mean_series_pnl.to_parquet(
+            os.path.join(
+                exp_path,
+                "NetPnl_OOS_{}_{}.parquet.gzip".format(
+                    format_tousands(N_test), tag
+                ),
+            ),
+            compression="gzip",
+        )
+        self.mean_series_rew.to_parquet(
+            os.path.join(
+                exp_path,
+                "Reward_OOS_{}_{}.parquet.gzip".format(
+                    format_tousands(N_test), tag
+                ),
+            ),
+            compression="gzip",
+        )
+        self.mean_series_sr.to_parquet(
+            os.path.join(
+                exp_path,
+                "SR_OOS_{}_{}.parquet.gzip".format(format_tousands(N_test), tag),
+            ),
+            compression="gzip",
+        )
+
+
+        self.abs_series_pnl_rl.to_parquet(
+            os.path.join(
+                exp_path,
+                "AbsNetPnl_OOS_{}_{}.parquet.gzip".format(
+                    format_tousands(N_test), tag
+                ),
+            ),
+            compression="gzip",
+        )
+        self.abs_series_pnl_gp.to_parquet(
+            os.path.join(
+                exp_path,
+                "AbsNetPnl_OOS_{}_GP.parquet.gzip".format(format_tousands(N_test)),
+            ),
+            compression="gzip",
+        )
+        self.abs_series_rew_rl.to_parquet(
+            os.path.join(
+                exp_path,
+                "AbsRew_OOS_{}_{}.parquet.gzip".format(
+                    format_tousands(N_test), tag
+                ),
+            ),
+            compression="gzip",
+        )
+        self.abs_series_rew_gp.to_parquet(
+            os.path.join(
+                exp_path,
+                "AbsRew_OOS_{}_GP.parquet.gzip".format(format_tousands(N_test)),
+            ),
+            compression="gzip",
+        )
+        self.abs_series_sr_rl.to_parquet(
+            os.path.join(
+                exp_path,
+                "AbsSR_OOS_{}_{}.parquet.gzip".format(
+                    format_tousands(N_test), tag
+                ),
+            ),
+            compression="gzip",
+        )
+        self.abs_series_sr_gp.to_parquet(
+            os.path.join(
+                exp_path,
+                "AbsSR_OOS_{}_GP.parquet.gzip".format(format_tousands(N_test)),
+            ),
+            compression="gzip",
+        )
+        self.abs_series_hold_rl.to_parquet(
+            os.path.join(
+                exp_path,
+                "AbsHold_OOS_{}_{}.parquet.gzip".format(
+                    format_tousands(N_test), tag
+                ),
+            ),
+            compression="gzip",
+        )
+        self.abs_series_hold_gp.to_parquet(
+            os.path.join(
+                exp_path,
+                "AbsHold_OOS_{}_GP.parquet.gzip".format(format_tousands(N_test)),
+            ),
+            compression="gzip",
+        )
+

@@ -4,11 +4,11 @@ epsilon : 1  # greedy policy choice
 min_eps_pct : 0.85 # decay for the epsilon parameter 0.1 linearly lead to 0.1n after 10 iter. 
 min_eps : 0.1 # minimum possible value for epsilon
 mu : [0.0]
-noise: 'OU'
-stddev_noise :  1.2
+noise: 'G'
+stddev_noise :  0.4
 stddev_pol_noise : 0.0005
-noise_decay_pct: 0.90
-theta : 0.35
+noise_decay_pct: 1.0
+theta : null #0.35
 ############################## PER BUFFER ##############################
 use_PER : False
 PER_e : 0.01  # Hyperparameter that we use to avoid some experiences to have 0 probability of being taken
@@ -20,41 +20,43 @@ PER_b_steps : 750000
 PER_a_anneal : False
 final_PER_a : 1.0
 PER_a_steps : 750000
+sample_type : 'TDerror'
 ############################## RL RELATED ##############################
 gamma : 0.55 # discounting factor for the Q target (sort of interest rate)
 kappa : 0.001 # risk aversion
-max_exp_pct : 0.75
-copy_step_Q : 1
-copy_step_p : 2
+max_exp_pct : 1.0
+copy_step : 1
 update_target : 'soft'
 tau_Q : 0.001
-tau_p : 0.1
-KLM :  [50000, 25000, 500000] # [200000,40000,2000000]  # list with actions that each trade can take: from -K to +K lot sizes minimum size of tradable (equities/contracts) and discretization of holding for TabQ (-M,M) holding
-RT : [500, 0.0001] # boundaries for returns and ticksize to define the discrete space of returns (only for TabQ)
+tau_p : 0.001
+qts : [0.001,0.999]
+KLM :  [null, null, null] # [200000,40000,2000000]  # list with actions that each trade can take: from -K to +K lot sizes minimum size of tradable (equities/contracts) and discretization of holding for TabQ (-M,M) holding
+RT : [null, 0.0001] # boundaries for returns and ticksize to define the discrete space of returns (only for TabQ)
 tablr: 0.005 # learning rate for updating q table
 ############################## DDPG RELATED ###################################
-DDPG_type : 'TD3'
-noise_clip : 0.30
-action_limit : 50000
+DDPG_type : 'DDPG'
+noise_clip : 0.1
+action_limit : null
 output_init : 3e-3
 delayed_actions :  False
 ############################## DL RELATED ##############################
 selected_loss: 'huber'
-activation : 'elu'
+activation_Q : 'elu'
+activation_p : 'tanh'
 kernel_initializer : 'he_uniform'
 optimizer_name : 'adamw'
 beta_1: 0.5
 beta_2: 0.75
 eps_opt: 0.1
-hidden_units_Q : [128,64]
-hidden_units_p : [64,32]
+hidden_units_Q : [256,128]
+hidden_units_p : [128,64]
 batch_size : 256
 learning_rate_Q : 0.005
 learning_rate_p : 0.00025
-lr_schedule : ''
-exp_decay_pct : 0.15
+lr_schedule : ['exponential','']
+exp_decay_pct : 0.3
 exp_decay_rate_Q : 0.6
-exp_decay_rate_p : 0.6
+exp_decay_rate_p : 0.9
 weight_decay_Q : 0.001
 weight_decay_p : 0.0
 recurrent_env : False
@@ -68,47 +70,44 @@ clipnorm : 1.0
 clipvalue : 1.0
 clipglob_steps: 50000
 ############################### DATA SIMULATIONS PARAMETERS ##############################
-HalfLife : [2.5, 126.0, 630.0] #[[2.0, 126.0, 630.0], [6.1667, 126.0, 630.0], [10.3333, 126.0, 630.0], [14.5, 126.0, 630.0], [18.6667, 126.0, 630.0], [22.8333, 126.0, 630.0], [27.0, 126.0, 630.0], [31.1667, 126.0, 630.0], [35.3333, 126.0, 630.0], [39.5, 126.0, 630.0], [43.6667, 126.0, 630.0], [47.8333, 126.0, 630.0], [52.0, 126.0, 630.0], [56.1667, 126.0, 630.0], [60.3333, 126.0, 630.0], [64.5, 126.0, 630.0], [68.6667, 126.0, 630.0], [72.8333, 126.0, 630.0], [77.0, 126.0, 630.0], [81.1667, 126.0, 630.0], [85.3333, 126.0, 630.0], [89.5, 126.0, 630.0], [93.6667, 126.0, 630.0], [97.8333, 126.0, 630.0], [102.0, 126.0, 630.0], [2.5, 120.0, 630.0], [2.5, 133.75, 630.0], [2.5, 147.5, 630.0], [2.5, 161.25, 630.0], [2.5, 175.0, 630.0], [2.5, 188.75, 630.0], [2.5, 202.5, 630.0], [2.5, 216.25, 630.0], [2.5, 230.0, 630.0], [2.5, 243.75, 630.0], [2.5, 257.5, 630.0], [2.5, 271.25, 630.0], [2.5, 285.0, 630.0], [2.5, 298.75, 630.0], [2.5, 312.5, 630.0], [2.5, 326.25, 630.0], [2.5, 340.0, 630.0], [2.5, 353.75, 630.0], [2.5, 367.5, 630.0], [2.5, 381.25, 630.0], [2.5, 395.0, 630.0], [2.5, 408.75, 630.0], [2.5, 422.5, 630.0], [2.5, 436.25, 630.0], [2.5, 450.0, 630.0], [2.5, 126.0, 600.0], [2.5, 126.0, 614.5833], [2.5, 126.0, 629.1667], [2.5, 126.0, 643.75], [2.5, 126.0, 658.3333], [2.5, 126.0, 672.9167], [2.5, 126.0, 687.5], [2.5, 126.0, 702.0833], [2.5, 126.0, 716.6667], [2.5, 126.0, 731.25], [2.5, 126.0, 745.8333], [2.5, 126.0, 760.4167], [2.5, 126.0, 775.0], [2.5, 126.0, 789.5833], [2.5, 126.0, 804.1667], [2.5, 126.0, 818.75], [2.5, 126.0, 833.3333], [2.5, 126.0, 847.9167], [2.5, 126.0, 862.5], [2.5, 126.0, 877.0833], [2.5, 126.0, 891.6667], [2.5, 126.0, 906.25], [2.5, 126.0, 920.8333], [2.5, 126.0, 935.4167], [2.5, 126.0, 950.0]]
-f0 : [0,0,0] #,[0,0],[0,0,0]] #0 #[0,0,0] # initial values for simulating factors
-f_param : [0.0214, 0.0231, -0.0225] #  #0.01 #[0.01, 0.0231, -0.04250] # regression parameters for factors [10.32,122.34,-205.59]
+t_stud : False
+HalfLife : [350] #[2.5, 126.0, 630.0]
+f0 : [0] # initial values for simulating factors
+f_param : [0.00535] # [0.00535, 0.005775, -0.005625] #[0.0214, 0.0231, -0.0225]  #  #0.01 #[0.01, 0.0231, -0.04250] # regression parameters for factors [10.32,122.34,-205.59]
 sigma  : 0.01 # return volatility
-sigmaf : [0.2, 0.1, 0.05] #[0.2, 0.1, 0.05] # factors volatility
+sigmaf : [0.2] # [0.2, 0.1, 0.05] # [0.59, 0.059, 0.023] 
 uncorrelated : True
-hetersk : False
-alpha : 0.4
-beta : 0.6
 CostMultiplier: 0.001 # Cost multiplier to make the cost proportional to the risk as in Gar Ped (2013)
 discount_rate: 0.0 # discount rate as in the paper
 Startholding: 0.0
 ############################### LAUNCH SIMULATIONS ##############################
 start_train : 1000
-seed_ret : [901,  24, 994, 475, 955, 690, 566, 682, 408, 573, 862, 133, 761,
-       621, 797, 683]
+seed_ret : 435
 seed_init :    # Seed for experiment reproducibility 
-N_train : 100000 # training steps (each step consists of one action-value update)
-out_of_sample_test : True
+N_train : 5000 # training steps (each step consists of one action-value update)
+out_of_sample_test : False
 N_test: 10000
 plot_inputs : 0 # boolean for plotting generated ret and factors
 executeDRL: 1 # boolean to decide if run DRL agent
 executeRL: 0 # boolean to decide if run RL agent
 executeGP: 1 # boolean to decide if run GP solution
 executeMV: 0 # boolean to decide if run MV solution
-save_results: 1 # boolean to decide if save dataframe of results
-save_table: 1
+save_results: 0 # boolean to decide if save dataframe of results
+save_table: 0
 plot_hist: 0 # boolean to decide if plot weight histogram distribution (reduce size of tb logs)
 plot_steps_hist : 20000
 plot_steps: 1000 # steps for diagnostics on tensorboard
 pdist_steps: 5000
 save_model: 1 # save trained tf model
-save_ckpt_model: 8
-use_GPU : False
+save_ckpt_model: 50
+use_GPU : True
 ############################### FOLDER PARAMETERS ##############################
 runtype: 'multi' # single, multi
 # Parameter for storing results
 outputDir: 'outputs'
-outputClass: 'DDPG'
-outputModel: '20201102_seeds' # choose model name as number of factors + varying parameter
-varying_pars: ['seed_ret'] #['HalfLife', 'f0', 'f_param', 'sigmaf'] # choose a parameter to vary while performing several different experiment
+outputClass: 'test'
+outputModel: 'tests24' # choose model name as number of factors + varying parameter
+varying_pars:  #['HalfLife', 'f0', 'f_param', 'sigmaf'] # choose a parameter to vary while performing several different experiment
  # leave blank if you don't want to vary any parameter (no subfolder will be created) #['HalfLife','f0', 'f_param', 'sigmaf']
-varying_type : 'combination'
-num_rnd_search : 30
+varying_type : 'chunk'
+num_rnd_search : 20

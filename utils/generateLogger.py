@@ -5,19 +5,22 @@ Created on Tue Feb 18 14:36:51 2020
 @author: aless
 """
 
-import logging,sys
+import logging, sys
 
-def generate_logger():    
+
+def generate_logger():
     root = logging.getLogger()
     root.setLevel(logging.INFO)
     if root.handlers:
         root.handlers = []
     handler = logging.StreamHandler(sys.stdout)
     handler.setLevel(logging.DEBUG)
-    formatter = logging.Formatter('%(asctime)s - %(name)s - %(levelname)s - %(message)s')
+    formatter = logging.Formatter(
+        "%(asctime)s - %(name)s - %(levelname)s - %(message)s"
+    )
     handler.setFormatter(formatter)
     root.addHandler(handler)
-    mpl_logger = logging.getLogger('matplotlib')
+    mpl_logger = logging.getLogger("matplotlib")
     mpl_logger.setLevel(logging.WARNING)
     return root
 

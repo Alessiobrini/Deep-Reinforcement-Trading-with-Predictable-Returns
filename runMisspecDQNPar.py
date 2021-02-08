@@ -1,10 +1,11 @@
 # -*- coding: utf-8 -*-
 """
-Created on Fri Jun 26 16:57:15 2020
+Created on Tue Sep  8 18:33:38 2020
 
 @author: aless
 """
 import os
+
 
 if any("SPYDER" in name for name in os.environ):
     from IPython import get_ipython
@@ -16,11 +17,11 @@ if any("SPYDER" in name for name in os.environ):
 import logging, os, itertools, sys
 from utils.readYaml import readConfigYaml
 from utils.generateLogger import generate_logger
-from runDDPG import RunDDPGTraders
+from runMisspecDQN import RunMisspecDQNTraders
 import pdb
-import time
-import numpy as np
 from itertools import combinations
+import numpy as np
+import time
 
 # import multiprocessing
 from joblib import Parallel, delayed
@@ -37,11 +38,13 @@ logger = generate_logger()
 
 # 1. Read config ----------------------------------------------------------------
 # maybe substitute with argparse
-Param = readConfigYaml(os.path.join(os.getcwd(), "config", "paramDDPG.yaml"))
+Param = readConfigYaml(os.path.join(os.getcwd(), "config", "paramMisspecDQN.yaml"))
 assert Param["runtype"] == "multi"
 logging.info("Successfully read config file with parameters...")
 
+
 variables = []
+
 
 if Param["varying_type"] == "combination":
     for xs in itertools.product(*[Param[v] for v in Param["varying_pars"]]):
@@ -58,6 +61,7 @@ elif Param["varying_type"] == "subset_combination":
         ]
         for tup in zip(*iterables):
             variables.append([list(tup_el) for tup_el in tup])
+
 elif Param["varying_type"] == "random_search":
     for xs in itertools.product(*[Param[v] for v in Param["varying_pars"]]):
         variables.append(xs)
@@ -68,6 +72,7 @@ elif Param["varying_type"] == "random_search":
 elif Param["varying_type"] == "chunk":
     for xs in itertools.product(*[Param[v] for v in Param["varying_pars"]]):
         variables.append(xs)
+
 else:
     print("Choose proper way to combine varying parameters")
     sys.exit()
@@ -80,7 +85,7 @@ def RunMultiParallelExp(var_par, Param):
     for i in range(len(var_par)):
         Param[Param["varying_pars"][i]] = var_par[i]
 
-    RunDDPGTraders(Param)
+    RunMisspecDQNTraders(Param)
 
 
 if __name__ == "__main__":
