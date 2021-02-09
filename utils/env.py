@@ -11,7 +11,9 @@ import numpy as np
 import gym
 from gym.spaces.space import Space
 import pdb, os
+from utils.math_tools import unscale_action
 from utils.common import format_tousands
+
 
 
 class ReturnSpace(Space):
@@ -85,8 +87,11 @@ class ActionSpace(Space):
         and return a boolean
     """
 
-    def __init__(self, KLM: list, zero_action: str = True):
-        self.values = np.arange(-KLM[0], KLM[0] + 1, KLM[1])
+    def __init__(self, KLM: list, zero_action: str = True, side_only: bool = False):
+        if not side_only:
+            self.values = np.arange(-KLM[0], KLM[0] + 1, KLM[1])
+        else:
+            self.values = np.array([-1.0,0.0,1.0])
         if not zero_action:
             self.values = self.values[self.values != 0]
         super().__init__(self.values.shape, self.values.dtype)
@@ -235,31 +240,6 @@ class CreateQTable:
             compression="gzip",
         )
         self.Q_space.columns = tmp_cols
-
-
-def scale_action(action_limit, action):
-    """
-    Rescale the action from [low, high] to [-1, 1]
-    (no need for symmetric action space)
-    :param action_space: (gym.spaces.box.Box)
-    :param action: (np.ndarray)
-    :return: (np.ndarray)
-    """
-    low, high = -action_limit ,action_limit
-    return 2.0 * ((action - low) / (high - low)) - 1.0
-
-
-def unscale_action(action_limit, scaled_action):
-    """
-    Rescale the action from [-1, 1] to [low, high]
-    (no need for symmetric action space)
-    :param action_space: (gym.spaces.box.Box)
-    :param action: (np.ndarray)
-    :return: (np.ndarray)
-    """
-    low, high = -action_limit ,action_limit
-    return low + (0.5 * (scaled_action + 1.0) * (high - low))
-
 
 
 class MarketEnv(gym.Env):
@@ -440,11 +420,12 @@ class MarketEnv(gym.Env):
         iteration: int,
         tag: str = "DQN",
     ) -> Tuple[np.ndarray, dict, np.ndarray]:
+        
         nextFactors = self.factors[iteration + 1]
         nextRet = self.returns[iteration + 1]
         if tag == "DDPG":
-            # shares_traded = shares_traded * self.action_limit
             shares_traded =  unscale_action(self.action_limit, shares_traded)
+
         nextHolding = currState[1] + shares_traded
         nextState = np.array([nextRet, nextHolding], dtype=object)
 
@@ -469,7 +450,7 @@ class MarketEnv(gym.Env):
         discretecurrState: Union[Tuple or np.ndarray],
         shares_traded: int,
         iteration: int,
-    ) -> Tuple[np.ndarray, dict, np.ndarray]:
+    ) -> Tuple[np.ndarray, dict, np.ndarray]: # TODO implement here decoupling if needed
         discretenextRet = self._find_nearest_return(self.returns[iteration + 1])
         discretenextHolding = self._find_nearest_holding(
             discretecurrState[1] + shares_traded
@@ -629,6 +610,7 @@ class MarketEnv(gym.Env):
 
         # Remember that a state is a tuple (price, holding)
         # currRet = currState[0]
+
         nextRet = nextState[0]
         currHolding = currState[1]
         nextHolding = nextState[1]
@@ -955,7 +937,7 @@ class RecurrentMarketEnv(gym.Env):
 
         # CurrReturns = currOptState[0]
         CurrFactors = currOptState[1]
-        OptCurrHolding = currOptState[2]
+        # OptCurrHolding = currOptState[2]
 
         # Traded quantity as for the Markovitz framework  (Mean-Variance framework)
         OptNextHolding = (1 / (self.kappa * (self.sigma) ** 2)) * np.sum(
@@ -1071,7 +1053,7 @@ class RecurrentMarketEnv(gym.Env):
     ) -> dict:
 
         # Remember that a state is a tuple (price, holding)
-        currRet = currState[-1, 0]
+        # currRet = currState[-1, 0]
         nextRet = nextState[-1, 0]
         currHolding = currState[-1, 1]
         nextHolding = nextState[-1, 1]

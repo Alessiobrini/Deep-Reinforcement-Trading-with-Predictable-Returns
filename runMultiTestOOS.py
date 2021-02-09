@@ -362,6 +362,9 @@ def runMultiTestOOS(p):
                         uncorrelated=p_mod["uncorrelated"],
                         t_stud=p_mod["t_stud"],
                         variables=variables,
+                        side_only = p_mod['side_only'],
+                        discretization = p_mod['discretization'],
+                        temp = p_mod['temp'],
                         tag=tag,
                     )
                     avg_pnls.append(pnl)

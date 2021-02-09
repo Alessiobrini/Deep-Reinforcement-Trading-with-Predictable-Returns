@@ -30,7 +30,10 @@ KLM :  [null, null, 100000] # list with actions that each trade can take: from
                             #-K to +K lot sizes minimum size of tradable (equities/contracts) 
                             # and discretization of holding for TabQ (-M,M) holding
 zero_action : True # include the zero action (hold) in the action space
-min_n_actions : False # set up minimum number of actions (3) or more
+min_n_actions : True # set up minimum number of actions (3) or more
+side_only : True # set the action space so that only the side of the bet is captured by the algorithm
+discretization : 0.2 # float in (0,1] to determine a level of discretization for the action space when side_only=True. Leave empty for no discretization
+temp : 200.0 # temperature parameter for boltzmann equation
 RT : [0.050, 0.0001] # boundaries for returns and ticksize to define the discrete space of returns (only for TabQ)
 tablr: 0.005 # learning rate for updating q table
 ############################## DL RELATED ##############################
@@ -41,7 +44,7 @@ optimizer_name : 'adam' # 'sgd', 'sgdmom', 'sgdnest, 'adadelta', 'adamax', 'amsg
 beta_1: 0.5 # first parameter for adaptive optimizers
 beta_2: 0.75 # second parameter for adaptive optimizers
 eps_opt: 0.1 # corrective parameter for adaptive optimizers
-hidden_units : [128,64] # list of hidden layers size
+hidden_units : [256,128] # list of hidden layers size
 batch_size : 256
 learning_rate : 0.005 # initial learning rate
 lr_schedule : 'exponential' # 'exponential', 'piecewise', 'inverse_time' or 'polynomial'
@@ -69,14 +72,14 @@ discount_rate: 0.0 # discount rate for time value of money (not gamma in DQN)
 Startholding: 0.0 # initial portfolio holding
 ############################### LAUNCH SIMULATIONS ##############################
 start_train : 1000 # steps after which the training starts
-seed_ret : 543 # seed for the return simulation
+seed_ret : [573,   6, 446, 122, 535, 169, 734, 400] # seed for the return simulation
 seed_init :  # seed for weights initialization. Leave empty if you want it to be equal to seed_ret 
-N_train : 2000  # training iteration (each step consists of one action-value update)
-out_of_sample_test : False # do out-of-sample test while training
+N_train : 300000  # training iteration (each step consists of one action-value update)
+out_of_sample_test : False  # do out-of-sample test while training
 N_test: 1000 # test iteration
 plot_inputs : 0 # boolean for plotting generated ret and factors
 executeDRL: 1 # boolean to decide if run DRL agent
-executeRL: 1 # boolean to decide if run RL agent
+executeRL: 0 # boolean to decide if run RL agent
 executeGP: 1 # boolean to decide if run GP solution
 executeMV: 0 # boolean to decide if run MV solution
 save_results: 0 # boolean to decide if save dataframe of results
@@ -85,15 +88,15 @@ plot_hist: 0 # boolean to decide if plot weight histogram distribution (reduce s
 plot_steps_hist : 20000 # steps for plotting histograms on tensorboard
 plot_steps: 1000 # steps for all the other plots on tensorboard
 save_model: 1 # save trained tf model
-save_ckpt_model: 25 # number of checkpoints to save during training
+save_ckpt_model: 100 # number of checkpoints to save during training
 use_GPU : True
 #########################################################################################################
 # FOLDER PARAMETERS
 outputDir: 'outputs' # main directory for the experiment
-outputClass: 'test' # first subdirectory
-outputModel: 'testmutltmiss3' # second subdirectory
+outputClass: 'DQN' # first subdirectory
+outputModel: '20210204_GPGAUSS_3act' # second subdirectory
 num_rnd_search : 8 # number of cores to use when experiments are parallelized
-varying_pars: #['seed_ret']  # choose parameters to vary while performing several different experiment
+varying_pars: ['seed_ret']  # choose parameters to vary while performing several different experiment
 varying_type : 'chunk' # type of parallelization. 'chunk' will parallelize experiments
                        # in chunks of size 'num_rnd_search'. 'random_search' draw randomly some
                        # parameter combination depeding on all 'varying_pars' combinations.

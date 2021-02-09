@@ -19,7 +19,7 @@ from tensorflow.keras.optimizers.schedules import PiecewiseConstantDecay
 from tensorflow.keras.optimizers.schedules import ExponentialDecay
 from tensorflow.keras.initializers import RandomUniform, VarianceScaling
 from utils.exploration import OrnsteinUhlenbeckActionNoise, GaussianActionNoise, PER_buffer
-from utils.env import scale_action
+from utils.math_tools import scale_action
 
 
 ################################ Class to create a Deep Q Network model ################################

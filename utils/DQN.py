@@ -6,7 +6,7 @@ Created on Sat Jan  4 16:53:31 2020
 """
 
 import numpy as np
-from typing import Union, Optional
+from typing import Union, Optional, Tuple
 import sys
 import tensorflow as tf
 from tensorflow.keras.layers import BatchNormalization
@@ -18,7 +18,7 @@ from tensorflow.keras.optimizers.schedules import InverseTimeDecay
 from tensorflow.keras.optimizers.schedules import PiecewiseConstantDecay
 from tensorflow.keras.optimizers.schedules import PolynomialDecay
 from utils.exploration import PER_buffer
-
+import pdb
 ################################ Class to create a Deep Q Network model ################################
 class DeepNetworkModel(tf.keras.Model):
     def __init__(
@@ -759,11 +759,12 @@ class DQN:
             ids = self.rng.randint(
                 low=0, high=len(self.experience["s"]), size=self.batch_size
             )
+
             states = np.asarray([self.experience["s"][i] for i in ids])
             actions = np.asarray([self.experience["a"][i] for i in ids])
             rewards = np.asarray([self.experience["r"][i] for i in ids])
             states_next = np.asarray([self.experience["s2"][i] for i in ids])
-
+        
         with tf.GradientTape() as tape:
 
             # compute current action values
@@ -1045,8 +1046,8 @@ class DQN:
 
 
     def eps_greedy_action(
-         self, states: np.ndarray, epsilon: float
-     ) -> Union[float or int]:
+         self, states: np.ndarray, epsilon: float, side_only: bool = False
+     ) -> Tuple[Union[float or int],np.ndarray]:
         """Parameters
         ----------
         states: np.ndarray
@@ -1054,39 +1055,66 @@ class DQN:
        
         epsilon: float
             Epsilon parameter for exploration
+            
+        side_only: bool
+            Regulate the decoupling between side and size of the bet
        
         Returns
         ----------
         action: Union[float or int]
             Epsilon greedy selected action
+        qvalues : np.ndarray
+            Q values associated to the actions space
         """
-        if self.rng.random() < epsilon:
-            return self.rng.choice(self.action_space.values)
+        if not side_only:
+            if self.rng.random() < epsilon:
+                action = self.rng.choice(self.action_space.values)
+                return action, None
+            else:
+                action = self.action_space.values[
+                    np.argmax(
+                        self.model(np.atleast_2d(states.astype("float32")), training=False)[
+                            0
+                        ]
+                    )
+                ]
+                return action, None
         else:
-            return self.action_space.values[
-                np.argmax(
-                    self.model(np.atleast_2d(states.astype("float32")), training=False)[
-                        0
-                    ]
-                )
-            ]
+            if self.rng.random() < epsilon:
+                action = self.rng.choice(self.action_space.values)
+                return action, None
+            else:
+                qvalues = self.model(np.atleast_2d(states.astype("float32")), training=False)
+                action = self.action_space.values[np.argmax(qvalues[0])]
+                return action, qvalues
     
-    def greedy_action(self, states: np.ndarray) -> Union[float or int]:
+    def greedy_action(self, states: np.ndarray, side_only: bool = False) -> Tuple[Union[float or int],np.ndarray]:
         """Parameters
         ----------
         states: np.ndarray
             Current state representation
+    
+        side_only: bool
+            Regulate the decoupling between side and size of the bet
        
         Returns
         ----------
         action: Union[float or int]
             Greedy selected action
+            
+        qvalues : np.ndarray
+            Q values associated to the actions space
         """
-        return self.action_space.values[
-            np.argmax(
-                self.model(np.atleast_2d(states.astype("float32")), training=False)[0]
-            )
-        ]
+        if not side_only:
+            qvalues = self.model(np.atleast_2d(states.astype("float32")), training=False)
+            action = self.action_space.values[np.argmax(qvalues[0])]
+            return action, None
+        else:
+
+            qvalues = self.model(np.atleast_2d(states.astype("float32")), training=False)
+            action = self.action_space.values[np.argmax(qvalues[0])]
+            return action, qvalues
+
     
     def add_experience(self, exp):
         """Parameters

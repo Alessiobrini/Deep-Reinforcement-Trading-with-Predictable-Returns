@@ -7,12 +7,13 @@ Created on Thu Nov 26 14:38:05 2020
 import pdb
 from tqdm import tqdm
 import numpy as np
+import tensorflow as tf
 from typing import Union, Tuple
-from utils.env import MarketEnv
 import pandas as pd
 from statsmodels.regression.linear_model import OLS
-
-
+from utils.env import MarketEnv
+from utils.math_tools import boltzmann, unscale_action
+from scipy.stats import norm
 
 
 def get_action_boundaries(
@@ -261,3 +262,68 @@ def RunModels(
         # params_meanrev['pval' + col] = fitted_ou.pvalues
 
     return params_retmodel, params_meanrev, fitted_retmodel, fitted_ous
+
+
+
+def get_bet_size(qvalues: np.ndarray,side_action: float,action_limit: float, rng, discretization: float = None,
+                 temp: float = 200.0) -> float:
+    """
+    Get the size of the bet by using qvalues of DQN as probabilities. In principle
+    a continuous range of action inside a boundary is outputted, but there is also
+    an option to discretize the range.
+
+    Parameters
+    ----------
+    qvalues: Union[pd.Series or pd.DataFrame]
+        Array of qvalues
+
+    side_action: Union[pd.Series or pd.DataFrame]
+        Action taken by the algorithm which specifies the size
+
+    action_limit: bool
+        Lower and upper boundary for the action space
+    
+    rng: 
+        Random number generator
+    
+    discretization: float
+        Level of discretization. If none, no discretization will be applied
+        
+    temp: float
+        Temperature of boltzmann equation
+
+    Returns
+    ----------
+    size_action: float
+        Action which reflect the size of the bet in addition the provided side
+
+    """ 
+    # when qvalues are not provided because the action is taked at random
+    if qvalues == None:
+        if side_action == 0.0:
+            m = 0
+        elif side_action == -1.0:
+            m = rng.uniform(-1.0,0.0)
+        elif side_action == 1.0:
+            m = rng.uniform(0.0,1.0)
+        if discretization:
+            m = np.round(m/discretization,0)*discretization
+        size_action = unscale_action(action_limit, m)
+    
+    else:
+        
+        # one hot vector of qvalues by the max action
+        idx = tf.one_hot(tf.math.argmax(qvalues,axis=1), 3)
+        # get prob by using boltzmann
+        prob = boltzmann(qvalues,T=temp)
+        act_prob = tf.math.reduce_sum(prob * idx, axis=1)
+        # avoid division by 0 and get z statistics
+        z = (act_prob - (1/3)) / (tf.math.sqrt(act_prob * (1-act_prob)) + 0.00000007)
+        # get size in the range -1,1
+        m = (2*norm.cdf(z) - 1) * side_action
+        if discretization:
+            m = np.round(m/discretization,0)*discretization
+        # rescale action to the proper range
+        size_action = float(unscale_action(action_limit, m))
+    
+    return size_action

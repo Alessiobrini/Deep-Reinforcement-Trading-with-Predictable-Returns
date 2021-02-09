@@ -16,6 +16,7 @@ import pandas as pd
 from typing import Union, Optional
 from pathlib import Path
 import pdb, sys
+from utils.tools import get_bet_size
 
 
 def Out_sample_test(
@@ -47,6 +48,9 @@ def Out_sample_test(
     action_limit=None,
     uncorrelated=False,
     t_stud: bool = False,
+    side_only: bool = False,
+    discretization: float = None,
+    temp: float = 200.0,
     tag="DQN",
 ):
     """
@@ -144,6 +148,15 @@ def Out_sample_test(
 
     t_stud : bool = False
         Bool to regulate if Student\'s t noises are needed
+        
+    side_only: bool
+        Regulate the decoupling between side and size of the bet
+        
+    discretization: float
+        Level of discretization. If none, no discretization will be applied
+        
+    temp: float
+        Temperature of boltzmann equation
 
     tag: bool
         Name of the testing algorithm
@@ -214,7 +227,14 @@ def Out_sample_test(
     for i in tqdm(iterable=range(N_test + 1), desc="Testing DQNetwork"):
         if executeDRL:
             if tag == "DQN":
-                shares_traded = TrainNet.greedy_action(CurrState)
+
+                shares_traded, qvalues = TrainNet.greedy_action(CurrState, side_only=side_only)
+
+                if side_only:
+                    shares_traded = get_bet_size(qvalues,shares_traded,action_limit=KLM[0], rng=rng,
+                                                 discretization=discretization,
+                                                 temp=temp)
+                    
                 NextState, Result, NextFactors = test_env.step(
                     CurrState, shares_traded, i
                 )

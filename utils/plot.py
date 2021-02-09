@@ -22,6 +22,7 @@ import matplotlib.pyplot as plt
 from matplotlib.ticker import FuncFormatter, ScalarFormatter
 from matplotlib import cm
 from utils.common import format_tousands
+from utils.tools import get_bet_size
 
 
 # LOAD UTILS
@@ -816,6 +817,9 @@ def Out_sample_test(
     uncorrelated=False,
     t_stud: bool = False,
     variables: list = None,
+    side_only: bool = False,
+    discretization: float = None,
+    temp: float = 200.0,
     tag="DQN",
 ):
     """
@@ -917,6 +921,15 @@ def Out_sample_test(
     variables: list
         Variables to store as results of the experiment
 
+    side_only: bool
+        Regulate the decoupling between side and size of the bet
+        
+    discretization: float
+        Level of discretization. If none, no discretization will be applied
+        
+    temp: float
+        Temperature of boltzmann equation
+
     tag: bool
         Name of the testing algorithm
 
@@ -971,7 +984,7 @@ def Out_sample_test(
             action_limit,
         )
     if "DQN" in tag:
-        action_space = ActionSpace(KLM, zero_action=True)
+        action_space = ActionSpace(KLM, zero_action=True, side_only=side_only) # TODO hard coded zero action
     if executeDRL:
         CurrState, _ = test_env.reset()
     if executeRL:
@@ -987,14 +1000,15 @@ def Out_sample_test(
     for i in tqdm(iterable=range(N_test + 1), desc="Testing DQNetwork"):
         if executeDRL:
             if "DQN" in tag:
-                #                 shares_traded = TrainNet.greedy_action(CurrState)
-                shares_traded = action_space.values[
-                    np.argmax(
-                        TrainNet(
-                            np.atleast_2d(CurrState.astype("float32")), training=False
-                        )[0]
-                    )
-                ]
+
+                qvalues = TrainNet( np.atleast_2d(CurrState.astype("float32")), training=False)
+                shares_traded = action_space.values[np.argmax(qvalues[0])]
+                
+                if side_only:
+                    shares_traded = get_bet_size(qvalues,shares_traded,action_limit=KLM[0], rng=rng,
+                                                 discretization=discretization,
+                                                 temp=temp)
+                
                 NextState, Result, NextFactors = test_env.step(
                     CurrState, shares_traded, i
                 )

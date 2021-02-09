@@ -90,7 +90,7 @@ def readConfigYaml(filepath):
     return cfg
 
 
-def saveConfigYaml(config, path):
+def saveConfigYaml(config: dict, path: str, multitest: bool = False):
     """Takes the config and a specified path where to save it. This allows
     to save the config file in the folde rof the experiment to enhance reproducibility.
 
@@ -101,22 +101,23 @@ def saveConfigYaml(config, path):
     path: str
 
     """
-    with open(
-        os.path.join(path, "config_" + format_tousands(config["N_train"]) + ".yaml"),
-        "w",
-    ) as file:
-        file.write(yaml.dump(config))
-
-
-def saveMultiTestConfigYaml(config, path):
-
-    with open(
-        os.path.join(
-            path, "MultiTestconfig_" + format_tousands(config["N_test"]) + ".yaml"
-        ),
-        "w",
-    ) as file:
-        file.write(yaml.dump(config))
+    if multitest:
+        with open(
+            os.path.join(
+                path,
+                "MultiTestconfig_{}.yaml".format(format_tousands(config["N_test"])),
+            ),
+            "w",
+        ) as file:
+            file.write(yaml.dump(config))
+    else:
+        with open(
+            os.path.join(
+                path, "config_{}.yaml".format(format_tousands(config["N_train"]))
+            ),
+            "w",
+        ) as file:
+            file.write(yaml.dump(config))
 
 
 def GeneratePathFolder(
@@ -133,6 +134,8 @@ def GeneratePathFolder(
 
     Parameters
     ----------
+    outputDir: str
+        Main directory for output results
 
     outputClass: str
         Subdirectory usually indicating the family of algorithms e.g. "DQN"
