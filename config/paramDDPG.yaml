@@ -1,8 +1,5 @@
 # DDPG PARAMS
 ############################## EXPLORATION ##############################
-epsilon : 1  # greedy policy choice
-min_eps_pct : 0.85 # decay for the epsilon parameter 0.1 linearly lead to 0.1n after 10 iter. 
-min_eps : 0.1 # minimum possible value for epsilon
 mu : [0.0]
 noise: 'G'
 stddev_noise :  0.4
@@ -31,8 +28,6 @@ tau_Q : 0.001
 tau_p : 0.001
 qts : [0.001,0.999]
 KLM :  [null, null, null] # [200000,40000,2000000]  # list with actions that each trade can take: from -K to +K lot sizes minimum size of tradable (equities/contracts) and discretization of holding for TabQ (-M,M) holding
-RT : [null, 0.0001] # boundaries for returns and ticksize to define the discrete space of returns (only for TabQ)
-tablr: 0.005 # learning rate for updating q table
 ############################## DDPG RELATED ###################################
 DDPG_type : 'DDPG'
 noise_clip : 0.1
@@ -89,7 +84,6 @@ out_of_sample_test : False
 N_test: 10000
 plot_inputs : 0 # boolean for plotting generated ret and factors
 executeDRL: 1 # boolean to decide if run DRL agent
-executeRL: 0 # boolean to decide if run RL agent
 executeGP: 1 # boolean to decide if run GP solution
 executeMV: 0 # boolean to decide if run MV solution
 save_results: 0 # boolean to decide if save dataframe of results
@@ -106,7 +100,7 @@ runtype: 'multi' # single, multi
 # Parameter for storing results
 outputDir: 'outputs'
 outputClass: 'test'
-outputModel: 'tests24' # choose model name as number of factors + varying parameter
+outputModel: 'tests34' # choose model name as number of factors + varying parameter
 varying_pars:  #['HalfLife', 'f0', 'f_param', 'sigmaf'] # choose a parameter to vary while performing several different experiment
  # leave blank if you don't want to vary any parameter (no subfolder will be created) #['HalfLife','f0', 'f_param', 'sigmaf']
 varying_type : 'chunk'

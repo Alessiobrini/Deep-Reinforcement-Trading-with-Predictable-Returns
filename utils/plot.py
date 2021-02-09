@@ -11,12 +11,10 @@ import os, sys, pdb
 import pandas as pd
 from tqdm import tqdm
 from typing import Union, Optional
-from utils.SimulateData import ReturnSampler, GARCHSampler
+from utils.simulation import ReturnSampler, GARCHSampler, create_lstm_tensor
 from sklearn.preprocessing import StandardScaler, MinMaxScaler
-from utils.MarketEnv import MarketEnv, RecurrentMarketEnv
-from utils.MarketEnv import ReturnSpace, HoldingSpace, ActionSpace
-from utils.SimulateData import create_lstm_tensor
-from utils.Regressions import CalculateLaggedSharpeRatio, RunModels
+from utils.env import MarketEnv, RecurrentMarketEnv, ReturnSpace, HoldingSpace, ActionSpace 
+from utils.tools import CalculateLaggedSharpeRatio, RunModels
 import collections
 from natsort import natsorted
 import re
@@ -27,8 +25,41 @@ from utils.common import format_tousands
 
 
 # LOAD UTILS
-def load_DQNmodel(p, data_dir, ckpt=False, ckpt_it=None, ckpt_folder=None):
+def load_DQNmodel(
+    p: dict,
+    data_dir: str,
+    ckpt: bool = False,
+    ckpt_it: int = None,
+    ckpt_folder: str = None,
+):
+    """
+    Load trained parameter for DQN
 
+    Parameters
+    ----------
+    p: dict
+        Parameter config loaded from the folder experiment
+
+    data_dir: str
+        Dicretory model where the weights are store
+
+    ckpt: bool
+        Boolean to regulate if the loaded weights are a checkpoint or not
+
+    ckpt_it: int
+        Number of iteration of the checkpoint you want to load
+
+    ckpt_folder: bool
+        boolean if you want to load weights from pretrained models
+
+    Returns
+    ----------
+    model
+        Model with loaded weights
+    actions: np.ndarray
+        Array of possible actions
+
+    """
     num_inp = 2  # TODO insert number of factors as parameter
     if not p["zero_action"]:
         actions = np.arange(-p["KLM"][0], p["KLM"][0] + 1, p["KLM"][1])
@@ -67,6 +98,38 @@ def load_DQNmodel(p, data_dir, ckpt=False, ckpt_it=None, ckpt_folder=None):
 
 
 class TrainedQTable:
+    """
+    Class which represents the Q-table to approximate the action-value function
+    in the Q-learning algorithm. Used for inference since there are no update methods
+    ...
+
+    Attributes
+    ----------
+    Q_space : pd.DataFrame
+        Current Q-table estimate
+
+    Methods
+    -------
+    getQvalue(state: np.ndarray)-> np.ndarray
+        Get the estimated action-value for each action at the current state
+
+    argmaxQ(state: np.ndarray)-> int
+        Get the index position of the action that gives the maximum action-value
+        at the current state
+
+    getMaxQ(state: np.ndarray)-> int
+        Get the action that gives the maximum action-value at the current state
+
+    chooseAction(state: np.ndarray, epsilon: float)-> int
+        Get the index position of the action that gives the maximum action-value
+        at the current state or a random action depeding on the epsilon parameter
+        of exploration
+
+    chooseGreedyAction(state: np.ndarray)-> int
+        Get the index position of the action that gives the maximum action-value
+        at the current state
+
+    """
     def __init__(self, Q_space):
         # generate row index of the dataframe with every possible combination
         # of state space variables
@@ -259,9 +322,143 @@ def Out_sample_Misspec_test(
     degrees: int = None,
     rng=None,
     variables: list = None,
-    bandwidth: float = None,
     tag="DQN",
 ):
+    """
+    Perform an out-of-sample test and return results of specific variables
+    in the case of misspecified model dynamic
+
+    Parameters
+    ----------
+    N_test : int
+        Length of the experiment
+
+    df: np.ndarray,
+        Dataframe or numpy array of real data if a test is performed over
+        real financial data
+
+    factor_lb: list
+        List of lags for constructing factors as lagged variables when in the case
+        of benchmark solution
+
+    Startholding: Union[int or float]
+        Initial portfolio holding, usually set at 0
+
+    CostMultiplier: float
+        Transaction cost parameter which regulates the market liquidity
+
+    kappa: float
+        Risk averion parameter
+
+    discount_rate: float
+        Discount rate for the reward function
+
+    executeDRL: bool
+        Boolean to regulate if perform the deep reinforcement learning algorithm
+
+    executeRL: bool
+        Boolean to regulate if perform the reinforcement learning algorithm
+    executeMV: bool
+        Boolean to regulate if perform the Markovitz solution
+
+    RT: list
+        List of boundaries for the discretized return space. The first element is
+        the parameter T of the paper and the second it the ticksize
+        (usually set as a basis point). Used only for RL case.
+
+    KLM: list
+        List of boundaries for Action and Holding space. The first element is
+        the extreme boundary of the action space, the second element is
+        the intermediate action for such discretized space and the third is
+        the boundary for the holding space. In the paper they are defined as
+        K, K/2 and M.
+
+    executeGP: bool
+        Boolean to regulate if perform the benchmark solution of Garleanu and Pedersen
+
+    TrainNet
+        Instantiated class for the train network. It is an instance of
+        DeepNetworkModel or DeepRecurrentNetworkModel class
+
+    savedpath: Union[ str or Path]
+        Pat where to store results at the end of the training
+
+    iteration: int
+        Iteration step
+
+    recurrent_env: bool
+        Boolean to regulate if the enviroment is recurrent or not
+
+    unfolding: int = 1
+        Timesteps for recurrent. Used only if recurrent_env is True
+
+    QTable: Optional[pd.DataFrame]
+        Dataframe representing Q-table
+
+    action_limit=None
+        Action boundary used only for DDPG
+
+    datatype: str
+        Indicate the type of financial series to be used. It can be 'real' for real
+        data, or 'garch', 'tstud', 'tstud_mfit' for different type of synthetic
+        financial series. 'tstud' corresponds to the fullfit of the paper, while
+        't_stud_mfit' corresponds to mfit.
+
+    mean_process: str
+        Mean process for the returns. It can be 'Constant' or 'AR'
+
+    lags_mean_process: int
+        Order of autoregressive lag if mean_process is AR
+
+    vol_process: str
+        Volatility process for the returns. It can be 'GARCH', 'EGARCH', 'TGARCH',
+        'ARCH', 'HARCH', 'FIGARCH' or 'Constant'. Note that different volatility
+        processes requires different parameter, which are hard coded. If you want to
+        pass them explicitly, use p_arg.
+
+    distr_noise: str
+        Distribution for the unpredictable component of the returns. It can be
+        'normal', 'studt', 'skewstud' or 'ged'. Note that different distributions
+        requires different parameter, which are hard coded. If you want to
+        pass them explicitly, use p_arg.
+
+    seed: int
+        Seed for experiment reproducibility
+
+    seed_param: int
+        Seed for randomly drawing parameter for GARCH type simulation
+
+    sigmaf : Union[float or list or np.ndarray]
+        Volatilities of the mean reverting factors
+
+    f0 : Union[float or list or np.ndarray]
+        Initial points for simulating factors. Usually set at 0
+
+    f_param: Union[float or list or np.ndarray]
+        Factor loadings of the mean reverting factors
+
+    sigma: Union[float or list or np.ndarray]
+        volatility of the asset return (additional noise other than the intrinsic noise
+                                        in the factors)
+    plot_inputs: bool
+        Boolean to regulate if plot of simulated returns and factor is needed
+
+    HalfLife: Union[int or list or np.ndarray]
+        HalfLife of mean reversion to simulate factors with different speeds
+
+    uncorrelated: bool = False
+        Boolean to regulate if the simulated factor are correlated or not
+
+    degrees : int = 8
+        Degrees of freedom for Student\'s t noises
+
+    rng: np.random.mtrand.RandomState
+        Random number generator
+
+    tag: bool
+        Name of the testing algorithm
+
+    """
 
     if datatype == "real":
         y, X = df[df.columns[0]], df[df.columns[1:]]
@@ -285,7 +482,6 @@ def Out_sample_Misspec_test(
 
     elif datatype == "t_stud":
         plot_inputs = False
-        # df freedom for t stud distribution are hard coded inside the function
         returns, factors, test_f_speed = ReturnSampler(
             N_test + factor_lb[-1],
             sigmaf,
@@ -528,16 +724,9 @@ def Out_sample_Misspec_test(
         opt_rew_str = list(filter(lambda x: "OptReward" in x, variables))
 
         # pnl
-
         pnl = test_env.res_df[pnl_str + opt_pnl_str].iloc[:-1]
-        # if bandwidth:
-        #     mean = pnl[pnl_str].mean()
-        #     std = pnl[pnl_str].std()
-        #     pnl.loc[pnl[pnl_str] <= mean - bandwidth*std,pnl_str] = mean - bandwidth*std
-        #     pnl.loc[pnl[pnl_str] >= mean + bandwidth*std,pnl_str] = mean + bandwidth*std
         cum_pnl = pnl.cumsum()
 
-        # if datatype == 'garch' or datatype == 't_stud':
         if datatype == "garch" or datatype=='garch_mr':
             ref_pnl = np.array(cum_pnl[pnl_str]) - np.array(cum_pnl[opt_pnl_str])
         else:
@@ -547,13 +736,7 @@ def Out_sample_Misspec_test(
 
         # rewards
         rew = test_env.res_df[rew_str + opt_rew_str].iloc[:-1]
-        # if bandwidth:
-        #     mean = rew[rew_str].mean()
-        #     std = rew[rew_str].std()
-        #     rew.loc[rew[rew_str] <= mean - bandwidth*std,rew_str] = mean - bandwidth*std
-        #     rew.loc[rew[rew_str] >= mean + bandwidth*std,rew_str] = mean + bandwidth*std
         cum_rew = rew.cumsum()
-        # if datatype == 'garch' or datatype == 't_stud':
         if datatype == "garch" or datatype == "garch_mr":
             ref_rew = np.array(cum_rew[rew_str]) - np.array(cum_rew[opt_rew_str])
         else:
@@ -562,7 +745,6 @@ def Out_sample_Misspec_test(
             ) * 100
 
         # SR
-        # pnl = test_env.res_df[pnl_str+opt_pnl_str].iloc[:-1]
         mean = np.array(pnl[pnl_str]).mean()
         std = np.array(pnl[pnl_str]).std()
         sr = (mean / std) * (252 ** 0.5)
@@ -634,10 +816,111 @@ def Out_sample_test(
     uncorrelated=False,
     t_stud: bool = False,
     variables: list = None,
-    bandwidth: float = None,
     tag="DQN",
 ):
+    """
+    Perform an out-of-sample test and store results
 
+    Parameters
+    ----------
+    N_test : int
+        Length of the experiment
+
+    sigmaf : Union[float or list or np.ndarray]
+        Volatilities of the mean reverting factors
+
+    f0 : Union[float or list or np.ndarray]
+        Initial points for simulating factors. Usually set at 0
+
+    f_param: Union[float or list or np.ndarray]
+        Factor loadings of the mean reverting factors
+
+    sigma: Union[float or list or np.ndarray]
+        volatility of the asset return (additional noise other than the intrinsic noise
+                                        in the factors)
+    plot_inputs: bool
+        Boolean to regulate if plot of simulated returns and factor is needed
+
+    HalfLife: Union[int or list or np.ndarray]
+        HalfLife of mean reversion to simulate factors with different speeds
+
+    Startholding: Union[int or float]
+        Initial portfolio holding, usually set at 0
+
+    CostMultiplier: float
+        Transaction cost parameter which regulates the market liquidity
+
+    kappa: float
+        Risk averion parameter
+
+    discount_rate: float
+        Discount rate for the reward function
+
+    executeDRL: bool
+        Boolean to regulate if perform the deep reinforcement learning algorithm
+
+    executeRL: bool
+        Boolean to regulate if perform the reinforcement learning algorithm
+    executeMV: bool
+        Boolean to regulate if perform the Markovitz solution
+
+    RT: list
+        List of boundaries for the discretized return space. The first element is
+        the parameter T of the paper and the second it the ticksize
+        (usually set as a basis point). Used only for RL case.
+
+    KLM: list
+        List of boundaries for Action and Holding space. The first element is
+        the extreme boundary of the action space, the second element is
+        the intermediate action for such discretized space and the third is
+        the boundary for the holding space. In the paper they are defined as
+        K, K/2 and M.
+
+    executeGP: bool
+        Boolean to regulate if perform the benchmark solution of Garleanu and Pedersen
+
+    TrainNet
+        Instantiated class for the train network. It is an instance of
+        DeepNetworkModel or DeepRecurrentNetworkModel class
+
+    savedpath: Union[ str or Path]
+        Pat where to store results at the end of the training
+
+    iteration: int
+        Iteration step
+
+    recurrent_env: bool
+        Boolean to regulate if the enviroment is recurrent or not
+
+    unfolding: int = 1
+        Timesteps for recurrent. Used only if recurrent_env is True
+
+    QTable: Optional[pd.DataFrame]
+        Dataframe representing Q-table
+
+    rng: np.random.mtrand.RandomState
+        Random number generator
+
+    seed_test: int
+        Seed for test that allows to create a new random number generator
+        instead of using the one passed as argument
+
+    action_limit=None
+        Action boundary used only for DDPG
+
+    uncorrelated: bool = False
+        Boolean to regulate if the simulated factor are correlated or not
+
+    t_stud : bool = False
+        Bool to regulate if Student\'s t noises are needed
+
+    variables: list
+        Variables to store as results of the experiment
+
+    tag: bool
+        Name of the testing algorithm
+
+    """
     test_returns, test_factors, test_f_speed = ReturnSampler(
         N_test,
         sigmaf,
@@ -766,25 +1049,14 @@ def Out_sample_test(
 
         # pnl
         pnl = test_env.res_df[pnl_str + opt_pnl_str].iloc[:-1]
-        # if bandwidth:
-        #     mean = pnl[pnl_str].mean()
-        #     std = pnl[pnl_str].std()
-        #     pnl.loc[pnl[pnl_str] <= mean - bandwidth*std,pnl_str] = mean - bandwidth*std
-        #     pnl.loc[pnl[pnl_str] >= mean + bandwidth*std,pnl_str] = mean + bandwidth*std
         cum_pnl = pnl.cumsum()
         ref_pnl = (np.array(cum_pnl[pnl_str]) / np.array(cum_pnl[opt_pnl_str])) * 100
         # rewards
         rew = test_env.res_df[rew_str + opt_rew_str].iloc[:-1]
-        # if bandwidth:
-        #     mean = rew[rew_str].mean()
-        #     std = rew[rew_str].std()
-        #     rew.loc[rew[rew_str] <= mean - bandwidth*std,rew_str] = mean - bandwidth*std
-        #     rew.loc[rew[rew_str] >= mean + bandwidth*std,rew_str] = mean + bandwidth*std
         cum_rew = rew.cumsum()
         ref_rew = (np.array(cum_rew[rew_str]) / np.array(cum_rew[opt_rew_str])) * 100
 
         # SR
-        # pnl = test_env.res_df[pnl_str+opt_pnl_str].iloc[:-1]
         mean = np.array(pnl[pnl_str]).mean()
         std = np.array(pnl[pnl_str]).std()
         sr = (mean / std) * (252 ** 0.5)
@@ -842,21 +1114,6 @@ def prime_factors(n):
     return factors
 
 
-def get_figsize(columnwidth=243.91125, wf=0.5, hf=(5.0 ** 0.5 - 1.0) / 2.0):
-    """Parameters:
-      - wf [float]:  width fraction in columnwidth units
-      - hf [float]:  height fraction in columnwidth units.
-                      Set by default to golden ratio.
-      - columnwidth [float]: width of the column in latex. Get this from LaTeX
-                              using \showthe\columnwidth
-    Returns:  [fig_width,fig_height]: that should be given to matplotlib
-    """
-    fig_width_pt = columnwidth * wf
-    inches_per_pt = 1.0 / 72.27  # Convert pt to inch
-    fig_width = fig_width_pt * inches_per_pt  # width in inches
-    fig_height = fig_width * hf  # height in inches
-    return (fig_width, fig_height)
-
 
 def set_size(width, fraction=1, subplots=(1, 1)):
     """Set figure dimensions to avoid scaling in LaTeX.
@@ -892,74 +1149,6 @@ def set_size(width, fraction=1, subplots=(1, 1)):
     fig_dim = (fig_width_in, fig_height_in)
 
     return fig_dim
-
-
-def plot_multitest_OOS(
-    df,
-    data_dir,
-    N_test,
-    variable,
-    colors=["b", "darkblue"],
-    conf_interval=False,
-    diff_colors=False,
-):
-
-    df_mean = df.mean(axis=0)
-
-    fig = plt.figure(figsize=get_figsize(columnwidth=397.48499, wf=2.5, hf=0.7))
-    # fig.subplots_adjust(wspace=0.2, hspace=0.6)
-    ax1 = fig.add_subplot()
-
-    idxs = [int(i) for i in df.iloc[0, :].index]
-    # https://matplotlib.org/examples/color/colormaps_reference.html
-    colormap = cm.get_cmap("plasma", len(df.index))
-    for j, i in enumerate(df.index):
-        if diff_colors:
-            ax1.scatter(
-                x=idxs,
-                y=df.iloc[i, :],
-                alpha=0.8,
-                color=colormap.colors[j],
-                marker="o",
-                s=7.5,
-            )
-        else:
-            ax1.scatter(
-                x=idxs, y=df.iloc[i, :], alpha=0.6, color=colors[0], marker="o", s=7.5
-            )
-
-    ax1.plot(
-        idxs,
-        df_mean.values,
-        color=colors[1],
-        linewidth=3,
-        label="Avg {} {}".format("DQN", variable.split("_")[0]),
-    )
-    if conf_interval:
-        ci = 2 * np.std(df_mean.values)
-        ax1.fill_between(
-            idxs, (df_mean.values - ci), (df_mean.values + ci), color="b", alpha=0.1
-        )
-    # add benchmark series to plot the hline
-    df.loc["Benchmark"] = 100.0
-    ax1.plot(
-        idxs,
-        df.loc["Benchmark"].values,
-        linestyle="--",
-        linewidth=4,
-        color="red",
-        label="GP {}".format(variable.split("_")[0]),
-    )
-
-    ax1.set_title("{}".format(data_dir.split("/")[-2]))
-    ax1.set_ylabel("% Reference {}".format(variable.split("_")[0]))
-    ax1.set_xlabel("in-sample training iterations")
-    # ax1.set_ylim(0,150)
-    # ax1.legend()
-    # scientific_formatter = FuncFormatter(scientific)
-    ax1.xaxis.set_major_formatter(ScalarFormatter())
-    ax1.yaxis.set_major_formatter(ScalarFormatter())
-    fig.savefig(os.path.join(data_dir, "{}.pdf".format(variable)), dpi=300)
 
 
 def plot_multitest_overlap_OOS(
@@ -1267,7 +1456,7 @@ def plot_multitest_real_OOS(
             color="red",
         )
 
-        ax1.set_ylim(-10000, 10000)
+        ax1.set_ylim(-2500, 2500)
 
     else:
         df.loc["Benchmark"] = 100.0
@@ -1442,3 +1631,4 @@ def plot_multitest_paper(
                 )
                 ax1.set_ylim(20, 130)
                 # ax1.set_ylim(-500,500)
+

@@ -1,107 +1,102 @@
 # DQN PARAMS
 ############################## EXPLORATION ##############################
-epsilon : 1  # greedy policy choice
-min_eps_pct : 1.0 # decay for the epsilon parameter 0.1 linearly lead to 0.1n after 10 iter. 
-min_eps : 0.5 # minimum possible value for epsilon
-optimal_expl: False
-alpha: 0.3
+epsilon : 1  # Initial exploration probability
+min_eps_pct : 1.0 # number of steps to reach the minimum epsilon as a percentage of the total
+min_eps : 0.5 # minimum value for epsilon
 ############################## PER BUFFER ##############################
-use_PER : False
+use_PER : False # use PER in training
 PER_e : 0.01  # Hyperparameter that we use to avoid some experiences to have 0 probability of being taken
 PER_a : 0.6  # Hyperparameter that we use to make a tradeoff between taking only exp with high priority and sampling randomly
 PER_b : 0.4   # importance-sampling, from initial value increasing to 1
 PER_b_anneal : True
-final_PER_b : 1.0
+final_PER_b : 1.0 # final value of b after the annealing
 PER_b_steps : null
 PER_a_anneal : False
-final_PER_a : 1.0
+final_PER_a : 1.0 # final value of a after the annealing
 PER_a_steps : null
-sample_type : 'TDerror'
+sample_type : 'TDerror' # Type of prioritization 'TDerror', 'diffTDerror' or 'reward'
 ############################## RL RELATED ##############################
-DQN_type : 'DDQN'
-recurrent_env : False
-gamma : 0.55 # discounting factor for the Q target (sort of interest rate)
+DQN_type : 'DDQN' # 'DQN' or 'DDQN'
+recurrent_env : False # set up recurrent environment
+gamma : 0.55 # discounting factor for the Q target
 kappa : 0.001 # risk aversion
-std_rwds: False
-max_exp_pct : 1.0
-copy_step : 1
-update_target : 'soft'
-tau : 0.001
-qts : [0.001,0.999]
-KLM :  [null, null, 100000] # [200000,40000,2000000]  # list with actions that each trade can take: from -K to +K lot sizes minimum size of tradable (equities/contracts) and discretization of holding for TabQ (-M,M) holding
-zero_action : True
-min_n_actions : False
+std_rwds: False # standardize rewards
+max_exp_pct : 1.0 # size of buffer experience as a percentage of the tota iteration
+copy_step : 1 # steps for target network update in DQN
+update_target : 'soft' # 'hard' or 'soft'
+tau : 0.001 # size of soft update
+qts : [0.001,0.999] # quantile to select action boundaries
+KLM :  [null, null, 100000] # list with actions that each trade can take: from 
+                            #-K to +K lot sizes minimum size of tradable (equities/contracts) 
+                            # and discretization of holding for TabQ (-M,M) holding
+zero_action : True # include the zero action (hold) in the action space
+min_n_actions : False # set up minimum number of actions (3) or more
 RT : [0.050, 0.0001] # boundaries for returns and ticksize to define the discrete space of returns (only for TabQ)
 tablr: 0.005 # learning rate for updating q table
 ############################## DL RELATED ##############################
-selected_loss: 'huber'
-activation : 'elu'
-kernel_initializer : 'he_uniform'
-optimizer_name : 'adam'
-beta_1: 0.5
-beta_2: 0.75
-eps_opt: 0.1
-hidden_units : [256,128]
+selected_loss: 'huber' # 'mse' or 'huber'
+activation : 'elu' # 'elu', 'relu6', 'leaky_relu' or every other activation as aliased in TF2
+kernel_initializer : 'he_uniform' # every kind of activation as aliased in TF2
+optimizer_name : 'adam' # 'sgd', 'sgdmom', 'sgdnest, 'adadelta', 'adamax', 'amsgrad', 'adam', 'nadam', 'rmsprop'
+beta_1: 0.5 # first parameter for adaptive optimizers
+beta_2: 0.75 # second parameter for adaptive optimizers
+eps_opt: 0.1 # corrective parameter for adaptive optimizers
+hidden_units : [128,64] # list of hidden layers size
 batch_size : 256
-learning_rate : 0.005 #[0.005, 0.001, 0.0005, 0.0001, 0.00005] # 0.0003 as suggested by Karphaty
-lr_schedule : 'exponential'
-exp_decay_pct : 0.30
-exp_decay_rate : 0.6
-hidden_memory_units: 
-unfolding: 1
+learning_rate : 0.005 # initial learning rate
+lr_schedule : 'exponential' # 'exponential', 'piecewise', 'inverse_time' or 'polynomial'
+exp_decay_pct : 0.30 # decay steps as percentage of the total iterations
+exp_decay_rate : 0.6 # decay rate
+hidden_memory_units: # size of the hidden recurrent layer, if any
+unfolding: 1 # timesteps for recurrence. Set as 1 if there is no recurrence
 ############################## REGULARIZATION ##############################
-batch_norm_input : True # bool to decide if add batch norm to input layer or not
-batch_norm_hidden : False
-clipgrad : ''
-clipnorm : 1.0
-clipvalue : 1.0
-clipglob_steps: 50000
-############################## PRE TRAINING PARAMETERS ##############################
-do_pretrain: False
-N_pretrain : 200000
-lrate_schedule_pretrain : None
-save_ckpt_pretrained_model : 4
+batch_norm_input : True # batch norm at input layer level
+batch_norm_hidden : False # batch norm at hidden layer level
+clipgrad : null # clip gradient. Choose 'norm', 'value', 'globnorm' or null for no clipping
+clipnorm : 1.0 # limit to clip the norm
+clipvalue : 1.0 # limit to clip the value
+clipglob_steps: 50000 # steps for global clipping of the norm
 ############################## DATA SIMULATIONS PARAMETERS ##############################
-t_stud : False
-HalfLife : [350] #[2.5, 126.0, 630.0]
-f0 : [0] # initial values for simulating factors
-f_param : [0.00535] # [0.00535, 0.005775, -0.005625] #[0.0214, 0.0231, -0.0225]  #  #0.01 #[0.01, 0.0231, -0.04250] # regression parameters for factors [10.32,122.34,-205.59]
+t_stud : False # Student's T noise in the simulation
+HalfLife : [350] # list of Halflives of mean reversion
+f0 : [0] # list initial values for simulating factors
+f_param : [0.00535] # list of factor loadings
 sigma  : 0.01 # return volatility
-sigmaf : [0.2] # [0.2, 0.1, 0.05] # [0.59, 0.059, 0.023]
-uncorrelated : True
-CostMultiplier: 0.001 # Cost multiplier to make the cost proportional to the risk as in Gar Ped (2013)
-discount_rate: 0.0 # discount rate as in the paper
-Startholding: 0.0
+sigmaf : [0.2] # list of factor volatilities
+uncorrelated : True # generate correlated or uncorrelated factors
+CostMultiplier: 0.001 # Cost multiplier to make the cost proportional to the risk
+discount_rate: 0.0 # discount rate for time value of money (not gamma in DQN)
+Startholding: 0.0 # initial portfolio holding
 ############################### LAUNCH SIMULATIONS ##############################
-start_train : 1000
-seed_ret : [573,   6, 446, 122, 535, 169, 734, 400]
-seed_init :  # Seed for experiment reproducibility 
-N_train : 1000000  # training steps (each step consists of one action-value update)
-out_of_sample_test : False
-N_test: 1000
+start_train : 1000 # steps after which the training starts
+seed_ret : 543 # seed for the return simulation
+seed_init :  # seed for weights initialization. Leave empty if you want it to be equal to seed_ret 
+N_train : 2000  # training iteration (each step consists of one action-value update)
+out_of_sample_test : False # do out-of-sample test while training
+N_test: 1000 # test iteration
 plot_inputs : 0 # boolean for plotting generated ret and factors
 executeDRL: 1 # boolean to decide if run DRL agent
 executeRL: 1 # boolean to decide if run RL agent
 executeGP: 1 # boolean to decide if run GP solution
 executeMV: 0 # boolean to decide if run MV solution
 save_results: 0 # boolean to decide if save dataframe of results
-save_table: 0
+save_table: 0 # boolean to decide if save Q-table
 plot_hist: 0 # boolean to decide if plot weight histogram distribution (reduce size of tb logs)
-plot_steps_hist : 20000
-plot_steps: 1000 # steps for diagnostics on tensorboard
-pdist_steps: 5000
+plot_steps_hist : 20000 # steps for plotting histograms on tensorboard
+plot_steps: 1000 # steps for all the other plots on tensorboard
 save_model: 1 # save trained tf model
-save_ckpt_model: 100
+save_ckpt_model: 25 # number of checkpoints to save during training
 use_GPU : True
 #########################################################################################################
 # FOLDER PARAMETERS
-runtype: 'multi' # single, multi
-# Parameter for storing results
-outputDir: 'outputs'
-outputClass: 'DQN'
-outputModel: '20210120_GPGAUSS_long8' # choose model name as number of factors + varying parameter
-varying_pars: ['seed_ret'] #['HalfLife', 'f0', 'f_param', 'sigmaf'] # choose a parameter to vary while performing several different experiment
- # leave blank if you don't want to vary any parameter (no subfolder will be created) #['HalfLife','f0', 'f_param', 'sigmaf']
-varying_type : 'chunk'
-num_rnd_search : 8
+outputDir: 'outputs' # main directory for the experiment
+outputClass: 'test' # first subdirectory
+outputModel: 'testmutltmiss3' # second subdirectory
+num_rnd_search : 8 # number of cores to use when experiments are parallelized
+varying_pars: #['seed_ret']  # choose parameters to vary while performing several different experiment
+varying_type : 'chunk' # type of parallelization. 'chunk' will parallelize experiments
+                       # in chunks of size 'num_rnd_search'. 'random_search' draw randomly some
+                       # parameter combination depeding on all 'varying_pars' combinations.
+                       # 'combination' parallelize all possible combination without considering
+                       # the limit of cores in 'num_rnd_search'.
 ##########################################################################################################

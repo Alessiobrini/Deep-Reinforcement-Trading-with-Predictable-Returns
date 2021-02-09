@@ -1,0 +1,39 @@
+# MULTI TEST OOS PARAMS
+############################### LAUNCH SIMULATIONS ##############################
+random_state : 4567  # Seed for experiment reproducibility OOS 
+N_test: 477
+n_seeds : 10
+bandwidth : null
+correct_outlier: False
+thold: 200
+plot_lr : False
+plot_experience : False
+plot_buffer : False
+conf_interval: False
+use_GPU : True
+#########################################################################################################
+# FOLDER PARAMETERS
+outputDir: 'outputs'
+outputClass: 'DQN_real'
+outputModel: ['20210208_real_symbol_L.AAL'] #, '20210208_real_symbol_BRK.A']
+length : '864k'
+algo :  ['DQN'] #['DQN','Q']
+gen_test : True
+gen_plot : False
+parbyseed : True
+varying_pars: ['outputModel'] 
+varying_type : 'chunk'
+num_rnd_search : 8
+plot_type: 'pnlsrgauss'
+
+# GAUSS
+# ['20210107_GPGAUSS_final', '20210108_GPGAUSS_2f_final']
+# STUD
+# ['20210107_GPSTUDmfit_final','20210108_GPSTUDfullfit_final',
+#               '20210108_GPSTUD_df8_final_datatype_t_stud_mfit', '20210108_GPSTUD_df8_final_datatype_t_stud']
+# GARCH
+# ['20210109_GARCH_long_distr_noise_normal', '20210109_GARCH_long_distr_noise_studt']
+# ['20210108_GARCH_final_distr_noise_normal','20210108_GARCH_final_distr_noise_studt',
+# '20210109_EGARCH','20210109_EGARCH_studt']
+# GARCH MR
+# ['20210202_GARCH_MR_correct_factor_lb_32', '20210202_GARCH_MR_correct_factor_lb_36', '20210202_GARCH_MR_correct_factor_lb_43']

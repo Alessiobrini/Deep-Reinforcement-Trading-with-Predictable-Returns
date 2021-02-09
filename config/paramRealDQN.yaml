@@ -37,7 +37,7 @@ tau : 0.001
 qts : [0.001,0.999]
 KLM :  [null, null, null] # [200000,40000,2000000]  # list with actions that each trade can take: from -K to +K lot sizes minimum size of tradable (equities/contracts) and discretization of holding for TabQ (-M,M) holding
 zero_action : True
-min_n_actions : False
+min_n_actions : True
 ############################## DL RELATED ##############################
 selected_loss: 'huber'
 activation : 'elu'
@@ -94,7 +94,7 @@ runtype: 'multi' # single, multi
 # Parameter for storing results
 outputDir: 'outputs'
 outputClass: 'DQN_real'
-outputModel: '20210208_real' # choose model name as number of factors + varying parameter
+outputModel: '20210208_real_3act' # choose model name as number of factors + varying parameter
 varying_pars:  ['symbol','seed'] # choose a parameter to vary while performing several different experiment
  # leave blank if you don't want to vary any parameter (no subfolder will be created) #['HalfLife','f0', 'f_param', 'sigmaf']
 varying_type : 'chunk'
