@@ -5,30 +5,19 @@ Created on Sat Jan  4 16:53:31 2020
 @author: aless
 """
 
-# inspired by https://towardsdatascience.com/deep-reinforcement-learning-build-a-deep-q-network-dqn-to-play-cartpole-with-tensorflow-2-and-gym-8e105744b998
 import numpy as np
-import pdb
 from typing import Union, Optional
 import sys
 import tensorflow as tf
 from tensorflow.keras.layers import BatchNormalization
 from tensorflow.keras.layers import Activation
 from tensorflow.keras.layers import InputLayer
-from tensorflow.keras.layers import Dense, LSTM, Dropout
+from tensorflow.keras.layers import Dense, LSTM
 from tensorflow.keras.optimizers.schedules import ExponentialDecay
 from tensorflow.keras.optimizers.schedules import InverseTimeDecay
 from tensorflow.keras.optimizers.schedules import PiecewiseConstantDecay
 from tensorflow.keras.optimizers.schedules import PolynomialDecay
-
-# from tensorflow_addons.optimizers import RectifiedAdam
-from utils.SumTreePER import PER_buffer
-
-# tf.debugging.set_log_device_placement(True)
-# tf.compat.v1.logging.set_verbosity(tf.compat.v1.logging.ERROR)
-# tf_config = tf.ConfigProto()
-# tf_config.gpu_options.allow_growth = True
-# tf_config.gpu_options.per_process_gpu_memory_fraction = 0.9
-# tf_config.allow_soft_placement = True
+from utils.exploration import PER_buffer
 
 ################################ Class to create a Deep Q Network model ################################
 class DeepNetworkModel(tf.keras.Model):
@@ -44,6 +33,41 @@ class DeepNetworkModel(tf.keras.Model):
         kernel_initializer: str,
         modelname: str = "Deep Q Network",
     ):
+        """
+        Instantiate Deep Q Network Class
+
+        Parameters
+        ----------
+        seed: int
+            Seed for experiment reproducibility
+
+        input_shape: int
+            Shape of input of the neural network
+
+        hidden_units: list
+            List of sizes of hidden layer. The length of the list determines
+            the depth of the Q network
+
+        num_actions: int
+            Number of possible action which is the size of the output
+
+        batch_norm_input: bool
+            Boolean to regulate the presence of a Batch Norm layer after the input
+
+        batch_norm_hidden: bool
+            Boolean to regulate the presence of a Batch Norm layer after each hidden layer
+
+        activation: str
+            Choice of activation function. It can be 'leaky_relu',
+            'relu6' or 'elu'
+
+        kernel_initializer: str
+            Choice of weight initialization as aliased in TF2.0 documentation
+
+        modelname: str
+            Name of the model
+
+        """
         # call the parent constructor
         super(DeepNetworkModel, self).__init__(name=modelname)
 
@@ -90,7 +114,28 @@ class DeepNetworkModel(tf.keras.Model):
         inputs: Union[np.ndarray or tf.Tensor],
         training: bool = True,
         store_intermediate_outputs: bool = False,
-    ):
+    ) -> Union[np.ndarray or tf.Tensor]:
+        """
+        Instantiate Deep Q Network Class
+
+        Parameters
+        ----------
+
+        inputs: Union[np.ndarray or tf.Tensor]
+            Inputs to the neural network
+
+        training: bool
+            Boolean to regulate if inference or test time
+
+        store_intermediate_outputs: bool
+            Boolean to regulate if storing intermediate layer output in tensorboard
+
+        Returns
+        ----------
+        z: Union[np.ndarray or tf.Tensor]
+            Outputs of the neural network after a forward pass
+
+        """
 
         if store_intermediate_outputs:
             # build the input layer
@@ -147,6 +192,45 @@ class DeepRecurrentNetworkModel(tf.keras.Model):
         kernel_initializer: str,
         modelname: str = "Deep Recurrent Q Network",
     ):
+        """
+        Instantiate Deep Q Network Class
+
+        Parameters
+        ----------
+        seed: int
+            Seed for experiment reproducibility
+
+        input_shape: int
+            Shape of input of the neural network
+
+        hidden_memory_units: list,
+            List of sizes of recurrent hidden layers. The length of the list determines
+            the depth of the Q network
+
+        hidden_units: list
+            List of sizes of hidden layers. The length of the list determines
+            the depth of the Q network
+
+        num_actions: int
+            Number of possible action which is the size of the output
+
+        batch_norm_input: bool
+            Boolean to regulate the presence of a Batch Norm layer after the input
+
+        batch_norm_hidden: bool
+            Boolean to regulate the presence of a Batch Norm layer after each hidden layer
+
+        activation: str
+            Choice of activation function. It can be 'leaky_relu',
+            'relu6' or 'elu'
+
+        kernel_initializer: str
+            Choice of weight initialization as aliased in TF2.0 documentation
+
+        modelname: str
+            Name of the model
+
+        """
         # call the parent constructor
         super(DeepRecurrentNetworkModel, self).__init__(name=modelname)
         # set dimensionality of input/output depending on the model
@@ -200,7 +284,28 @@ class DeepRecurrentNetworkModel(tf.keras.Model):
         inputs: Union[np.ndarray or tf.Tensor],
         training: bool = True,
         store_intermediate_outputs: bool = False,
-    ):
+    ) -> Union[np.ndarray or tf.Tensor]:
+        """
+        Instantiate Deep Q Network Class
+
+        Parameters
+        ----------
+
+        inputs: Union[np.ndarray or tf.Tensor]
+            Inputs to the neural network
+
+        training: bool
+            Boolean to regulate if inference or test time
+
+        store_intermediate_outputs: bool
+            Boolean to regulate if storing intermediate layer output in tensorboard
+
+        Returns
+        ----------
+        z: Union[np.ndarray or tf.Tensor]
+            Outputs of the neural network after a forward pass
+
+        """
 
         if len(inputs.shape) != 3:
             inputs = tf.reshape(inputs, tf.TensorShape([1]).concatenate(inputs.shape))
@@ -251,6 +356,7 @@ class DeepRecurrentNetworkModel(tf.keras.Model):
 
 ############################### DQN ALGORITHM ################################
 class DQN:
+    """DQN algorithm class"""
     def __init__(
         self,
         seed: int,
@@ -304,6 +410,166 @@ class DQN:
         pretraining_mode: bool = False,
         stop_train: int = 1e10,
     ):
+        """
+        Instantiate DQN Class
+
+        Parameters
+        ----------
+        seed: int
+            Seed for experiment reproducibility
+
+        DQN_type: str
+            DQN variant choice. It can be 'DQN' or 'DDQN'
+
+        recurrent_env: bool
+            Boolean to regulate if the environment is recurrent or not
+
+        gamma: float
+            Discount parameter for the target update
+
+        max_experiences: int
+            Max size of the experience replay buffer
+
+        update_target: str
+            Choice for target update. It can be 'hard' or 'soft'
+
+        tau: float
+            When the update is 'soft', tau regulates the amount of the update
+            towards the current parameters
+
+        input_shape: int
+            Shape of input of the neural network
+
+        hidden_units: list
+            List of sizes of hidden layers. The length of the list determines
+            the depth of the Q network
+
+        hidden_memory_units: list,
+            List of sizes of recurrent hidden layers. The length of the list determines
+            the depth of the Q network
+
+        batch_size: int
+            Size of the batch to perform an update
+
+        selected_loss: str
+            Choice for the loss function. It can be 'mse' or 'huber'
+
+        lr: float
+            Initial learning rate
+
+        start_train: int
+            Number of iteration after which the training starts
+
+        optimizer_name: str
+            Choice for the optimizer. It can be 'sgd', 'sgdmom', 'sgdnest',
+            'adagrad', 'adadelta', 'adamax', 'adam', 'amsgrad', 'nadam', or 'rmsprop'
+
+        batch_norm_input: bool
+            Boolean to regulate the presence of a Batch Norm layer after the input
+
+        batch_norm_hidden: bool
+            Boolean to regulate the presence of a Batch Norm layer after each hidden layer
+
+        activation: str
+            Choice of activation function. It can be 'leaky_relu',
+            'relu6' or 'elu'
+
+        kernel_initializer: str
+            Choice of weight initialization as aliased in TF2.0 documentation
+
+        plot_hist: bool
+            Boolean to regulate if plot the histogram of intermediate outputs
+            in tensorboard
+
+        plot_steps_hist: int
+            Number of steps at which the histogram of intermediate outputs are
+            plotted in tensorboard
+
+        plot_steps: int
+            Number of steps at which all the other variables are
+            stored in tensorboard
+
+        summary_writer, #TODO need to add proper type hint
+            Tensorabord writer
+        action_space: class
+            Space of possible action as class that inherits from gym
+
+        use_PER: bool = False
+            Boolean to regulate if use Prioritized Experience Replay (PER) or not
+
+        PER_e: Optional[float]
+            Correction for priorities
+
+        PER_a: Optional[float]
+            Amount of prioritization
+
+        PER_b: Optional[float]
+            Amount of correction for introduced bias when using PER
+
+        final_PER_b: Optional[float] = None
+            Final value for b after the anneal
+
+        PER_b_steps: Optional[int]
+            Steps need to anneal b to its final value
+
+        PER_b_growth: Optional[float]
+            Rate of increase of the b
+
+        final_PER_a: Optional[float] = None
+            Final value for a after the anneal
+
+        PER_a_steps: Optional[int]
+            Steps need to anneal a to its final value
+
+        PER_a_growth: Optional[float]
+            Rate of increase of the a
+
+        sample_type : str
+            Type of sampling in PER. It can be 'TDerror', 'diffTDerror' or 'reward'
+
+        clipgrad: bool
+            Choice of the gradients to clip. It can be 'norm', 'value' or 'globnorm'
+
+        clipnorm: Optional[Union[str or float]]
+            Boolean for clipping the norm of the gradients
+
+        clipvalue: Optional[Union[str or float]]
+            Boolean for clipping the value of the gradients
+
+        clipglob_steps: Optional[int]
+            Boolean for clipping the global norm of the gradients
+
+        beta_1: float = 0.9
+            Parameter for adaptive optimizer
+
+        beta_2: float = 0.999
+            Parameter for adaptive optimizer
+
+        eps_opt: float = 1e-07
+            Corrective parameter for adaptive optimizer
+
+        std_rwds: bool = False
+            Boolean to regulate if standardize rewards or not
+
+        lr_schedule: Optional[str]
+            Choice for the learning rate schedule. It can be 'exponential',
+            'piecewise', 'inverse_time' or 'polynomial'
+
+        exp_decay_steps: Optional[int]
+             Amount of steps to reach the desired level of decayed learning rate
+
+        exp_decay_rate: Optional[float]
+            Rate of decay to reach the desired level of decayed learning rate
+
+        rng = None
+            Random number generator for reproducibility
+
+        modelname: str
+            Name for the model
+
+        stop_train: int
+            Amount of iteration after which the training stops
+        """
 
         if rng is not None:
             self.rng = rng
@@ -384,9 +650,7 @@ class DQN:
                 epsilon=eps_opt,
                 centered=False,
             )
-        # elif optimizer_name == 'radam':
-        #     self.optimizer = RectifiedAdam(lr=lr,total_steps=1500000,warmup_proportion=0.025,min_lr=1e-5,
-        #                                     epsilon=eps_opt)
+
 
         self.recurrent_env = recurrent_env
         self.beta_1 = beta_1
@@ -458,7 +722,6 @@ class DQN:
         self.global_norms = []
         self.clipglob_steps = clipglob_steps
         self.optimizer_name = optimizer_name
-        self.pretraining_mode = pretraining_mode
         self.std_rwds = std_rwds
 
         if self.std_rwds:
@@ -470,7 +733,16 @@ class DQN:
         elif self.selected_loss == "huber":
             self.loss = tf.keras.losses.Huber()
 
-    def train(self, TargetNet, iteration, env=None):
+    def train(self, TargetNet, iteration: int):
+
+        """Parameters
+        ----------
+        TargetNet: str
+            instantiated class for the target network. It is an instance of
+             DeepNetworkModel or DeepRecurrentNetworkModel class
+        iteration: int
+            Number of iteration update
+        """
         if iteration < self.start_train or iteration > self.stop_train:
             return 0
         
@@ -480,8 +752,7 @@ class DQN:
             actions = np.asarray(minibatch["a"])
             rewards = np.asarray(minibatch["r"])
             states_next = np.asarray(minibatch["s2"])
-            if self.pretraining_mode:
-                factors = np.asarray(minibatch["f"])
+
         else:
             # find the index of streams included in the experience buffer that will
             # composed the training batch
@@ -492,10 +763,8 @@ class DQN:
             actions = np.asarray([self.experience["a"][i] for i in ids])
             rewards = np.asarray([self.experience["r"][i] for i in ids])
             states_next = np.asarray([self.experience["s2"][i] for i in ids])
-            if self.pretraining_mode:
-                factors = np.asarray([self.experience["f"][i] for i in ids])
 
-        with tf.GradientTape() as tape:  # persistent=True
+        with tf.GradientTape() as tape:
 
             # compute current action values
             # find index of actions included in the batch
@@ -511,47 +780,20 @@ class DQN:
                 axis=1,
             )
 
-            if self.pretraining_mode:
-                assert env, "Market Env not passed as argument"
-                # compute fixed target for pretraining
-                OptRate, DiscFactorLoads = env.opt_trading_rate_disc_loads()
-                # Optimal traded quantity between period
-
-                if len(DiscFactorLoads) == 1:
-                    retprod = factors * DiscFactorLoads
-                else:
-                    retprod = factors @ DiscFactorLoads
-
-                OptNextHolding = (1 - OptRate) * states_next[:, 1] + OptRate * (
-                    1 / (env.kappa * (env.sigma) ** 2)
-                ) * retprod
-
-                OptAction = OptNextHolding - states[:, 1]
-                DiscOptActionIdx = [
-                    (np.abs(self.action_space.values - a)).argmin() for a in OptAction
-                ]
-
-                # DiscOptAction = [self.action_space.values[i] for i in DiscOptActionIdx]
+            # compute target action values
+            if self.DQN_type == "DQN":
+                value_next = np.max(
+                    TargetNet.model(states_next.astype("float32")), axis=1
+                )
+            elif self.DQN_type == "DDQN":
+                greedy_target_action = tf.math.argmax(
+                    self.model(states_next.astype("float32")), 1
+                )
                 value_next = tf.math.reduce_sum(
-                    TargetNet.model(np.atleast_2d(states_next.astype("float32")))
-                    * tf.one_hot(DiscOptActionIdx, self.num_actions),
+                    TargetNet.model(states_next.astype("float32"))
+                    * tf.one_hot(greedy_target_action, self.num_actions),
                     axis=1,
                 )
-            else:
-                # compute target action values
-                if self.DQN_type == "DQN":
-                    value_next = np.max(
-                        TargetNet.model(states_next.astype("float32")), axis=1
-                    )
-                elif self.DQN_type == "DDQN":
-                    greedy_target_action = tf.math.argmax(
-                        self.model(states_next.astype("float32")), 1
-                    )
-                    value_next = tf.math.reduce_sum(
-                        TargetNet.model(states_next.astype("float32"))
-                        * tf.one_hot(greedy_target_action, self.num_actions),
-                        axis=1,
-                    )
 
             if self.std_rwds:
                 if iteration == self.start_train:
@@ -564,7 +806,7 @@ class DQN:
                     std_rewards = (
                         actual_values - self.rwds_run_mean
                     ) / self.rwds_run_std
-                    actual_values = std_rewards  # +self.gamma*value_next
+                    actual_values = std_rewards 
                 else:
                     actual_values = np.array(rewards + self.gamma * value_next)
                     sample_mean = actual_values.mean()
@@ -590,7 +832,6 @@ class DQN:
                     N = iteration + 1
                 else:
                     N = self.max_experiences
-                # N = len([x for x in self.PERmemory.experience['r'] if x!=0])
                 prob = self.PERmemory.tree[b_idx] / self.PERmemory.total_priority
                 self.PERmemory.PER_b = min(
                     self.PERmemory.final_PER_b,
@@ -635,179 +876,190 @@ class DQN:
                 for gv in gradients
             ]
         elif self.clipgrad == "globnorm":
-            # gbnorm = tf.linalg.global_norm(gradients)
             if iteration <= self.clipglob_steps:
                 gbnorm = tf.linalg.global_norm(gradients)
                 self.global_norms.append(gbnorm.numpy())
                 if iteration == self.clipglob_steps:
                     self.clipglob = np.mean(self.global_norms)
             else:
-                # gbnorm = tf.linalg.global_norm(gradients)
-                # self.global_norms.append(gbnorm.numpy())
-                # clipglob = self.beta_1 * np.mean(self.global_norms) + (1 - self.beta_1) * gbnorm
+
                 gradients, gbnorm = tf.clip_by_global_norm(
                     gradients, self.clipglob
-                )  # , use_norm = gbnorm)
+                )
 
         # provide a list of (gradient, variable) pairs.
         self.optimizer.apply_gradients(zip(gradients, variables))
-
-        # if (((iteration % self.plot_steps) == 0) or (iteration == self.start_train)) and (not self.pretraining_mode):
+        
+        # TODO uncomment to visualize TB results
+        # if ((iteration % self.plot_steps) == 0) or (iteration == self.start_train):
         #     with self.summary_writer.as_default():
 
-        #         tf.summary.scalar('Mean Squared Loss/Train', loss, step=iteration)
-        #         # tf.summary.scalar('Train Mean Squared Loss/BaselineNet', loss_baseline, step=iteration)
-        #         # tf.summary.scalar('Learning Rate/Initial LR', self.optimizer.learning_rate, step=iteration)
-        #         tf.summary.scalar('Learning Rate/LR', self.optimizer._decayed_lr(tf.float32), step=iteration)
-        #         if self.clipgrad == 'globnorm':
-        #             tf.summary.scalar('Norm/Global grad norm', gbnorm, step=iteration)
+        #         tf.summary.scalar("Mean Squared Loss/Train", loss, step=iteration)
+        #         tf.summary.scalar(
+        #             "Learning Rate/LR",
+        #             self.optimizer._decayed_lr(tf.float32),
+        #             step=iteration,
+        #         )
+        #         if self.clipgrad == "globnorm":
+        #             tf.summary.scalar("Norm/Global grad norm", gbnorm, step=iteration)
         #             if iteration > self.clipglob_steps:
-        #                 tf.summary.scalar('Norm/Clip Glob', self.clipglob, step=iteration)
+        #                 tf.summary.scalar(
+        #                     "Norm/Clip Glob", self.clipglob, step=iteration
+        #                 )
 
         #         else:
         #             gbnorm = tf.linalg.global_norm(gradients)
-        #             tf.summary.scalar('Norm/Global grad norm', gbnorm, step=iteration)
+        #             tf.summary.scalar("Norm/Global grad norm", gbnorm, step=iteration)
 
         #         if self.plot_hist and ((iteration % self.plot_steps_hist) == 0):
-        #             for i,layer in enumerate(self.model.layers[1:]):
-        #                 with tf.name_scope('layer{0}'.format(i)):
-        #                     if 'dense' in layer.name:
-        #                         tf.summary.histogram(layer.name + '/weights',
-        #                                               layer.get_weights()[0], step=iteration)
-        #                         tf.summary.histogram(layer.name + '/biases',
-        #                                               layer.get_weights()[1], step=iteration)
-        #                         tf.summary.histogram(layer.name + '/Wx+b_pre_activation',
-        #                                               layer.out, step=iteration)
-        #                     elif 'activation' in layer.name:
-        #                         tf.summary.histogram(layer.name + '/activation',
-        #                                               layer.out, step=iteration)
-        #                     elif 'batch' in layer.name:
-        #                         tf.summary.histogram(layer.name + '/bnorm_inputs_1',
-        #                                               self.model.bninputs[:,0], step=iteration)
-        #                         tf.summary.histogram(layer.name + '/bnorm_inputs_2',
-        #                                               self.model.bninputs[:,1], step=iteration)
-        #                         tf.summary.histogram(layer.name + '/inputs_1',
-        #                                               self.model.inputs[:,0], step=iteration)
-        #                         tf.summary.histogram(layer.name + '/inputs_2',
-        #                                               self.model.inputs[:,1], step=iteration)
+        #             for i, layer in enumerate(self.model.layers[1:]):
+        #                 with tf.name_scope("layer{0}".format(i)):
+        #                     if "dense" in layer.name:
+        #                         tf.summary.histogram(
+        #                             layer.name + "/weights",
+        #                             layer.get_weights()[0],
+        #                             step=iteration,
+        #                         )
+        #                         tf.summary.histogram(
+        #                             layer.name + "/biases",
+        #                             layer.get_weights()[1],
+        #                             step=iteration,
+        #                         )
+        #                         tf.summary.histogram(
+        #                             layer.name + "/Wx+b_pre_activation",
+        #                             layer.out,
+        #                             step=iteration,
+        #                         )
+        #                     elif "activation" in layer.name:
+        #                         tf.summary.histogram(
+        #                             layer.name + "/activation",
+        #                             layer.out,
+        #                             step=iteration,
+        #                         )
+        #                     elif "batch" in layer.name:
+        #                         tf.summary.histogram(
+        #                             layer.name + "/bnorm_inputs_1",
+        #                             self.model.bninputs[:, 0],
+        #                             step=iteration,
+        #                         )
+        #                         tf.summary.histogram(
+        #                             layer.name + "/bnorm_inputs_2",
+        #                             self.model.bninputs[:, 1],
+        #                             step=iteration,
+        #                         )
+        #                         tf.summary.histogram(
+        #                             layer.name + "/inputs_1",
+        #                             self.model.inputs[:, 0],
+        #                             step=iteration,
+        #                         )
+        #                         tf.summary.histogram(
+        #                             layer.name + "/inputs_2",
+        #                             self.model.inputs[:, 1],
+        #                             step=iteration,
+        #                         )
 
-        #         # if self.std_rwds:
-        #         #     tf.summary.histogram('Rewards/Original',
-        #         #                           rewards, step=iteration)
-        #         #     tf.summary.histogram('Rewards/Normalized',
-        #         #                           std_rewards, step=iteration)
-        #         # else:
-        #         #     tf.summary.histogram('Rewards/Original',
-        #         #                          rewards, step=iteration)
-
-        #         for g,v in zip(gradients, variables):
+        #         for g, v in zip(gradients, variables):
 
         #             grad_mean = tf.reduce_mean(g)
         #             grad_square_sum = tf.reduce_sum(tf.math.square(g))
         #             grad_norm = tf.sqrt(grad_square_sum)
         #             sq_norm = tf.square(grad_norm)
-        #             tf.summary.scalar(v.name.split('/',1)[1] + 'Gradients/grad_mean', grad_mean, step=iteration)
-        #             tf.summary.scalar(v.name.split('/',1)[1] + 'Gradients/grad_norm', grad_norm, step=iteration)
-        #             tf.summary.scalar(v.name.split('/',1)[1] + 'Gradients/grad_sq_norm', sq_norm, step=iteration)
+        #             tf.summary.scalar(
+        #                 v.name.split("/", 1)[1] + "Gradients/grad_mean",
+        #                 grad_mean,
+        #                 step=iteration,
+        #             )
+        #             tf.summary.scalar(
+        #                 v.name.split("/", 1)[1] + "Gradients/grad_norm",
+        #                 grad_norm,
+        #                 step=iteration,
+        #             )
+        #             tf.summary.scalar(
+        #                 v.name.split("/", 1)[1] + "Gradients/grad_sq_norm",
+        #                 sq_norm,
+        #                 step=iteration,
+        #             )
 
-        #             tf.summary.histogram(v.name.split('/',1)[1] + 'hist/grads', g, step=iteration)
-        #             tf.summary.histogram(v.name.split('/',1)[1] + 'hist/grads_squared', tf.square(g), step=iteration)
+        #             tf.summary.histogram(
+        #                 v.name.split("/", 1)[1] + "hist/grads", g, step=iteration
+        #             )
+        #             tf.summary.histogram(
+        #                 v.name.split("/", 1)[1] + "hist/grads_squared",
+        #                 tf.square(g),
+        #                 step=iteration,
+        #             )
 
         #             slots = self.optimizer.get_slot_names()
 
         #             if slots:
         #                 for slot in slots:
-        #                     tf.summary.scalar(v.name.split('/',1)[1] + 'Gradients/' + slot,
-        #                                       tf.reduce_mean(self.optimizer.get_slot(v,slot)), step=iteration)
+        #                     tf.summary.scalar(
+        #                         v.name.split("/", 1)[1] + "Gradients/" + slot,
+        #                         tf.reduce_mean(self.optimizer.get_slot(v, slot)),
+        #                         step=iteration,
+        #                     )
 
-        #                 if self.optimizer_name == 'adam':
-        #                     mean_slt_ratio = tf.reduce_mean(self.optimizer.get_slot(v,'m')/
-        #                                                self.optimizer.get_slot(v,'v'))
-        #                     mean_slt_sqrtratio = tf.reduce_mean(self.optimizer.get_slot(v,'m')/
-        #                                                    (tf.math.sqrt(self.optimizer.get_slot(v,'v')) + self.eps_opt))
-        #                     tf.summary.scalar(v.name.split('/',1)[1] + 'Gradients/mv_ratio',
-        #                                       mean_slt_ratio,step=iteration)
-        #                     tf.summary.scalar(v.name.split('/',1)[1] + 'Gradients/mv_sqrt_ratio',
-        #                                       mean_slt_sqrtratio, step=iteration)
+        #                 if self.optimizer_name == "adam":
+        #                     mean_slt_ratio = tf.reduce_mean(
+        #                         self.optimizer.get_slot(v, "m")
+        #                         / self.optimizer.get_slot(v, "v")
+        #                     )
+        #                     mean_slt_sqrtratio = tf.reduce_mean(
+        #                         self.optimizer.get_slot(v, "m")
+        #                         / (
+        #                             tf.math.sqrt(self.optimizer.get_slot(v, "v"))
+        #                             + self.eps_opt
+        #                         )
+        #                     )
+        #                     tf.summary.scalar(
+        #                         v.name.split("/", 1)[1] + "Gradients/mv_ratio",
+        #                         mean_slt_ratio,
+        #                         step=iteration,
+        #                     )
+        #                     tf.summary.scalar(
+        #                         v.name.split("/", 1)[1] + "Gradients/mv_sqrt_ratio",
+        #                         mean_slt_sqrtratio,
+        #                         step=iteration,
+        #                     )
 
-        #                     slt_ratio = (self.optimizer.get_slot(v,'m')/
-        #                                                self.optimizer.get_slot(v,'v'))
-        #                     slt_sqrtratio = (self.optimizer.get_slot(v,'m')/
-        #                                                    (tf.math.sqrt(self.optimizer.get_slot(v,'v')) + self.eps_opt))
-        #                     tf.summary.histogram(v.name.split('/',1)[1] + 'hist/mv_ratio',
-        #                                       slt_ratio,step=iteration)
-        #                     tf.summary.histogram(v.name.split('/',1)[1] + 'hist/mv_sqrt_ratio',
-        #                                       slt_sqrtratio, step=iteration)
+        #                     slt_ratio = self.optimizer.get_slot(
+        #                         v, "m"
+        #                     ) / self.optimizer.get_slot(v, "v")
+        #                     slt_sqrtratio = self.optimizer.get_slot(v, "m") / (
+        #                         tf.math.sqrt(self.optimizer.get_slot(v, "v"))
+        #                         + self.eps_opt
+        #                     )
+        #                     tf.summary.histogram(
+        #                         v.name.split("/", 1)[1] + "hist/mv_ratio",
+        #                         slt_ratio,
+        #                         step=iteration,
+        #                     )
+        #                     tf.summary.histogram(
+        #                         v.name.split("/", 1)[1] + "hist/mv_sqrt_ratio",
+        #                         slt_sqrtratio,
+        #                         step=iteration,
+        #                     )
 
         #         self.summary_writer.flush()
-        # elif (((iteration % self.plot_steps) == 0) or (iteration == self.start_train)) and self.pretraining_mode:
-        #     with self.summary_writer.as_default():
-        #         tf.summary.scalar('Mean Squared Loss/PreTrain', loss, step=iteration)
-        #         tf.summary.scalar('Learning Rate/PReTrain_LR', self.optimizer._decayed_lr(tf.float32), step=iteration)
-        #         self.summary_writer.flush()
 
-    # def test(self, TargetNet,iteration):
-    #     if ((iteration % self.plot_steps) == 0) or (iteration == self.start_train):
-    #         if self.test_experience:
 
-    #             encoded_test_actions = [self.action_space.values.tolist().index(act)
-    #                                 for act in self.test_experience['a']]
 
-    #             test_pred = self.predict(self.test_experience['s'])
-
-    #             selected_test_action_values = tf.math.reduce_sum(
-    #                 test_pred * tf.one_hot(encoded_test_actions, self.num_actions), axis=1)
-
-    #             test_loss = self.loss(self.actual_test_values,selected_test_action_values)
-    #             # compute average maximum Q values for the fixed test states
-    #             Q_avg = tf.reduce_mean(tf.reduce_max(test_pred, axis=1))
-
-    #             with self.summary_writer.as_default():
-    #                 tf.summary.scalar('Q_avg_test/TrainNet', Q_avg, step=iteration)
-    #                 tf.summary.scalar('Mean Squared Loss/Test', test_loss.numpy(), step=iteration)
-    #                 self.summary_writer.flush()
-
-    # def compute_test_target(self, TargetNet):
-    #     if self.test_experience:
-    #         if self.DQN_type == 'DQN':
-    #             test_value_next = np.max(TargetNet.predict(self.test_experience['s2']), axis=1)
-    #         elif self.DQN_type == 'DDQN':
-    #             greedy_target_action = tf.math.argmax(self.predict(self.test_experience['s2']), 1)
-    #             test_value_next = tf.math.reduce_sum(
-    #                 TargetNet.predict(self.test_experience['s2']) * tf.one_hot(greedy_target_action, self.num_actions), axis=1)
-
-    #         actual_test_values = self.test_experience['r'] + self.gamma*test_value_next
-    #         self.actual_test_values = actual_test_values
-
-    def compute_portfolio_distance(self, env, OptRate, DiscFactorLoads, iteration):
-
-        states = self.test_experience["s2"]
-        factors = self.test_experience["f"]
-
-        max_action = self.action_space.values[
-            tf.math.argmax(self.model(np.atleast_2d(states.astype("float32"))), axis=1)
-        ]
-
-        # Optimal traded quantity between period
-        OptNextHolding = (1 - OptRate) * states[:, 1] + OptRate * (
-            1 / (env.kappa * (env.sigma) ** 2)
-        ) * np.sum(DiscFactorLoads * factors, axis=1)
-
-        OptAction = OptNextHolding - states[:, 1]
-        DiscOptAction = [
-            self.action_space.values[(np.abs(self.action_space.values - a)).argmin()]
-            for a in OptAction
-        ]
-
-        pdist = tf.reduce_mean(tf.math.squared_difference(max_action, DiscOptAction))
-
-        with self.summary_writer.as_default():
-            tf.summary.scalar(
-                "Portfolio Distance/Test Squared Loss", pdist, step=iteration
-            )
-            self.summary_writer.flush()
-
-    def eps_greedy_action(self, states, epsilon):
+    def eps_greedy_action(
+         self, states: np.ndarray, epsilon: float
+     ) -> Union[float or int]:
+        """Parameters
+        ----------
+        states: np.ndarray
+            Current state representation
+       
+        epsilon: float
+            Epsilon parameter for exploration
+       
+        Returns
+        ----------
+        action: Union[float or int]
+            Epsilon greedy selected action
+        """
         if self.rng.random() < epsilon:
             return self.rng.choice(self.action_space.values)
         else:
@@ -818,59 +1070,31 @@ class DQN:
                     ]
                 )
             ]
-
-    def alpha_beta_greedy_action(
-        self, states, factors, epsilon, OptRate, DiscFactorLoads, alpha, env
-    ):
-        if self.rng.random() < epsilon:
-            if self.rng.random() < alpha:
-                return self.rng.choice(self.action_space.values)
-            else:
-                if not self.recurrent_env:
-                    if len(DiscFactorLoads) == 1:
-                        retprod = factors * DiscFactorLoads
-                    else:
-                        retprod = factors @ DiscFactorLoads
-
-                        OptNextHolding = (1 - OptRate) * states[1] + OptRate * (
-                            1 / (env.kappa * (env.sigma) ** 2)
-                        ) * retprod
-
-                        OptAction = OptNextHolding - states[1]
-                else:
-                    if len(DiscFactorLoads) == 1:
-                        retprod = factors[-1, :] * DiscFactorLoads
-                    else:
-                        retprod = factors[-1, :] @ DiscFactorLoads
-
-                    OptNextHolding = (1 - OptRate) * states[-1, 1] + OptRate * (
-                        1 / (env.kappa * (env.sigma) ** 2)
-                    ) * retprod
-
-                    OptAction = OptNextHolding - states[-1, 1]
-                DiscOptActionIdx = (
-                    np.abs(self.action_space.values - OptAction)
-                ).argmin()
-                DiscOptAction = self.action_space.values[DiscOptActionIdx]
-                return DiscOptAction
-        else:
-            return self.action_space.values[
-                np.argmax(
-                    self.model(np.atleast_2d(states.astype("float32")), training=False)[
-                        0
-                    ]
-                )
-            ]
-
-    def greedy_action(self, states):
+    
+    def greedy_action(self, states: np.ndarray) -> Union[float or int]:
+        """Parameters
+        ----------
+        states: np.ndarray
+            Current state representation
+       
+        Returns
+        ----------
+        action: Union[float or int]
+            Greedy selected action
+        """
         return self.action_space.values[
             np.argmax(
                 self.model(np.atleast_2d(states.astype("float32")), training=False)[0]
             )
         ]
-
+    
     def add_experience(self, exp):
-
+        """Parameters
+        ----------
+        exp: dict
+            Sequences of experience to store
+       
+        """
         if self.use_PER:
             self.PERmemory.add(exp)
         else:
@@ -879,26 +1103,14 @@ class DQN:
                     self.experience[key].pop(0)
             for key, value in exp.items():
                 self.experience[key].append(value)
-
-    # def add_test_experience(self):
-
-    #     if self.use_PER:
-    #         ids = np.random.randint(low=0, high=self.min_experiences, size=self.batch_size)
-    #         self.test_experience = {'s': np.asarray([self.PERmemory.experience['s'][i] for i in ids]),
-    #                                 'a': np.asarray([self.PERmemory.experience['a'][i] for i in ids]),
-    #                                 'r': np.asarray([self.PERmemory.experience['r'][i] for i in ids]),
-    #                                 's2':np.asarray([self.PERmemory.experience['s2'][i] for i in ids]),
-    #                                 'f':np.asarray([self.PERmemory.experience['f'][i] for i in ids])}
-
-    #     else:
-    #         ids = np.random.randint(low=0, high=len(self.experience['s']), size=self.batch_size)
-    #         self.test_experience = {'s': np.asarray([self.experience['s'][i] for i in ids]),
-    #                                 'a': np.asarray([self.experience['a'][i] for i in ids]),
-    #                                 'r': np.asarray([self.experience['r'][i] for i in ids]),
-    #                                 's2':np.asarray([self.experience['s2'][i] for i in ids]),
-    #                                 'f':np.asarray([self.experience['f'][i] for i in ids])}
-
+    
     def copy_weights(self, TrainNet):
+        """Parameters
+        ----------
+        TargetNet: str
+            instantiated class for the train network to copy weights from.
+            It is an instance of DeepNetworkModel or DeepRecurrentNetworkModel class
+        """
         if self.update_target == "soft":
             variables1 = self.model.trainable_variables
             variables2 = TrainNet.model.trainable_variables
@@ -910,3 +1122,5 @@ class DQN:
             variables2 = TrainNet.model.trainable_variables
             for v1, v2 in zip(variables1, variables2):
                 v1.assign(v2.numpy())
+
+

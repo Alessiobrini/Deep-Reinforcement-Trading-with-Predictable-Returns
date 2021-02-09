@@ -13,23 +13,16 @@ if any("SPYDER" in name for name in os.environ):
 
 
 # 0. importing section initialize logger.--------------------------------------
-import logging, os, itertools, sys
-from utils.readYaml import readConfigYaml
-from utils.generateLogger import generate_logger
-from runDDPG import RunDDPGTraders
-import pdb
+import logging
+import os
+import itertools
+import sys
 import time
 import numpy as np
 from itertools import combinations
-
-# import multiprocessing
 from joblib import Parallel, delayed
-
-
-def chunks(lst, n):
-    """Yield successive n-sized chunks from lst."""
-    for i in range(0, len(lst), n):
-        yield lst[i : i + n]
+from utils.common import readConfigYaml, generate_logger, chunks
+from runDDPG import RunDDPGTraders
 
 
 # 0. Generate Logger-------------------------------------------------------------
@@ -38,7 +31,6 @@ logger = generate_logger()
 # 1. Read config ----------------------------------------------------------------
 # maybe substitute with argparse
 Param = readConfigYaml(os.path.join(os.getcwd(), "config", "paramDDPG.yaml"))
-assert Param["runtype"] == "multi"
 logging.info("Successfully read config file with parameters...")
 
 variables = []
@@ -76,7 +68,17 @@ num_cores = len(variables)
 
 
 def RunMultiParallelExp(var_par, Param):
+    """Main function to parallelize which loads the parameters for the synthetic experiments
+    and run both training and testing routines
 
+    Parameters
+    ----------
+    var_par: list
+        List of varying parameters for the single parallelized experiment
+
+    Param: dict
+        The dictionary containing the parameters
+    """
     for i in range(len(var_par)):
         Param[Param["varying_pars"][i]] = var_par[i]
 

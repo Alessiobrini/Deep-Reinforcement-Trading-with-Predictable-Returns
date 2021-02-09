@@ -14,12 +14,22 @@ if any("SPYDER" in name for name in os.environ):
     get_ipython().magic("reset -sf")
 
 # 0. importing section initialize logger.--------------------------------------
-import logging, os, pdb, sys
-from utils.readYaml import readConfigYaml, saveConfigYaml
-from utils.generateLogger import generate_logger
-from utils.SavePath import GeneratePathFolder
-from utils.SimulateData import ReturnSampler, create_lstm_tensor, GARCHSampler
-from utils.MarketEnv import (
+import logging
+import os
+import pdb
+import sys
+from tqdm import tqdm
+import tensorflow as tf
+import pandas as pd
+import numpy as np
+from utils.common import (
+    generate_logger,
+    readConfigYaml,
+    saveConfigYaml,
+    GeneratePathFolder,
+)
+from utils.simulation import ReturnSampler, create_lstm_tensor, GARCHSampler
+from utils.env import (
     MarketEnv,
     RecurrentMarketEnv,
     ActionSpace,
@@ -28,16 +38,8 @@ from utils.MarketEnv import (
     CreateQTable,
 )
 from utils.DQN import DQN
-from utils.Regressions import CalculateLaggedSharpeRatio, RunModels
-from utils.Out_of_sample_testing import Out_sample_Misspec_test
-from utils.PreTraining import PreTraining
-from utils.get_action_boundaries import get_action_boundaries
-
-# from utils.LaunchIpynbs import runNBs
-from tqdm import tqdm
-import tensorflow as tf
-import pandas as pd
-import numpy as np
+from utils.test import Out_sample_Misspec_test
+from utils.tools import get_action_boundaries, CalculateLaggedSharpeRatio, RunModels
 
 # Generate Logger-------------------------------------------------------------
 logger = generate_logger()
@@ -48,19 +50,20 @@ logging.info("Successfully read config file with parameters...")
 
 
 def RunMisspecDQNTraders(Param):
+    """Main function which loads the parameters for the synthetic experiments
+    and run both training and testing routines
 
+    Parameters
+    ----------
+    Param: dict
+        The dictionary containing the parameters
+    """
     # 0. EXTRACT PARAMETERS ----------------------------------------------------------
-    do_pretrain = Param["do_pretrain"]
-    N_pretrain = Param["N_pretrain"]
-    lr_schedule_pt = Param["lr_schedule_pt"]
-    save_ckpt_pretrained_model = Param["save_ckpt_pretrained_model"]
     plot_inputs = Param["plot_inputs"]
     uncorrelated = Param["uncorrelated"]
     epsilon = Param["epsilon"]
     min_eps_pct = Param["min_eps_pct"]
     min_eps = Param["min_eps"]
-    optimal_expl = Param["optimal_expl"]
-    alpha = Param["alpha"]
     gamma = Param["gamma"]
     kappa = Param["kappa"]
     std_rwds = Param["std_rwds"]
@@ -110,7 +113,6 @@ def RunMisspecDQNTraders(Param):
     max_exp_pct = Param["max_exp_pct"]
     # Data Simulation
     datatype = Param["datatype"]
-    symbol = Param["symbol"]
     factor_lb = Param["factor_lb"]
     CostMultiplier = Param["CostMultiplier"]
     discount_rate = Param["discount_rate"]
@@ -118,7 +120,7 @@ def RunMisspecDQNTraders(Param):
     # Experiment and storage
     start_train = Param["start_train"]
     seed = Param["seed"]
-    seed_param = Param["seedparam"]
+    seed_param = Param["seed_param"]
     out_of_sample_test = Param["out_of_sample_test"]
     executeDRL = Param["executeDRL"]
     executeRL = Param["executeRL"]
@@ -137,19 +139,19 @@ def RunMisspecDQNTraders(Param):
     outputModel = Param["outputModel"]
     varying_pars = Param["varying_pars"]
 
-    if datatype != "real":
-        N_train = Param["N_train"]
-        N_test = Param["N_test"]
-        mean_process = Param["mean_process"]
-        lags_mean_process = Param["lags_mean_process"]
-        vol_process = Param["vol_process"]
-        distr_noise = Param["distr_noise"]
-        HalfLife = Param["HalfLife"]
-        f0 = Param["f0"]
-        f_param = Param["f_param"]
-        sigma = Param["sigma"]
-        sigmaf = Param["sigmaf"]
-        degrees = Param["degrees"]
+
+    N_train = Param["N_train"]
+    N_test = Param["N_test"]
+    mean_process = Param["mean_process"]
+    lags_mean_process = Param["lags_mean_process"]
+    vol_process = Param["vol_process"]
+    distr_noise = Param["distr_noise"]
+    HalfLife = Param["HalfLife"]
+    f0 = Param["f0"]
+    f_param = Param["f_param"]
+    sigma = Param["sigma"]
+    sigmaf = Param["sigmaf"]
+    degrees = Param["degrees"]
 
     if use_GPU:
         gpu_devices = tf.config.experimental.list_physical_devices("GPU")
@@ -190,22 +192,7 @@ def RunMisspecDQNTraders(Param):
     rng = np.random.RandomState(seed)
     # 1. GET REAL OR SYNTHETIC DATA AND MAKE REGRESSIONS --------------------------------------------------------------
     # import and rearrange data
-    if datatype == "real":
-        asset_df = pd.read_parquet(
-            "data/daily_futures/daily_bars_{}_1990-07-01_2020-07-15.parquet.gzip".format(
-                symbol
-            )
-        )
-        asset_df.set_index("date", inplace=True)
-        asset_df = asset_df.iloc[::-1]
-        price_series = asset_df["close_p"]
-        # calculate predicting factors
-        df = CalculateLaggedSharpeRatio(price_series, factor_lb, symbol)
-        split_obs = int(round(df.shape[0] * 0.8, -1))  # TODO change hard coded now
-        df_test = df.iloc[split_obs:]
-        df = df.iloc[:split_obs]
-        y, X = df[df.columns[0]], df[df.columns[1:]]
-    elif datatype == "garch":
+    if datatype == "garch":
         return_series, params = GARCHSampler(
             N_train + factor_lb[-1] + unfolding + 1,
             mean_process=mean_process,
@@ -326,13 +313,6 @@ def RunMisspecDQNTraders(Param):
     returns = df.iloc[:, 0].values
     factors = df.iloc[:, 1:].values
 
-    # Instantiate length of experiment in real case
-    if datatype == "real":
-        N_train = len(returns)
-        Param["N_train"] = N_train
-        N_test = df_test.shape[0]
-        Param["N_test"] = N_test
-
     # store GP parameters
     if datatype != "t_stud_mfit":
         sigma_fit = df.iloc[:, 0].std()
@@ -344,7 +324,7 @@ def RunMisspecDQNTraders(Param):
         sigmaf_fit = sigmaf
     f_speed_fit = np.abs(
         np.array([*params_meanrev.values()]).ravel()
-    )  # TODO check if abs is correct
+    )  
     HalfLife_fit = np.around(np.log(2) / f_speed_fit, 2)
 
     if datatype == "garch" or datatype == "real":
@@ -372,12 +352,12 @@ def RunMisspecDQNTraders(Param):
     # print(f_param,f_param_fit)
     # pdb.set_trace()
 
-    # steps_to_min_eps = int(round(df.shape[0]*0.8,-1))
+
     steps_to_min_eps = int(N_train * min_eps_pct)
     Param["steps_to_min_eps"] = steps_to_min_eps
     eps_decay = (epsilon - min_eps) / steps_to_min_eps
     Param["eps_decay"] = eps_decay
-    # max_experiences = int(round(df.shape[0]/4,-1))
+
     max_experiences = int(N_train * max_exp_pct)
     Param["max_experiences"] = max_experiences
     exp_decay_steps = int(N_train * exp_decay_pct)
@@ -458,8 +438,8 @@ def RunMisspecDQNTraders(Param):
     )
 
     KLM[:2] = action_quantiles
-    # KLM[2] = holding_quantile
-    # RT[0] = ret_quantile
+    KLM[2] = holding_quantile
+    RT[0] = ret_quantile
     Param["RT"] = RT
     Param["KLM"] = KLM
 
@@ -596,161 +576,6 @@ def RunMisspecDQNTraders(Param):
         "Successfully initialized the Deep Q Networks...YOU ARE CURRENTLY USING A SEED TO INITIALIZE WEIGHTS."
     )
 
-    # 4.1 PRETRAIN OVER SIMULATED SERIES ----------------------------------------------------------
-    if do_pretrain:  # TODO adjust len cycle
-        # os.mkdir(os.path.join(savedpath, 'ckpt_pt'))
-        N_pretrain = Param["N_pretrain"]
-        lr_schedule_pt = Param["lr_schedule_pt"]
-        save_ckpt_pretrained_model = Param["save_ckpt_pretrained_model"]
-        if save_ckpt_pretrained_model:
-            save_ckpt_pretrained_steps = N_pretrain / save_ckpt_pretrained_model
-            Param["save_ckpt_pretrained_steps"] = save_ckpt_pretrained_steps
-
-        f0 = [0.0 for _ in range(len(f_param))]
-        pt_returns, pt_factors, pt_f_speed = ReturnSampler(
-            N_pretrain,
-            sigmaf,
-            f0,
-            f_param,
-            sigma,
-            plot_inputs,
-            HalfLife,
-            seed,
-            offset=unfolding + 1,
-            uncorrelated=uncorrelated,
-        )
-        pt_env = MarketEnv(
-            HalfLife,
-            Startholding,
-            sigma,
-            CostMultiplier,
-            kappa,
-            N_pretrain,
-            discount_rate,
-            f_param,
-            pt_f_speed,
-            pt_returns,
-            pt_factors,
-        )
-
-        PreTrainQNet = DQN(
-            seed,
-            DQN_type,
-            recurrent_env,
-            gamma,
-            max_experiences,
-            update_target,
-            tau,
-            input_shape,
-            hidden_units,
-            hidden_memory_units,
-            batch_size,
-            selected_loss,
-            learning_rate,
-            start_train,
-            optimizer_name,
-            batch_norm_input,
-            batch_norm_hidden,
-            activation,
-            kernel_initializer,
-            plot_hist,
-            plot_steps_hist,
-            plot_steps,
-            summary_writer,
-            action_space,
-            use_PER,
-            PER_e,
-            PER_a,
-            PER_b,
-            final_PER_b,
-            PER_b_steps,
-            PER_b_growth,
-            final_PER_a,
-            PER_a_steps,
-            PER_a_growth,
-            clipgrad,
-            clipnorm,
-            clipvalue,
-            clipglob_steps,
-            beta_1,
-            beta_2,
-            eps_opt,
-            std_rwds,
-            lr_schedule_pt,
-            exp_decay_steps,
-            exp_decay_rate,
-            rng=rng,
-            modelname="PreTrainQNet",
-            pretraining_mode=True,
-        )
-        PreTargetQNet = DQN(
-            seed,
-            DQN_type,
-            recurrent_env,
-            gamma,
-            max_experiences,
-            update_target,
-            tau,
-            input_shape,
-            hidden_units,
-            hidden_memory_units,
-            batch_size,
-            selected_loss,
-            learning_rate,
-            start_train,
-            optimizer_name,
-            batch_norm_input,
-            batch_norm_hidden,
-            activation,
-            kernel_initializer,
-            plot_hist,
-            plot_steps_hist,
-            plot_steps,
-            summary_writer,
-            action_space,
-            use_PER,
-            PER_e,
-            PER_a,
-            PER_b,
-            final_PER_b,
-            PER_b_steps,
-            PER_b_growth,
-            final_PER_a,
-            PER_a_steps,
-            PER_a_growth,
-            clipgrad,
-            clipnorm,
-            clipvalue,
-            clipglob_steps,
-            beta_1,
-            beta_2,
-            eps_opt,
-            std_rwds,
-            lr_schedule_pt,
-            exp_decay_steps,
-            exp_decay_rate,
-            rng=rng,
-            modelname="PreTargetQNet",
-            pretraining_mode=True,
-        )
-
-        PreTraining(
-            pt_returns,
-            pt_factors,
-            pt_f_speed,
-            pt_env,
-            PreTrainQNet,
-            PreTargetQNet,
-            N_pretrain,
-            epsilon,
-            copy_step,
-            savedpath,
-            save_ckpt_pretrained_model,
-            save_ckpt_pretrained_steps,
-        )
-
-        TrainQNet.model.load_weights(os.path.join(savedpath, "DQN_pretrained_weights"))
-        TargetQNet.model.load_weights(os.path.join(savedpath, "DQN_pretrained_weights"))
 
     # 5. TRAIN ALGORITHM ----------------------------------------------------------
     iters = 0
@@ -762,19 +587,7 @@ def RunMisspecDQNTraders(Param):
     for i in tqdm(iterable=range(cycle_len), desc="Training DQNetwork"):
         if executeDRL:
             epsilon = max(min_eps, epsilon - eps_decay)
-            if not optimal_expl:
-                shares_traded = TrainQNet.eps_greedy_action(CurrState, epsilon)
-            else:
-                OptRate, DiscFactorLoads = env.opt_trading_rate_disc_loads()
-                shares_traded = TrainQNet.alpha_beta_greedy_action(
-                    CurrState,
-                    CurrFactors,
-                    epsilon,
-                    OptRate,
-                    DiscFactorLoads,
-                    alpha,
-                    env,
-                )
+            shares_traded = TrainQNet.eps_greedy_action(CurrState, epsilon)
 
             NextState, Result, NextFactors = env.step(CurrState, shares_traded, i)
             env.store_results(Result, i)
@@ -789,7 +602,7 @@ def RunMisspecDQNTraders(Param):
             TrainQNet.train(TargetQNet, i)
 
             CurrState = NextState
-            CurrFactors = NextFactors
+            CurrFactors = NextFactors # TODO see if it is useful
             iters += 1
             if (iters % copy_step == 0) and (i > TrainQNet.start_train):
                 TargetQNet.copy_weights(TrainQNet)
@@ -831,67 +644,43 @@ def RunMisspecDQNTraders(Param):
             if (i % save_ckpt_steps == 0) and (i != 0) and (i > TrainQNet.start_train):
                 if not executeRL:
                     QTable = None
-                if datatype != "real":
-                    Out_sample_Misspec_test(
-                        N_test,
-                        None,
-                        factor_lb,
-                        Startholding,
-                        CostMultiplier,
-                        kappa,
-                        discount_rate,
-                        executeDRL,
-                        executeRL,
-                        executeMV,
-                        RT,
-                        KLM,
-                        executeGP,
-                        TrainQNet,
-                        savedpath,
-                        i,
-                        recurrent_env,
-                        unfolding,
-                        QTable,
-                        datatype=datatype,
-                        mean_process=mean_process,
-                        lags_mean_process=lags_mean_process,
-                        vol_process=vol_process,
-                        distr_noise=distr_noise,
-                        seed=seed,
-                        seed_param=seed_param,
-                        sigmaf=sigmaf,
-                        f0=f0,
-                        f_param=f_param,
-                        sigma=sigma,
-                        HalfLife=HalfLife,
-                        uncorrelated=uncorrelated,
-                        degrees=degrees,
-                        rng=rng,
-                    )
-                else:
-                    Out_sample_Misspec_test(
-                        N_test,
-                        df_test,
-                        factor_lb,
-                        Startholding,
-                        CostMultiplier,
-                        kappa,
-                        discount_rate,
-                        executeDRL,
-                        executeRL,
-                        executeMV,
-                        RT,
-                        KLM,
-                        executeGP,
-                        TrainQNet,
-                        savedpath,
-                        i,
-                        recurrent_env,
-                        unfolding,
-                        QTable,
-                        datatype=datatype,
-                        seed_param=seed_param,
-                    )
+                Out_sample_Misspec_test(
+                    N_test,
+                    None,
+                    factor_lb,
+                    Startholding,
+                    CostMultiplier,
+                    kappa,
+                    discount_rate,
+                    executeDRL,
+                    executeRL,
+                    executeMV,
+                    RT,
+                    KLM,
+                    executeGP,
+                    TrainQNet,
+                    savedpath,
+                    i,
+                    recurrent_env,
+                    unfolding,
+                    QTable,
+                    datatype=datatype,
+                    mean_process=mean_process,
+                    lags_mean_process=lags_mean_process,
+                    vol_process=vol_process,
+                    distr_noise=distr_noise,
+                    seed=seed,
+                    seed_param=seed_param,
+                    sigmaf=sigmaf,
+                    f0=f0,
+                    f_param=f_param,
+                    sigma=sigma,
+                    HalfLife=HalfLife,
+                    uncorrelated=uncorrelated,
+                    degrees=degrees,
+                    rng=rng,
+                )
+
 
     logging.info("Successfully trained the Deep Q Network...")
     # 6. STORE RESULTS ----------------------------------------------------------

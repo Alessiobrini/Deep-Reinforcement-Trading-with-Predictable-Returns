@@ -9,8 +9,6 @@ import numpy as np
 from tqdm import tqdm
 import pdb, sys
 from statsmodels.tsa.stattools import adfuller
-from statsmodels.stats.diagnostic import het_breuschpagan
-from statsmodels.stats.diagnostic import het_arch
 import matplotlib.pyplot as plt
 import pandas as pd
 import seaborn
@@ -26,7 +24,6 @@ from arch.univariate import (
     ConstantMean,
     GARCH,
     EGARCH,
-    EWMAVariance,
     ConstantVariance,
     HARCH,
     FIGARCH,
@@ -42,21 +39,78 @@ def ReturnSampler(
     sigma: Union[float or list or np.ndarray],
     plot_inputs: int,
     HalfLife: Union[int or list or np.ndarray],
-    rng: int = None,
+    rng: np.random.mtrand.RandomState = None,
     offset: int = 2,
     adftest: bool = False,
     uncorrelated: bool = False,
     seed_test: int = None,
     t_stud: bool = False,
-    # t_stud_factors: bool = False,
     degrees: int = 8,
     vol: str = 'omosk',
 ) -> Tuple[
     Union[list or np.ndarray], Union[list or np.ndarray], Union[list or np.ndarray]
 ]:
+    """
+    Generates financial returns driven by mean-reverting factors.
 
+    Parameters
+    ----------
+    N_train : int
+        Length of the experiment
+
+    sigmaf : Union[float or list or np.ndarray]
+        Volatilities of the mean reverting factors
+
+    f0 : Union[float or list or np.ndarray]
+        Initial points for simulating factors. Usually set at 0
+
+    f_param: Union[float or list or np.ndarray]
+        Factor loadings of the mean reverting factors
+
+    sigma: Union[float or list or np.ndarray]
+        volatility of the asset return (additional noise other than the intrinsic noise
+                                        in the factors)
+
+    plot_inputs: bool
+        Boolean to regulate if plot of simulated returns and factor is needed
+
+    HalfLife: Union[int or list or np.ndarray]
+        HalfLife of mean reversion to simulate factors with different speeds
+
+    rng: np.random.mtrand.RandomState
+        Random number generator for reproducibility
+
+    offset: int = 2
+        Amount of additional observation to simulate
+
+    adftest: bool = False
+        Boolean to regulate if Augment Dickey-Fuller (ADF) test on simulated
+        returns is needed
+
+    uncorrelated: bool = False
+        Boolean to regulate if the simulated factor are correlated or not
+
+    seed_test: int = None
+        Seed for out-of-sample test simulation
+
+    t_stud : bool = False
+        Bool to regulate if Student\'s t noises are needed
+
+    degrees : int = 8
+        Degrees of freedom for Student\'s t noises
+        
+    vol: str = 'omosk'
+        Choose between 'omosk' and 'eterosk' for the kind of volatility
+    Returns
+    -------
+    realret: Union[list or np.ndarray]
+        Simulated series of returns
+    factors: Union[list or np.ndarray]
+        Simulated series of factors
+    f_speed: Union[list or np.ndarray]
+        Speed of mean reversion computed form HalfLife argument
+    """
     # Set seed to make the out-of-sample experiment reproducible
-    # np.random.seed(seed)
     if seed_test is not None:
         rng = np.random.RandomState(seed_test * 2)
 
@@ -202,16 +256,61 @@ def ReturnSampler(
 # https://arch.readthedocs.io/en/latest/univariate/volatility.html
 # https://github.com/bashtage/arch/blob/master/arch/univariate/volatility.py
 def GARCHSampler(
-    length,
-    mean_process="Constant",
-    lags_mean_process=None,
-    vol_process="GARCH",
-    distr_noise="normal",
-    seed=None,
-    seed_param=None,
-    p_arg=None,
-):
+    length: int,
+    mean_process: str = "Constant",
+    lags_mean_process: int = None,
+    vol_process: str = "GARCH",
+    distr_noise: str = "normal",
+    seed: int = None,
+    seed_param: int = None,
+    p_arg: list = None,
+) -> Tuple[np.ndarray, pd.Series]:
 
+    """
+    Generates financial returns driven by mean-reverting factors.
+
+    Parameters
+    ----------
+    length: int
+        Length of the experiment
+
+    mean_process: str
+        Mean process for the returns. It can be 'Constant' or 'AR'
+
+    lags_mean_process: int
+        Order of autoregressive lag if mean_process is AR
+
+    vol_process: str
+        Volatility process for the returns. It can be 'GARCH', 'EGARCH', 'TGARCH',
+        'ARCH', 'HARCH', 'FIGARCH' or 'Constant'. Note that different volatility
+        processes requires different parameter, which are hard coded. If you want to
+        pass them explicitly, use p_arg.
+
+    distr_noise: str
+        Distribution for the unpredictable component of the returns. It can be
+        'normal', 'studt', 'skewstud' or 'ged'. Note that different distributions
+        requires different parameter, which are hard coded. If you want to
+        pass them explicitly, use p_arg.
+
+    seed: int
+        Seed for experiment reproducibility
+
+    seed_param: int
+        Seed for drawing randomly the parameters needed for the simulation. The
+        ranges provided are obtained as average lower and upper bounds of several
+        GARCH-type model fitting on real financial time-series.
+
+    p_arg: pd.Series
+        Pandas series of parameters that you want to pass explicitly.
+        They need to be passed in the right order. Check documentation of the
+        arch python package (https://arch.readthedocs.io/en/latest/index.html) for more details.
+    Returns
+    -------
+    simulations['data'].values: np.ndarray
+        Simulated series of returns
+    p: pd.Series
+        Series  of parameters used for simulation
+    """
     names = []
     vals = []
 
@@ -221,17 +320,24 @@ def GARCHSampler(
     if mean_process == "Constant":
         model = ConstantMean(None)
         names.append("const")
-        # vals.append(rng.uniform(0.01,0.09))
-        vals.append(0.0)
+        if seed_param:
+            vals.append(rng.uniform(0.01, 0.09))
+        else:
+            vals.append(0.0)
 
     elif mean_process == "AR":
         model = ARX(None, lags=lags_mean_process)
         names.append("const")
         vals.append(0.0)
-        for i in range(lags_mean_process):
-            names.append("lag{}".format(i))
-            # vals.append(rng.uniform(-0.09,0.09))
-            vals.append(0.9)
+        if seed_param:
+            for i in range(lags_mean_process):
+                names.append("lag{}".format(i))
+                vals.append(rng.uniform(-0.09, 0.09))
+        else:
+            for i in range(lags_mean_process):
+                names.append("lag{}".format(i))
+                vals.append(0.9)
+
     else:
         return print("This mean process doesn't exist or it's not available.")
         sys.exit()
@@ -239,126 +345,101 @@ def GARCHSampler(
     # choose volatility process
     if vol_process == "GARCH":
         model.volatility = GARCH(p=1, q=1)
-
-        # p_space = np.round([[1-i-k,i, k] for i in np.linspace(0.005,0.02,40)
-        #                     for k in np.linspace(0.86,0.95,40)],4)
-        # filtered_p_space = p_space[(p_space.sum(axis=1)<=1.0) & (p_space[:,0]>0)]
-        # idx = rng.randint(len(filtered_p_space))
-        # garch_p = filtered_p_space[idx]
         names.extend(["omega", "alpha", "beta"])
-        # om = rng.uniform(0.03,0.1)
-        # alph = rng.uniform(0.05,0.1)
-        # b = rng.uniform(0.86,0.92)
-        # garch_p = np.array([om,alph,b])/(np.array([om,alph,b]).sum())
-        om = 0.01  # same vol as original GP experiments
-        alph = 0.05
-        b = 0.94
-        garch_p = np.array([om, alph, b])
+        if seed_param:
+            om = rng.uniform(0.03, 0.1)
+            alph = rng.uniform(0.05, 0.1)
+            b = rng.uniform(0.86, 0.92)
+            garch_p = np.array([om, alph, b]) / (np.array([om, alph, b]).sum())
+        else:
+            om = 0.01
+            alph = 0.05
+            b = 0.94
+            garch_p = np.array([om, alph, b])
         vals.extend(list(garch_p))
 
     elif vol_process == "ARCH":
         model.volatility = GARCH(p=1, q=0)
 
         names.extend(["omega", "alpha"])
-        # om = rng.uniform(1.4,4.0)
-        # alph = rng.uniform(0.1,0.6)
-        om = 0.01
-        alph = 0.4
+        if seed_param:
+            om = rng.uniform(1.4, 4.0)
+            alph = rng.uniform(0.1, 0.6)
+        else:
+            om = 0.01
+            alph = 0.4
         garch_p = np.array([om, alph])
-
         vals.extend(list(garch_p))
 
     elif vol_process == "HARCH":
         model.volatility = HARCH(lags=[1, 5, 22])
 
         names.extend(["omega", "alpha[1]", "alpha[5]", "alpha[22]"])
-        # om = rng.uniform(1.2,0.5)
-        # alph1 = rng.uniform(0.01,0.1)
-        # alph5 = rng.uniform(0.05,0.3)
-        # alph22 = rng.uniform(0.4,0.7)
-        om = 0.01
-        alph1 = 0.05
-        alph5 = 0.15
-        alph22 = 0.5
+        if seed_param:
+            om = rng.uniform(1.2, 0.5)
+            alph1 = rng.uniform(0.01, 0.1)
+            alph5 = rng.uniform(0.05, 0.3)
+            alph22 = rng.uniform(0.4, 0.7)
+        else:
+            om = 0.01
+            alph1 = 0.05
+            alph5 = 0.15
+            alph22 = 0.5
         garch_p = np.array([om, alph1, alph5, alph22])
-
         vals.extend(list(garch_p))
 
     elif vol_process == "FIGARCH":
         model.volatility = FIGARCH(p=1, q=1)
 
         names.extend(["omega", "phi", "d", "beta"])
-        # om = rng.uniform(0.05,0.03)
-        # phi = rng.uniform(0.1,0.35)
-        # d = rng.uniform(0.3,0.5)
-        # beta = rng.uniform(0.4,0.7)
-        om = 0.01
-        phi = 0.2
-        d = 0.2
-        beta = 0.55
+        if seed_param:
+            om = rng.uniform(0.05, 0.03)
+            phi = rng.uniform(0.1, 0.35)
+            d = rng.uniform(0.3, 0.5)
+            beta = rng.uniform(0.4, 0.7)
+        else:
+            om = 0.01
+            phi = 0.2
+            d = 0.2
+            beta = 0.55
         garch_p = np.array([om, phi, d, beta])
-
-        vals.extend(list(garch_p))
-
-    elif vol_process == "AVARCH":  # TODO check conv
-        model.volatility = GARCH(p=1, q=0, power=1.0)
-
-        names.extend(["omega", "alpha"])
-        om = rng.uniform(1.1, 1.7)
-        alph = rng.uniform(0.15, 0.45)
-        garch_p = np.array([om, alph])
-
-        vals.extend(list(garch_p))
-
-    elif vol_process == "AVGARCH":  # TODO check conv
-        model.volatility = GARCH(p=1, q=1, power=1.0)
-
-        names.extend(["omega", "alpha", "beta"])
-        om = rng.uniform(0.03, 0.08)
-        alph = rng.uniform(0.07, 0.11)
-        b = rng.uniform(0.88, 0.92)
-        garch_p = np.array([om, alph, b])
-
         vals.extend(list(garch_p))
 
     elif vol_process == "TGARCH":
         model.volatility = GARCH(p=1, o=1, q=1)
         names.extend(["omega", "alpha", "gamma", "beta"])
-        # om = rng.uniform(0.02,0.15)
-        # alph = rng.uniform(0.01,0.07)
-        # gamma = rng.uniform(0.03,0.1)
-        # b = rng.uniform(0.88,0.94)
-        # garch_p = np.array([om,alph, gamma, b])/(np.array([om,alph, gamma, b]).sum())
-        # p_space = np.round([[1.0-i-k-j,i,j,k] for i in np.linspace(0.01,0.07,5) for j in np.linspace(0.03,0.1,5)
-        #                     for k in np.linspace(0.88,0.94,10)],4)
-        # idx = rng.randint(len(p_space))
-
-        # garch_p = p_space[idx]
-        om = 0.01  # same vol as original GP experiments
-        alph = 0.05
-        gamma = 0.04
-        b = 0.90
+        if seed_param:
+            om = rng.uniform(0.02, 0.15)
+            alph = rng.uniform(0.01, 0.07)
+            gamma = rng.uniform(0.03, 0.1)
+            b = rng.uniform(0.88, 0.94)
+        else:
+            om = 0.01
+            alph = 0.05
+            gamma = 0.04
+            b = 0.90
         garch_p = np.array([om, alph, gamma, b])
         vals.extend(list(garch_p))
-    elif vol_process == "EWMA":  # TODO check conv
-        model.volatility = EWMAVariance(lam=0.97)
+
     elif vol_process == "EGARCH":
         model.volatility = EGARCH(p=1, o=1, q=1)
         names.extend(["omega", "alpha", "gamma", "beta"])
-        # om = rng.uniform(0.01,0.03)
-        # alph = rng.uniform(0.06,0.17)
-        # gamma = rng.uniform(-0.05,-0.02)
-        # b = rng.uniform(0.97,0.99)
-        # garch_p = np.array([om,alph, gamma, b])/(np.array([om,alph, gamma, b]).sum())
-
-        om = 0.01  # same vol as original GP experiments
-        alph = 0.05
-        gamma = -0.02
-        b = 0.94
-        garch_p = np.array([om, alph, gamma, b])
+        if seed_param:
+            om = rng.uniform(0.01, 0.03)
+            alph = rng.uniform(0.06, 0.17)
+            gamma = rng.uniform(-0.05, -0.02)
+            b = rng.uniform(0.97, 0.99)
+            garch_p = np.array([om, alph, gamma, b]) / (
+                np.array([om, alph, gamma, b]).sum()
+            )
+        else:
+            om = 0.01
+            alph = 0.05
+            gamma = -0.02
+            b = 0.94
+            garch_p = np.array([om, alph, gamma, b])
         vals.extend(list(garch_p))
 
-        # vals.extend(list(garch_p))
     elif vol_process == "Constant":
         model.volatility = ConstantVariance()
         names.append("sigma_const")
@@ -372,16 +453,24 @@ def GARCHSampler(
     elif distr_noise == "studt":
         model.distribution = StudentsT(np.random.RandomState(seed))
         names.append("nu")
-        # vals.append(rng.randint(6.0,10.0))
-        vals.append(10.0)
+        if seed_param:
+            vals.append(rng.randint(6.0, 10.0))
+        else:
+            vals.append(8.0)
     elif distr_noise == "skewstud":
         model.distribution = SkewStudent(np.random.RandomState(seed))
         names.extend(["nu", "lambda"])
-        vals.extend([rng.uniform(6.0, 10.0), rng.uniform(-0.1, 0.1)])
+        if seed_param:
+            vals.extend([rng.uniform(6.0, 10.0), rng.uniform(-0.1, 0.1)])
+        else:
+            vals.extend([8.0, 0.05])
     elif distr_noise == "ged":
         model.distribution = GeneralizedError(np.random.RandomState(seed))
         names.append("nu")
-        vals.append(rng.uniform(1.05, 3.0))
+        if seed_param:
+            vals.append(rng.uniform(1.05, 3.0))
+        else:
+            vals.append(2.0)
     else:
         print("This noise distribution doesn't exist or it's not available.")
         sys.exit()
@@ -394,9 +483,23 @@ def GARCHSampler(
     return simulations["data"].values, p
 
 
+def create_lstm_tensor(X: np.ndarray, look_back: int = 5):
+    """
+    Create tensors from 2D arrays to input them in a Recurrent type neural network
 
-def create_lstm_tensor(X, look_back=5):
+    Parameters
+    ----------
+    X: np.ndarray
+        2D array to cast as tensor
 
+    look_back: int
+        Lookback window to create correlated tensors
+
+    Returns
+    -------
+    np.array(dataX): np.ndarray
+        Resulting tensors of returns
+    """
     dataX = []
     for i in tqdm(
         iterable=range(len(X) - look_back + 1), desc="Creating tensors for LSTM"

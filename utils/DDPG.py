@@ -18,9 +18,8 @@ from tensorflow.keras.layers import Dense, LSTM
 from tensorflow.keras.optimizers.schedules import PiecewiseConstantDecay
 from tensorflow.keras.optimizers.schedules import ExponentialDecay
 from tensorflow.keras.initializers import RandomUniform, VarianceScaling
-from utils.SumTreePER import PER_buffer
-from utils.ExplorativeNoises import OrnsteinUhlenbeckActionNoise, GaussianActionNoise
-from utils.MarketEnv import scale_action
+from utils.exploration import OrnsteinUhlenbeckActionNoise, GaussianActionNoise, PER_buffer
+from utils.env import scale_action
 
 
 ################################ Class to create a Deep Q Network model ################################

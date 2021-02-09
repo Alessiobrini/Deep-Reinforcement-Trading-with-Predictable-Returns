@@ -14,12 +14,20 @@ if any("SPYDER" in name for name in os.environ):
 
 
 # 0. importing section initialize logger.--------------------------------------
-import logging, os, pdb
-from utils.readYaml import readConfigYaml, saveConfigYaml
-from utils.generateLogger import generate_logger
-from utils.SavePath import GeneratePathFolder
-from utils.SimulateData import ReturnSampler, create_lstm_tensor
-from utils.MarketEnv import (
+import logging
+import os
+import pdb
+from tqdm import tqdm
+import tensorflow as tf
+import numpy as np
+from utils.common import (
+    generate_logger,
+    readConfigYaml,
+    saveConfigYaml,
+    GeneratePathFolder,
+)
+from utils.simulation import ReturnSampler, create_lstm_tensor
+from utils.env import (
     MarketEnv,
     RecurrentMarketEnv,
     ActionSpace,
@@ -28,12 +36,9 @@ from utils.MarketEnv import (
     CreateQTable,
 )
 from utils.DQN import DQN
-from utils.PreTraining import PreTraining
-from utils.Out_of_sample_testing import Out_sample_test
-from utils.get_action_boundaries import get_action_boundaries
-from tqdm import tqdm
-import tensorflow as tf
-import numpy as np
+from utils.test import Out_sample_test
+from utils.tools import get_action_boundaries
+
 
 # Generate Logger-------------------------------------------------------------
 logger = generate_logger()
@@ -44,13 +49,18 @@ logging.info("Successfully read config file with parameters...")
 
 
 def RunDQNTraders(Param):
+    """Main function which loads the parameters for the synthetic experiments
+    and run both training and testing routines
 
+    Parameters
+    ----------
+    Param: dict
+        The dictionary containing the parameters
+    """
     # 0. EXTRACT PARAMETERS ----------------------------------------------------------
     epsilon = Param["epsilon"]
     min_eps_pct = Param["min_eps_pct"]
     min_eps = Param["min_eps"]
-    optimal_expl = Param["optimal_expl"]
-    alpha = Param["alpha"]
     gamma = Param["gamma"]
     kappa = Param["kappa"]
     std_rwds = Param["std_rwds"]
@@ -154,12 +164,10 @@ def RunDQNTraders(Param):
 
     if not recurrent_env:
         Param["unfolding"] = unfolding = 1
-
+        
+    # comment this if you want to update less frequently even when using polyak update ('soft')
     if update_target == "soft":
-        if Param["varying_type"] == "random_search":
-            copy_step = Param["copy_step"] = 1
-        else:
-            assert copy_step == 1, "Soft target updates require copy step to be 1"
+        assert copy_step == 1, "Soft target updates require copy step to be 1"
 
     steps_to_min_eps = int(N_train * min_eps_pct)
     Param["steps_to_min_eps"] = steps_to_min_eps
@@ -193,7 +201,7 @@ def RunDQNTraders(Param):
         save_ckpt_steps = int(N_train / save_ckpt_model)
         Param["save_ckpt_steps"] = save_ckpt_steps
 
-    # 1. PATH FOR MODEL (CKPT) AND TB OUTPUT, STORE CONFIG ---------------
+    # 1. PATH FOR MODEL (CKPT) AND TENSORBOARD OUTPUT, STORE CONFIG FILE ---------------
     savedpath = GeneratePathFolder(
         outputDir, outputClass, outputModel, varying_pars, N_train, Param
     )
@@ -206,7 +214,7 @@ def RunDQNTraders(Param):
         pass
     logging.info("Successfully generated path and stored config...")
 
-    # 2. SIMULATE FAKE DATA --------------------------------------------------------------
+    # 2. SIMULATE SYNTHETIC DATA --------------------------------------------------------------
     returns, factors, f_speed = ReturnSampler(
         N_train,
         sigmaf,
@@ -224,12 +232,9 @@ def RunDQNTraders(Param):
     if recurrent_env:
         returns_tens = create_lstm_tensor(returns.reshape(-1, 1), unfolding)
         factors_tens = create_lstm_tensor(factors, unfolding)
-    logging.info(
-        "Successfully simulated data...YOU ARE CURRENTLY USING A SEED TO SIMULATE RETURNS. LEAVE IT IF YOU HAVE FOUND A PROPER NN SETTING"
-    )
+    logging.info("Successfully simulated data...")
 
-    # 3. CREATE MARKET ENVIRONMENTS --------------------------------------------------------------
-    # market env for DQN or its variant
+    # 3. INSTANTIATE MARKET ENVIRONMENT --------------------------------------------------------------
     if recurrent_env:
         env = RecurrentMarketEnv(
             HalfLife,
@@ -279,8 +284,8 @@ def RunDQNTraders(Param):
     )
 
     KLM[:2] = action_quantiles
-    # KLM[2] = holding_quantile
-    # RT[0] = ret_quantile
+    KLM[2] = holding_quantile
+    RT[0] = ret_quantile
 
     Param["RT"] = RT
     Param["KLM"] = KLM
@@ -420,169 +425,12 @@ def RunDQNTraders(Param):
         "Successfully initialized the Deep Q Networks...YOU ARE CURRENTLY USING A SEED TO INITIALIZE WEIGHTS. LEAVE IT IF YOU HAVE FOUND A PROPER NN SETTING"
     )
 
-    # 4.1 PRETRAIN ALGORITHM ----------------------------------------------------------
-    if Param["do_pretrain"]:
-        os.mkdir(os.path.join(savedpath, "ckpt_pt"))
-        N_pretrain = Param["N_pretrain"]
-        lr_schedule = Param["lrate_schedule_pretrain"]
-        save_ckpt_pretrained_model = Param["save_ckpt_pretrained_model"]
-        if save_ckpt_pretrained_model:
-            save_ckpt_pretrained_steps = N_pretrain / save_ckpt_pretrained_model
-            Param["save_ckpt_pretrained_steps"] = save_ckpt_pretrained_steps
-
-        pt_returns, pt_factors, pt_f_speed = ReturnSampler(
-            N_pretrain, sigmaf, f0, f_param, sigma, plot_inputs, HalfLife, seed_ret
-        )
-        pt_env = MarketEnv(
-            HalfLife,
-            Startholding,
-            sigma,
-            CostMultiplier,
-            kappa,
-            N_pretrain,
-            discount_rate,
-            f_param,
-            pt_f_speed,
-            pt_returns,
-            pt_factors,
-        )
-
-        PreTrainQNet = DQN(
-            seed_init,
-            DQN_type,
-            recurrent_env,
-            gamma,
-            max_experiences,
-            update_target,
-            tau,
-            input_shape,
-            hidden_units,
-            hidden_memory_units,
-            batch_size,
-            selected_loss,
-            learning_rate,
-            start_train,
-            optimizer_name,
-            batch_norm_input,
-            batch_norm_hidden,
-            activation,
-            kernel_initializer,
-            plot_hist,
-            plot_steps_hist,
-            plot_steps,
-            summary_writer,
-            action_space,
-            use_PER,
-            PER_e,
-            PER_a,
-            PER_b,
-            final_PER_b,
-            PER_b_steps,
-            PER_b_growth,
-            final_PER_a,
-            PER_a_steps,
-            PER_a_growth,
-            clipgrad,
-            clipnorm,
-            clipvalue,
-            clipglob_steps,
-            beta_1,
-            beta_2,
-            eps_opt,
-            std_rwds,
-            lr_schedule,
-            exp_decay_steps,
-            exp_decay_rate,
-            modelname="PreTrainQNet",
-            pretraining_mode=True,
-        )
-        PreTargetQNet = DQN(
-            seed_init,
-            DQN_type,
-            recurrent_env,
-            gamma,
-            max_experiences,
-            update_target,
-            tau,
-            input_shape,
-            hidden_units,
-            hidden_memory_units,
-            batch_size,
-            selected_loss,
-            learning_rate,
-            start_train,
-            optimizer_name,
-            batch_norm_input,
-            batch_norm_hidden,
-            activation,
-            kernel_initializer,
-            plot_hist,
-            plot_steps_hist,
-            plot_steps,
-            summary_writer,
-            action_space,
-            use_PER,
-            PER_e,
-            PER_a,
-            PER_b,
-            final_PER_b,
-            PER_b_steps,
-            PER_b_growth,
-            final_PER_a,
-            PER_a_steps,
-            PER_a_growth,
-            clipgrad,
-            clipnorm,
-            clipvalue,
-            clipglob_steps,
-            beta_1,
-            beta_2,
-            eps_opt,
-            std_rwds,
-            lr_schedule,
-            exp_decay_steps,
-            exp_decay_rate,
-            modelname="PreTargetQNet",
-            pretraining_mode=True,
-        )
-
-        PreTraining(
-            pt_returns,
-            pt_factors,
-            pt_f_speed,
-            pt_env,
-            PreTrainQNet,
-            PreTargetQNet,
-            N_pretrain,
-            epsilon,
-            copy_step,
-            savedpath,
-            save_ckpt_pretrained_model,
-            save_ckpt_pretrained_steps,
-        )
-
-        TrainQNet.model.load_weights(os.path.join(savedpath, "DQN_pretrained_weights"))
-        TargetQNet.model.load_weights(os.path.join(savedpath, "DQN_pretrained_weights"))
 
     # 5. TRAIN ALGORITHM ----------------------------------------------------------
     for i in tqdm(iterable=range(N_train + 1), desc="Training DQNetwork"):
         if executeDRL:
             epsilon = max(min_eps, epsilon - eps_decay)
-            if not optimal_expl:
-                shares_traded = TrainQNet.eps_greedy_action(CurrState, epsilon)
-
-            else:
-                OptRate, DiscFactorLoads = env.opt_trading_rate_disc_loads()
-                shares_traded = TrainQNet.alpha_beta_greedy_action(
-                    CurrState,
-                    CurrFactors,
-                    epsilon,
-                    OptRate,
-                    DiscFactorLoads,
-                    alpha,
-                    env,
-                )
-
+            shares_traded = TrainQNet.eps_greedy_action(CurrState, epsilon)
             NextState, Result, NextFactors = env.step(CurrState, shares_traded, i)
             env.store_results(Result, i)
 
@@ -597,7 +445,7 @@ def RunDQNTraders(Param):
             TrainQNet.train(TargetQNet, i)
 
             CurrState = NextState
-            CurrFactors = NextFactors
+            CurrFactors = NextFactors # TODO understand if they are useful for next improvement
             iters += 1
             if (iters % copy_step == 0) and (i > TrainQNet.start_train):
                 TargetQNet.copy_weights(TrainQNet)

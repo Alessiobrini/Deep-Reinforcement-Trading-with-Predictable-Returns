@@ -5,12 +5,11 @@ Created on Wed Jun  3 12:04:21 2020
 @author: aless
 """
 from tqdm import tqdm
-from utils.SimulateData import ReturnSampler, GARCHSampler
-from utils.MarketEnv import MarketEnv, RecurrentMarketEnv
-from utils.MarketEnv import ReturnSpace, HoldingSpace
-from utils.SimulateData import create_lstm_tensor
-from utils.Regressions import CalculateLaggedSharpeRatio, RunModels
-from utils.format_tousands import format_tousands
+from utils.simulation import ReturnSampler, GARCHSampler
+from utils.env import MarketEnv, RecurrentMarketEnv, ReturnSpace, HoldingSpace
+from utils.simulation import create_lstm_tensor
+from utils.tools import CalculateLaggedSharpeRatio, RunModels
+from utils.common import format_tousands
 import os
 import numpy as np
 import pandas as pd
@@ -50,7 +49,106 @@ def Out_sample_test(
     t_stud: bool = False,
     tag="DQN",
 ):
+    """
+    Perform an out-of-sample test and store results
 
+    Parameters
+    ----------
+    N_test : int
+        Length of the experiment
+
+    sigmaf : Union[float or list or np.ndarray]
+        Volatilities of the mean reverting factors
+
+    f0 : Union[float or list or np.ndarray]
+        Initial points for simulating factors. Usually set at 0
+
+    f_param: Union[float or list or np.ndarray]
+        Factor loadings of the mean reverting factors
+
+    sigma: Union[float or list or np.ndarray]
+        volatility of the asset return (additional noise other than the intrinsic noise
+                                        in the factors)
+    plot_inputs: bool
+        Boolean to regulate if plot of simulated returns and factor is needed
+
+    HalfLife: Union[int or list or np.ndarray]
+        HalfLife of mean reversion to simulate factors with different speeds
+
+    Startholding: Union[int or float]
+        Initial portfolio holding, usually set at 0
+
+    CostMultiplier: float
+        Transaction cost parameter which regulates the market liquidity
+
+    kappa: float
+        Risk averion parameter
+
+    discount_rate: float
+        Discount rate for the reward function
+
+    executeDRL: bool
+        Boolean to regulate if perform the deep reinforcement learning algorithm
+
+    executeRL: bool
+        Boolean to regulate if perform the reinforcement learning algorithm
+    executeMV: bool
+        Boolean to regulate if perform the Markovitz solution
+
+    RT: list
+        List of boundaries for the discretized return space. The first element is
+        the parameter T of the paper and the second it the ticksize
+        (usually set as a basis point). Used only for RL case.
+
+    KLM: list
+        List of boundaries for Action and Holding space. The first element is
+        the extreme boundary of the action space, the second element is
+        the intermediate action for such discretized space and the third is
+        the boundary for the holding space. In the paper they are defined as
+        K, K/2 and M.
+
+    executeGP: bool
+        Boolean to regulate if perform the benchmark solution of Garleanu and Pedersen
+
+    TrainNet
+        Instantiated class for the train network. It is an instance of
+        DeepNetworkModel or DeepRecurrentNetworkModel class
+
+    savedpath: Union[ str or Path]
+        Pat where to store results at the end of the training
+
+    iteration: int
+        Iteration step
+
+    recurrent_env: bool
+        Boolean to regulate if the enviroment is recurrent or not
+
+    unfolding: int = 1
+        Timesteps for recurrent. Used only if recurrent_env is True
+
+    QTable: Optional[pd.DataFrame]
+        Dataframe representing Q-table
+
+    rng: np.random.mtrand.RandomState
+        Random number generator
+
+    seed_test: int
+        Seed for test that allows to create a new random number generator
+        instead of using the one passed as argument
+
+    action_limit=None
+        Action boundary used only for DDPG
+
+    uncorrelated: bool = False
+        Boolean to regulate if the simulated factor are correlated or not
+
+    t_stud : bool = False
+        Bool to regulate if Student\'s t noises are needed
+
+    tag: bool
+        Name of the testing algorithm
+
+    """
     test_returns, test_factors, test_f_speed = ReturnSampler(
         N_test,
         sigmaf,
@@ -192,7 +290,141 @@ def Out_sample_Misspec_test(
     rng=None,
     tag="DQN",
 ):
+    """
+    Perform an out-of-sample test and store results in the case of misspecified
+    model dynamic
 
+    Parameters
+    ----------
+    N_test : int
+        Length of the experiment
+
+    df: np.ndarray,
+        Dataframe or numpy array of real data if a test is performed over
+        real financial data
+
+    factor_lb: list
+        List of lags for constructing factors as lagged variables when in the case
+        of benchmark solution
+
+    Startholding: Union[int or float]
+        Initial portfolio holding, usually set at 0
+
+    CostMultiplier: float
+        Transaction cost parameter which regulates the market liquidity
+
+    kappa: float
+        Risk averion parameter
+
+    discount_rate: float
+        Discount rate for the reward function
+
+    executeDRL: bool
+        Boolean to regulate if perform the deep reinforcement learning algorithm
+
+    executeRL: bool
+        Boolean to regulate if perform the reinforcement learning algorithm
+    executeMV: bool
+        Boolean to regulate if perform the Markovitz solution
+
+    RT: list
+        List of boundaries for the discretized return space. The first element is
+        the parameter T of the paper and the second it the ticksize
+        (usually set as a basis point). Used only for RL case.
+
+    KLM: list
+        List of boundaries for Action and Holding space. The first element is
+        the extreme boundary of the action space, the second element is
+        the intermediate action for such discretized space and the third is
+        the boundary for the holding space. In the paper they are defined as
+        K, K/2 and M.
+
+    executeGP: bool
+        Boolean to regulate if perform the benchmark solution of Garleanu and Pedersen
+
+    TrainNet
+        Instantiated class for the train network. It is an instance of
+        DeepNetworkModel or DeepRecurrentNetworkModel class
+
+    savedpath: Union[ str or Path]
+        Pat where to store results at the end of the training
+
+    iteration: int
+        Iteration step
+
+    recurrent_env: bool
+        Boolean to regulate if the enviroment is recurrent or not
+
+    unfolding: int = 1
+        Timesteps for recurrent. Used only if recurrent_env is True
+
+    QTable: Optional[pd.DataFrame]
+        Dataframe representing Q-table
+
+    action_limit=None
+        Action boundary used only for DDPG
+
+    datatype: str
+        Indicate the type of financial series to be used. It can be 'real' for real
+        data, or 'garch', 'tstud', 'tstud_mfit' for different type of synthetic
+        financial series. 'tstud' corresponds to the fullfit of the paper, while
+        't_stud_mfit' corresponds to mfit.
+
+    mean_process: str
+        Mean process for the returns. It can be 'Constant' or 'AR'
+
+    lags_mean_process: int
+        Order of autoregressive lag if mean_process is AR
+
+    vol_process: str
+        Volatility process for the returns. It can be 'GARCH', 'EGARCH', 'TGARCH',
+        'ARCH', 'HARCH', 'FIGARCH' or 'Constant'. Note that different volatility
+        processes requires different parameter, which are hard coded. If you want to
+        pass them explicitly, use p_arg.
+
+    distr_noise: str
+        Distribution for the unpredictable component of the returns. It can be
+        'normal', 'studt', 'skewstud' or 'ged'. Note that different distributions
+        requires different parameter, which are hard coded. If you want to
+        pass them explicitly, use p_arg.
+
+    seed: int
+        Seed for experiment reproducibility
+
+    seed_param: int
+        Seed for randomly drawing parameter for GARCH type simulation
+
+    sigmaf : Union[float or list or np.ndarray]
+        Volatilities of the mean reverting factors
+
+    f0 : Union[float or list or np.ndarray]
+        Initial points for simulating factors. Usually set at 0
+
+    f_param: Union[float or list or np.ndarray]
+        Factor loadings of the mean reverting factors
+
+    sigma: Union[float or list or np.ndarray]
+        volatility of the asset return (additional noise other than the intrinsic noise
+                                        in the factors)
+    plot_inputs: bool
+        Boolean to regulate if plot of simulated returns and factor is needed
+
+    HalfLife: Union[int or list or np.ndarray]
+        HalfLife of mean reversion to simulate factors with different speeds
+
+    uncorrelated: bool = False
+        Boolean to regulate if the simulated factor are correlated or not
+
+    degrees : int = 8
+        Degrees of freedom for Student\'s t noises
+
+    rng: np.random.mtrand.RandomState
+        Random number generator
+
+    tag: bool
+        Name of the testing algorithm
+
+    """
     if datatype == "real":
         y, X = df[df.columns[0]], df[df.columns[1:]]
         dates = df.index

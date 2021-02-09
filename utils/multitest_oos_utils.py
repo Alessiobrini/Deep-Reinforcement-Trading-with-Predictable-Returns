@@ -23,7 +23,7 @@ import re
 import matplotlib.pyplot as plt
 from matplotlib.ticker import FuncFormatter, ScalarFormatter
 from matplotlib import cm
-from utils.format_tousands import format_tousands
+from utils.common import format_tousands
 
 
 # LOAD UTILS

@@ -14,25 +14,23 @@ if any("SPYDER" in name for name in os.environ):
 
 
 # 0. importing section initialize loggers.--------------------------------------
-import logging, os, pdb
-from utils.readYaml import readConfigYaml, saveConfigYaml
-from utils.generateLogger import generate_logger
-from utils.SavePath import GeneratePathFolder
-from utils.SimulateData import ReturnSampler, create_lstm_tensor
-from utils.MarketEnv import (
-    MarketEnv,
-    RecurrentMarketEnv,
-    ActionSpace,
-    ReturnSpace,
-    HoldingSpace,
-    CreateQTable,
-)
-from utils.DDPG import DDPG
-from utils.Out_of_sample_testing import Out_sample_test
-from utils.get_action_boundaries import get_action_boundaries
+import logging
+import os
+import pdb
 from tqdm import tqdm
 import tensorflow as tf
 import numpy as np
+
+from utils.common import (generate_logger, GeneratePathFolder, readConfigYaml, saveConfigYaml)
+from utils.simulation import ReturnSampler, create_lstm_tensor
+from utils.env import (
+    MarketEnv,
+    RecurrentMarketEnv,
+)
+from utils.DDPG import DDPG
+from utils.test import Out_sample_test
+from utils.tools import get_action_boundaries
+
 
 # Generate Logger-------------------------------------------------------------
 logger = generate_logger()
@@ -43,11 +41,15 @@ logging.info("Successfully read config file with parameters...")
 
 
 def RunDDPGTraders(Param):
+    """Main function which loads the parameters for the synthetic experiments
+    and run both training and testing routines
 
+    Parameters
+    ----------
+    Param: dict
+        The dictionary containing the parameters
+    """
     # 0. EXTRACT PARAMETERS ----------------------------------------------------------
-    epsilon = Param["epsilon"]
-    min_eps_pct = Param["min_eps_pct"]
-    min_eps = Param["min_eps"]
     mu = Param["mu"]
     noise = Param["noise"]
     stddev_noise = Param["stddev_noise"]
@@ -98,8 +100,6 @@ def RunDDPGTraders(Param):
     weight_decay_p = Param["weight_decay_p"]
     qts = Param["qts"]
     KLM = Param["KLM"]
-    RT = Param["RT"]
-    tablr = Param["tablr"]
     DDPG_type = Param["DDPG_type"]
     noise_clip = Param["noise_clip"]
     action_limit = Param["action_limit"]
@@ -128,11 +128,9 @@ def RunDDPGTraders(Param):
     N_test = Param["N_test"]
     plot_inputs = Param["plot_inputs"]
     executeDRL = Param["executeDRL"]
-    executeRL = Param["executeRL"]
     executeGP = Param["executeGP"]
     executeMV = Param["executeMV"]
     save_results = Param["save_results"]
-    save_table = Param["save_table"]
     plot_hist = Param["plot_hist"]
     plot_steps_hist = Param["plot_steps_hist"]
     plot_steps = Param["plot_steps"]
@@ -160,12 +158,6 @@ def RunDDPGTraders(Param):
     # set random number generator
     rng = np.random.RandomState(seed_ret)
 
-    steps_to_min_eps = int(N_train * min_eps_pct)
-    Param["steps_to_min_eps"] = steps_to_min_eps
-
-    Param["eps_decay"] = (epsilon - min_eps) / steps_to_min_eps
-    eps_decay = Param["eps_decay"]
-
     max_experiences = int(N_train * max_exp_pct)
     Param["max_experiences"] = max_experiences
 
@@ -183,10 +175,6 @@ def RunDDPGTraders(Param):
 
     if not recurrent_env:
         Param["unfolding"] = unfolding = 1
-
-    # if update_target == "soft":
-    #     copy_step_Q = 1
-    #     Param["copy_step_Q"] = copy_step_Q
 
     if PER_b_anneal:
         Param["PER_b_growth"] = (final_PER_b - PER_b) / PER_b_steps
@@ -206,7 +194,7 @@ def RunDDPGTraders(Param):
         save_ckpt_steps = N_train / save_ckpt_model
         Param["save_ckpt_steps"] = save_ckpt_steps
 
-    # 1. PATH FOR MODEL (CKPT) AND TB OUTPUT, STORE CONFIG ---------------
+    # 1. PATH FOR MODEL (CKPT) AND TENSORBOARD OUTPUT, STORE CONFIG FILE ---------------
     savedpath = GeneratePathFolder(
         outputDir, outputClass, outputModel, varying_pars, N_train, Param
     )
@@ -219,7 +207,7 @@ def RunDDPGTraders(Param):
         pass
     logging.info("Successfully generated path and stored config...")
 
-    # 2. SIMULATE FAKE DATA --------------------------------------------------------------
+    # 2. SIMULATE SYNTHETIC DATA --------------------------------------------------------------
     returns, factors, f_speed = ReturnSampler(
         N_train,
         sigmaf,
@@ -236,12 +224,9 @@ def RunDDPGTraders(Param):
     if recurrent_env:
         returns_tens = create_lstm_tensor(returns.reshape(-1, 1), unfolding)
         factors_tens = create_lstm_tensor(factors, unfolding)
-    logging.info(
-        "Successfully simulated data...YOU ARE CURRENTLY USING A SEED TO SIMULATE RETURNS. LEAVE IT IF YOU HAVE FOUND A PROPER NN SETTING"
-    )
+    logging.info("Successfully simulated data..." )
 
-    # 3. CREATE MARKET ENVIRONMENTS --------------------------------------------------------------
-    # market env for DDPG or its variant
+    # 3. INSTANTIATE MARKET ENVIRONMENTS --------------------------------------------------------------
     action_quantiles, ret_quantile, holding_quantile = get_action_boundaries(
         HalfLife,
         Startholding,
@@ -295,29 +280,11 @@ def RunDDPGTraders(Param):
             action_limit=action_quantiles[0],
         )
 
-    # market env for tab Q learning
-    if executeRL:
-        KLM[:2] = action_quantiles
-        KLM[2] = holding_quantile
-        RT[0] = ret_quantile
-        Param["RT"] = RT
-        Param["KLM"] = KLM
-        epsilon = max(min_eps, epsilon - eps_decay)
-        action_space = ActionSpace(KLM)
-        returns_space = ReturnSpace(RT)
-        holding_space = HoldingSpace(KLM)
-        QTable = CreateQTable(returns_space, holding_space, action_space, tablr, gamma)
-    logging.info("Successfully initialized the market environment...")
 
     # 4. CREATE INITIAL STATE AND NETWORKS ----------------------------------------------------------
     # instantiate the initial state (return, holding) for DDPG
 
     CurrState, CurrFactor = env.reset()
-    # instantiate the initial state (return, holding) for TabQ
-    if executeRL:
-        env.returns_space = returns_space
-        env.holding_space = holding_space
-        DiscrCurrState = env.discrete_reset()
     # instantiate the initial state for the benchmark
     if executeGP:
         CurrOptState = env.opt_reset()
@@ -481,7 +448,6 @@ def RunDDPGTraders(Param):
                 TrainNet.action_noise.sigma = stddev_noise
                 shares_traded = TrainNet.noisy_action(CurrState)
                 
-            # TODO here the rescaling is inserted
             NextState, Result, NextFactors = env.step(
                 CurrState, shares_traded, i, tag="DDPG"
             )
@@ -536,13 +502,6 @@ def RunDDPGTraders(Param):
                     save_format="tf",
                 )
 
-        if executeRL:
-            shares_traded = QTable.chooseAction(DiscrCurrState, epsilon)
-            DiscrNextState, Result = env.discrete_step(DiscrCurrState, shares_traded, i)
-            env.store_results(Result, i)
-            QTable.update(DiscrCurrState, DiscrNextState, shares_traded, Result)
-            DiscrCurrState = DiscrNextState
-
         if executeGP:
             NextOptState, OptResult = env.opt_step(
                 CurrOptState, OptRate, DiscFactorLoads, i
@@ -559,8 +518,7 @@ def RunDDPGTraders(Param):
 
         if out_of_sample_test:
             if (i % save_ckpt_steps == 0) and (i != 0) and (i > TrainNet.start_train):
-                if not executeRL:
-                    QTable = None
+
                 Out_sample_test(
                     N_test,
                     sigmaf,
@@ -574,9 +532,9 @@ def RunDDPGTraders(Param):
                     kappa,
                     discount_rate,
                     executeDRL,
-                    executeRL,
+                    None,
                     executeMV,
-                    RT,
+                    None,
                     KLM,
                     executeGP,
                     TrainNet,
@@ -584,7 +542,7 @@ def RunDDPGTraders(Param):
                     i,
                     recurrent_env=recurrent_env,
                     unfolding=unfolding,
-                    QTable=QTable,
+                    QTable=None,
                     rng=rng,
                     seed_test=seed_ret,
                     action_limit=action_limit,
@@ -602,10 +560,6 @@ def RunDDPGTraders(Param):
     saveConfigYaml(Param, savedpath)
     if save_results:
         env.save_outputs(savedpath)
-
-    if executeRL and save_table:
-        QTable.save(savedpath, N_train)
-        logging.info("Successfully plotted and stored results...")
 
     if save_model:
         if DDPG_type == "TD3":

@@ -15,32 +15,24 @@ if any("SPYDER" in name for name in os.environ):
 
 
 # 0. importing section initialize logger.--------------------------------------
-import logging, os, itertools, sys
-from utils.readYaml import readConfigYaml
-from utils.generateLogger import generate_logger
-from runDQN import RunDQNTraders
-import pdb
-from itertools import combinations
-import numpy as np
+import logging
+import os
+import itertools
+import sys
 import time
-
-# import multiprocessing
+import numpy as np
 from joblib import Parallel, delayed
+from itertools import combinations
+from utils.common import readConfigYaml, generate_logger, chunks
+from runDQN import RunDQNTraders
 
-
-def chunks(lst, n):
-    """Yield successive n-sized chunks from lst."""
-    for i in range(0, len(lst), n):
-        yield lst[i : i + n]
 
 
 # 0. Generate Logger-------------------------------------------------------------
 logger = generate_logger()
 
 # 1. Read config ----------------------------------------------------------------
-# maybe substitute with argparse
 Param = readConfigYaml(os.path.join(os.getcwd(), "config", "paramDQN.yaml"))
-assert Param["runtype"] == "multi"
 logging.info("Successfully read config file with parameters...")
 
 
@@ -80,8 +72,19 @@ else:
 num_cores = len(variables)
 
 
-def RunMultiParallelExp(var_par, Param):
+def RunMultiParallelExp(var_par: list, Param: dict):
+    """Main function to parallelize which loads the parameters for the synthetic experiments
+    and run both training and testing routines
 
+    Parameters
+    ----------
+    var_par: list
+        List of varying parameters for the single parallelized experiment
+
+    Param: dict
+        The dictionary containing the parameters
+    """
+    
     for i in range(len(var_par)):
         Param[Param["varying_pars"][i]] = var_par[i]
 
