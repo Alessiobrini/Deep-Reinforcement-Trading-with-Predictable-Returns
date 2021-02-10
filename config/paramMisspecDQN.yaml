@@ -29,7 +29,10 @@ KLM :  [null, null, 100000] # list with actions that each trade can take: from
                             #-K to +K lot sizes minimum size of tradable (equities/contracts) 
                             # and discretization of holding for TabQ (-M,M) holding
 zero_action : True # include the zero action (hold) in the action space
-min_n_actions : False # set up minimum number of actions (3) or more
+min_n_actions : True # set up minimum number of actions (3) or more
+side_only : True # set the action space so that only the side of the bet is captured by the algorithm
+discretization : null # float in (0,1] to determine a level of discretization for the action space when side_only=True. Leave empty for no discretization
+temp : 200.0 # temperature parameter for boltzmann equation
 RT : [0.050, 0.0001] # boundaries for returns and ticksize to define the discrete space of returns (only for TabQ)
 tablr: 0.005 # learning rate for updating q table
 ############################## DL RELATED ##############################
@@ -80,7 +83,7 @@ degrees : 6 # degrees of freedom for Student's T
 start_train : 1000 # steps after which the training starts
 seed : 12 # seed for the return simulation
 seed_param :  # seed for GARCH type simulation to sample random values for paramters
-N_train : 5000  # training iteration (each step consists of one action-value update)
+N_train : 2000  # training iteration (each step consists of one action-value update)
 out_of_sample_test : False # do out-of-sample test while training
 N_test: 1000 # test iteration
 plot_inputs : 0 # boolean for plotting generated ret and factors
@@ -94,13 +97,13 @@ plot_hist: 0 # boolean to decide if plot weight histogram distribution (reduce s
 plot_steps_hist : 20000 # steps for plotting histograms on tensorboard
 plot_steps: 1000 # steps for all the other plots on tensorboard
 save_model: 1 # save trained tf model
-save_ckpt_model: 25 # number of checkpoints to save during training
+save_ckpt_model: 4 # number of checkpoints to save during training
 use_GPU : True
 #########################################################################################################
 # FOLDER PARAMETERS
 outputDir: 'outputs' # main directory for the experiment
 outputClass: 'test' # first subdirectory
-outputModel: 'testmutltmiss48' # second subdirectory
+outputModel: 'testmutltmiss49' # second subdirectory
 num_rnd_search : 8 # number of cores to use when experiments are parallelized
 varying_pars: #['seed'] # choose parameters to vary while performing several different experiment
 varying_type : 'chunk' # type of parallelization. 'chunk' will parallelize experiments

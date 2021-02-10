@@ -38,6 +38,9 @@ qts : [0.001,0.999]
 KLM :  [null, null, null] # [200000,40000,2000000]  # list with actions that each trade can take: from -K to +K lot sizes minimum size of tradable (equities/contracts) and discretization of holding for TabQ (-M,M) holding
 zero_action : True
 min_n_actions : True
+side_only : True # set the action space so that only the side of the bet is captured by the algorithm
+discretization : 0.2 # float in (0,1] to determine a level of discretization for the action space when side_only=True. Leave empty for no discretization
+temp : 200.0 # temperature parameter for boltzmann equation
 ############################## DL RELATED ##############################
 selected_loss: 'huber'
 activation : 'elu'
@@ -63,7 +66,7 @@ clipvalue : 1.0
 clipglob_steps: 50000
 ############################## DATA PARAMETERS ##############################
 asset_class: 'equity' # equity, futures
-symbol: ['BRK.A' , 'AMZN' , 'L.AAL'] # 'L.ABF', 'L.AV.', 'L.AZN', 'L.BA.', 'L.BARC', 'L.BATS', 'L.BHP', 'L.BLND', 'L.BP.', 'L.BT.A', 'L.CNA', 'L.CRDA', 'L.DGE', 'L.GSK', 'L.HSBA', 'L.IAG', 'L.IMB', 'L.LLOY', 'L.NG.', 'L.PRU', 'L.RB.', 'L.RBS', 'L.RDSA', 'L.RIO', 'L.RR.', 'L.SLA', 'L.SMT', 'L.STAN', 'L.TSCO', 'L.ULVR', 'L.VOD', 'MA', 'MSFT', 'PG', 'TSM']
+symbol: 'BRK.A' #['BRK.A' , 'AMZN' , 'L.AAL'] # 'L.ABF', 'L.AV.', 'L.AZN', 'L.BA.', 'L.BARC', 'L.BATS', 'L.BHP', 'L.BLND', 'L.BP.', 'L.BT.A', 'L.CNA', 'L.CRDA', 'L.DGE', 'L.GSK', 'L.HSBA', 'L.IAG', 'L.IMB', 'L.LLOY', 'L.NG.', 'L.PRU', 'L.RB.', 'L.RBS', 'L.RDSA', 'L.RIO', 'L.RR.', 'L.SLA', 'L.SMT', 'L.STAN', 'L.TSCO', 'L.ULVR', 'L.VOD', 'MA', 'MSFT', 'PG', 'TSM']
 split_pct: 0.9
 factor_lb: [5,250]
 CostMultiplier: 0.001 # Cost multiplier to make the cost proportional to the risk as in Gar Ped (2013)
@@ -71,10 +74,10 @@ CostMultiplier: 0.001 # Cost multiplier to make the cost proportional to the ris
 discount_rate: 0.0 # discount rate as in the paper
 Startholding: 0.0
 ############################### LAUNCH SIMULATIONS ##############################
-episodes : 200
+episodes : 1 #200
 start_train : 300
 training : 'offline' # online or offline
-seed : [599, 517, 953, 916, 533, 752, 170, 334] # Seed for experiment reproducibility 
+seed : 233 #[599, 517, 953, 916, 533, 752, 170, 334] # Seed for experiment reproducibility 
 out_of_sample_test : True
 executeDRL: 1 # boolean to decide if run DRL agent
 executeGP: 1 # boolean to decide if run GP solution
@@ -93,9 +96,9 @@ use_GPU : False
 runtype: 'multi' # single, multi
 # Parameter for storing results
 outputDir: 'outputs'
-outputClass: 'DQN_real'
-outputModel: '20210208_real_3act' # choose model name as number of factors + varying parameter
-varying_pars:  ['symbol','seed'] # choose a parameter to vary while performing several different experiment
+outputClass: 'test' #'DQN_real'
+outputModel: 'testmultireal4' #'20210208_real_3act' # choose model name as number of factors + varying parameter
+varying_pars:  #['symbol','seed'] # choose a parameter to vary while performing several different experiment
  # leave blank if you don't want to vary any parameter (no subfolder will be created) #['HalfLife','f0', 'f_param', 'sigmaf']
 varying_type : 'chunk'
 num_rnd_search : 8

@@ -323,7 +323,11 @@ def Out_sample_Misspec_test(
     degrees: int = None,
     rng=None,
     variables: list = None,
+    side_only: bool = False,
+    discretization: float = None,
+    temp: float = 200.0,
     tag="DQN",
+    store_values : bool = True,
 ):
     """
     Perform an out-of-sample test and return results of specific variables
@@ -455,6 +459,18 @@ def Out_sample_Misspec_test(
 
     rng: np.random.mtrand.RandomState
         Random number generator
+
+    variables: list
+        Variables to store as results of the experiment
+
+    side_only: bool
+        Regulate the decoupling between side and size of the bet
+        
+    discretization: float
+        Level of discretization. If none, no discretization will be applied
+        
+    temp: float
+        Temperature of boltzmann equation
 
     tag: bool
         Name of the testing algorithm
@@ -707,85 +723,88 @@ def Out_sample_Misspec_test(
             NextMVState, MVResult = test_env.mv_step(CurrMVState, i)
             test_env.store_results(MVResult, i)
             CurrMVState = NextMVState
-
-    p_avg, r_avg, sr_avg, absp_avg, absr_avg, abssr_avg, abssr_hold = (
-        [],
-        [],
-        [],
-        [],
-        [],
-        [],
-        [],
-    )
-    for t in tag:
-        # select interesting variables and express as a percentage of the GP results
-        pnl_str = list(filter(lambda x: "NetPNL_{}".format(t) in x, variables))
-        opt_pnl_str = list(filter(lambda x: "OptNetPNL" in x, variables))
-        rew_str = list(filter(lambda x: "Reward_{}".format(t) in x, variables))
-        opt_rew_str = list(filter(lambda x: "OptReward" in x, variables))
-
-        # pnl
-        pnl = test_env.res_df[pnl_str + opt_pnl_str].iloc[:-1]
-        cum_pnl = pnl.cumsum()
-
-        if datatype == "garch" or datatype=='garch_mr':
-            ref_pnl = np.array(cum_pnl[pnl_str]) - np.array(cum_pnl[opt_pnl_str])
-        else:
-            ref_pnl = (
-                np.array(cum_pnl[pnl_str]) / np.array(cum_pnl[opt_pnl_str])
-            ) * 100
-
-        # rewards
-        rew = test_env.res_df[rew_str + opt_rew_str].iloc[:-1]
-        cum_rew = rew.cumsum()
-        if datatype == "garch" or datatype == "garch_mr":
-            ref_rew = np.array(cum_rew[rew_str]) - np.array(cum_rew[opt_rew_str])
-        else:
-            ref_rew = (
-                np.array(cum_rew[rew_str]) / np.array(cum_rew[opt_rew_str])
-            ) * 100
-
-        # SR
-        mean = np.array(pnl[pnl_str]).mean()
-        std = np.array(pnl[pnl_str]).std()
-        sr = (mean / std) * (252 ** 0.5)
-
-        # Holding
-        hold = test_env.res_df["NextHolding_{}".format(t)].iloc[
-            -2
-        ]  # avoid last observation
-        opthold = test_env.res_df["OptNextHolding"].iloc[-2]
-
-        opt_mean = np.array(pnl[opt_pnl_str]).mean()
-        opt_std = np.array(pnl[opt_pnl_str]).std()
-        optsr = (opt_mean / opt_std) * (252 ** 0.5)
-
-        perc_SR = (sr / optsr) * 100
-
-        p_avg.append(ref_pnl[-1])
-        r_avg.append(ref_rew[-1])
-        sr_avg.append(perc_SR)
-
-        absp_avg.append(cum_pnl.iloc[-1].values[0])
-        absr_avg.append(cum_rew.iloc[-1].values[0])
-        abssr_avg.append(sr)
-
-        abssr_hold.append(hold)
-
-    # return only the last value of the series which is the cumulated pnl expressed as a percentage of GP
-    return (
-        np.array(p_avg).ravel(),
-        np.array(r_avg).ravel(),
-        np.array(sr_avg).ravel(),
-        np.array(absp_avg).ravel(),
-        cum_pnl.iloc[-1].values[1],
-        np.array(absr_avg).ravel(),
-        cum_rew.iloc[-1].values[1],
-        np.array(abssr_avg).ravel(),
-        optsr,
-        np.array(abssr_hold).ravel(),
-        opthold,
-    )
+    
+    if store_values:
+        p_avg, r_avg, sr_avg, absp_avg, absr_avg, abssr_avg, abssr_hold = (
+            [],
+            [],
+            [],
+            [],
+            [],
+            [],
+            [],
+        )
+        for t in tag:
+            # select interesting variables and express as a percentage of the GP results
+            pnl_str = list(filter(lambda x: "NetPNL_{}".format(t) in x, variables))
+            opt_pnl_str = list(filter(lambda x: "OptNetPNL" in x, variables))
+            rew_str = list(filter(lambda x: "Reward_{}".format(t) in x, variables))
+            opt_rew_str = list(filter(lambda x: "OptReward" in x, variables))
+    
+            # pnl
+            pnl = test_env.res_df[pnl_str + opt_pnl_str].iloc[:-1]
+            cum_pnl = pnl.cumsum()
+    
+            if datatype == "garch" or datatype=='garch_mr':
+                ref_pnl = np.array(cum_pnl[pnl_str]) - np.array(cum_pnl[opt_pnl_str])
+            else:
+                ref_pnl = (
+                    np.array(cum_pnl[pnl_str]) / np.array(cum_pnl[opt_pnl_str])
+                ) * 100
+    
+            # rewards
+            rew = test_env.res_df[rew_str + opt_rew_str].iloc[:-1]
+            cum_rew = rew.cumsum()
+            if datatype == "garch" or datatype == "garch_mr":
+                ref_rew = np.array(cum_rew[rew_str]) - np.array(cum_rew[opt_rew_str])
+            else:
+                ref_rew = (
+                    np.array(cum_rew[rew_str]) / np.array(cum_rew[opt_rew_str])
+                ) * 100
+    
+            # SR
+            mean = np.array(pnl[pnl_str]).mean()
+            std = np.array(pnl[pnl_str]).std()
+            sr = (mean / std) * (252 ** 0.5)
+    
+            # Holding
+            hold = test_env.res_df["NextHolding_{}".format(t)].iloc[
+                -2
+            ]  # avoid last observation
+            opthold = test_env.res_df["OptNextHolding"].iloc[-2]
+    
+            opt_mean = np.array(pnl[opt_pnl_str]).mean()
+            opt_std = np.array(pnl[opt_pnl_str]).std()
+            optsr = (opt_mean / opt_std) * (252 ** 0.5)
+    
+            perc_SR = (sr / optsr) * 100
+    
+            p_avg.append(ref_pnl[-1])
+            r_avg.append(ref_rew[-1])
+            sr_avg.append(perc_SR)
+    
+            absp_avg.append(cum_pnl.iloc[-1].values[0])
+            absr_avg.append(cum_rew.iloc[-1].values[0])
+            abssr_avg.append(sr)
+    
+            abssr_hold.append(hold)
+    
+        # return only the last value of the series which is the cumulated pnl expressed as a percentage of GP
+        return (
+            np.array(p_avg).ravel(),
+            np.array(r_avg).ravel(),
+            np.array(sr_avg).ravel(),
+            np.array(absp_avg).ravel(),
+            cum_pnl.iloc[-1].values[1],
+            np.array(absr_avg).ravel(),
+            cum_rew.iloc[-1].values[1],
+            np.array(abssr_avg).ravel(),
+            optsr,
+            np.array(abssr_hold).ravel(),
+            opthold,
+        )
+    else:
+        return test_env.res_df
 
 
 def Out_sample_test(
@@ -821,6 +840,7 @@ def Out_sample_test(
     discretization: float = None,
     temp: float = 200.0,
     tag="DQN",
+    store_values : bool = True,
 ):
     """
     Perform an out-of-sample test and store results
@@ -1043,74 +1063,76 @@ def Out_sample_test(
             NextMVState, MVResult = test_env.mv_step(CurrMVState, i)
             test_env.store_results(MVResult, i)
             CurrMVState = NextMVState
-
-    p_avg, r_avg, sr_avg, absp_avg, absr_avg, abssr_avg, abssr_hold = (
-        [],
-        [],
-        [],
-        [],
-        [],
-        [],
-        [],
-    )
-
-    for t in tag:
-        # select interesting variables and express as a percentage of the GP results
-        pnl_str = list(filter(lambda x: "NetPNL_{}".format(t) in x, variables))
-        opt_pnl_str = list(filter(lambda x: "OptNetPNL" in x, variables))
-        rew_str = list(filter(lambda x: "Reward_{}".format(t) in x, variables))
-        opt_rew_str = list(filter(lambda x: "OptReward" in x, variables))
-
-        # pnl
-        pnl = test_env.res_df[pnl_str + opt_pnl_str].iloc[:-1]
-        cum_pnl = pnl.cumsum()
-        ref_pnl = (np.array(cum_pnl[pnl_str]) / np.array(cum_pnl[opt_pnl_str])) * 100
-        # rewards
-        rew = test_env.res_df[rew_str + opt_rew_str].iloc[:-1]
-        cum_rew = rew.cumsum()
-        ref_rew = (np.array(cum_rew[rew_str]) / np.array(cum_rew[opt_rew_str])) * 100
-
-        # SR
-        mean = np.array(pnl[pnl_str]).mean()
-        std = np.array(pnl[pnl_str]).std()
-        sr = (mean / std) * (252 ** 0.5)
-
-        # Holding
-        hold = test_env.res_df["NextHolding_{}".format(t)].iloc[
-            -2
-        ]  # avoid last observation
-        opthold = test_env.res_df["OptNextHolding"].iloc[-2]
-
-        opt_mean = np.array(pnl[opt_pnl_str]).mean()
-        opt_std = np.array(pnl[opt_pnl_str]).std()
-        optsr = (opt_mean / opt_std) * (252 ** 0.5)
-
-        perc_SR = (sr / optsr) * 100
-
-        p_avg.append(ref_pnl[-1])
-        r_avg.append(ref_rew[-1])
-        sr_avg.append(perc_SR)
-
-        absp_avg.append(cum_pnl.iloc[-1].values[0])
-        absr_avg.append(cum_rew.iloc[-1].values[0])
-        abssr_avg.append(sr)
-
-        abssr_hold.append(hold)
-
-    # return only the last value of the series which is the cumulated pnl expressed as a percentage of GP
-    return (
-        np.array(p_avg).ravel(),
-        np.array(r_avg).ravel(),
-        np.array(sr_avg).ravel(),
-        np.array(absp_avg).ravel(),
-        cum_pnl.iloc[-1].values[1],
-        np.array(absr_avg).ravel(),
-        cum_rew.iloc[-1].values[1],
-        np.array(abssr_avg).ravel(),
-        optsr,
-        np.array(abssr_hold).ravel(),
-        opthold,
-    )
+    if store_values:
+        p_avg, r_avg, sr_avg, absp_avg, absr_avg, abssr_avg, abssr_hold = (
+            [],
+            [],
+            [],
+            [],
+            [],
+            [],
+            [],
+        )
+    
+        for t in tag:
+            # select interesting variables and express as a percentage of the GP results
+            pnl_str = list(filter(lambda x: "NetPNL_{}".format(t) in x, variables))
+            opt_pnl_str = list(filter(lambda x: "OptNetPNL" in x, variables))
+            rew_str = list(filter(lambda x: "Reward_{}".format(t) in x, variables))
+            opt_rew_str = list(filter(lambda x: "OptReward" in x, variables))
+    
+            # pnl
+            pnl = test_env.res_df[pnl_str + opt_pnl_str].iloc[:-1]
+            cum_pnl = pnl.cumsum()
+            ref_pnl = (np.array(cum_pnl[pnl_str]) / np.array(cum_pnl[opt_pnl_str])) * 100
+            # rewards
+            rew = test_env.res_df[rew_str + opt_rew_str].iloc[:-1]
+            cum_rew = rew.cumsum()
+            ref_rew = (np.array(cum_rew[rew_str]) / np.array(cum_rew[opt_rew_str])) * 100
+    
+            # SR
+            mean = np.array(pnl[pnl_str]).mean()
+            std = np.array(pnl[pnl_str]).std()
+            sr = (mean / std) * (252 ** 0.5)
+    
+            # Holding
+            hold = test_env.res_df["NextHolding_{}".format(t)].iloc[
+                -2
+            ]  # avoid last observation
+            opthold = test_env.res_df["OptNextHolding"].iloc[-2]
+    
+            opt_mean = np.array(pnl[opt_pnl_str]).mean()
+            opt_std = np.array(pnl[opt_pnl_str]).std()
+            optsr = (opt_mean / opt_std) * (252 ** 0.5)
+    
+            perc_SR = (sr / optsr) * 100
+    
+            p_avg.append(ref_pnl[-1])
+            r_avg.append(ref_rew[-1])
+            sr_avg.append(perc_SR)
+    
+            absp_avg.append(cum_pnl.iloc[-1].values[0])
+            absr_avg.append(cum_rew.iloc[-1].values[0])
+            abssr_avg.append(sr)
+    
+            abssr_hold.append(hold)
+    
+        # return only the last value of the series which is the cumulated pnl expressed as a percentage of GP
+        return (
+            np.array(p_avg).ravel(),
+            np.array(r_avg).ravel(),
+            np.array(sr_avg).ravel(),
+            np.array(absp_avg).ravel(),
+            cum_pnl.iloc[-1].values[1],
+            np.array(absr_avg).ravel(),
+            cum_rew.iloc[-1].values[1],
+            np.array(abssr_avg).ravel(),
+            optsr,
+            np.array(abssr_hold).ravel(),
+            opthold,
+        )
+    else:
+        return test_env.res_df
 
 
 # PLOT UTILS

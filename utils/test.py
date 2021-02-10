@@ -308,6 +308,9 @@ def Out_sample_Misspec_test(
     uncorrelated: bool = False,
     degrees: int = None,
     rng=None,
+    side_only: bool = False,
+    discretization: float = None,
+    temp: float = 200.0,
     tag="DQN",
 ):
     """
@@ -440,6 +443,15 @@ def Out_sample_Misspec_test(
 
     rng: np.random.mtrand.RandomState
         Random number generator
+    
+    side_only: bool
+        Regulate the decoupling between side and size of the bet
+        
+    discretization: float
+        Level of discretization. If none, no discretization will be applied
+        
+    temp: float
+        Temperature of boltzmann equation
 
     tag: bool
         Name of the testing algorithm
@@ -617,7 +629,13 @@ def Out_sample_Misspec_test(
     for i in tqdm(iterable=range(cycle_len), desc="Testing DQNetwork"):
         if executeDRL:
             if tag == "DQN":
-                shares_traded = TrainNet.greedy_action(CurrState)
+                # shares_traded = TrainNet.greedy_action(CurrState)
+                shares_traded, qvalues = TrainNet.greedy_action(CurrState, side_only=side_only)
+
+                if side_only:
+                    shares_traded = get_bet_size(qvalues,shares_traded,action_limit=KLM[0], rng=rng,
+                                                 discretization=discretization,
+                                                 temp=temp)
                 NextState, Result, NextFactors = test_env.step(
                     CurrState, shares_traded, i
                 )
@@ -679,6 +697,9 @@ def Out_sample_real_test(
     f_param: Union[float or list or np.ndarray] = None,
     sigma: Union[float or list or np.ndarray] = None,
     HalfLife: Union[int or list or np.ndarray] = None,
+    side_only: bool = False,
+    discretization: float = None,
+    temp: float = 200.0,
     tag="DQN",
 ):
 
@@ -687,7 +708,7 @@ def Out_sample_real_test(
     y, X = df[df.columns[0]], df[df.columns[1:]]
     dates = df.index
 
-
+    # TODO parameters are fitted for the GP solution. Do we want to use parmaeter fitted in the training set?
     params_retmodel, params_meanrev, _, _ = RunModels(y, X)
     test_returns = df.iloc[:, 0].values
     test_factors = df.iloc[:, 1:].values
@@ -747,7 +768,13 @@ def Out_sample_real_test(
     for i in tqdm(iterable=range(cycle_len), desc="Testing DQNetwork"):
         if executeDRL:
             if tag == "DQN":
-                shares_traded = TrainNet.greedy_action(CurrState)
+                # shares_traded = TrainNet.greedy_action(CurrState)
+                shares_traded, qvalues = TrainNet.greedy_action(CurrState, side_only=side_only)
+
+                if side_only:
+                    shares_traded = get_bet_size(qvalues,shares_traded,action_limit=KLM[0], rng=None,
+                                                 discretization=discretization,
+                                                 temp=temp)
                 NextState, Result, NextFactors = test_env.step(
                     CurrState, shares_traded, i
                 )

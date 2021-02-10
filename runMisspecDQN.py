@@ -39,7 +39,8 @@ from utils.env import (
 )
 from utils.DQN import DQN
 from utils.test import Out_sample_Misspec_test
-from utils.tools import get_action_boundaries, CalculateLaggedSharpeRatio, RunModels
+from utils.math_tools import unscale_action
+from utils.tools import get_action_boundaries, get_bet_size, CalculateLaggedSharpeRatio, RunModels
 
 # Generate Logger-------------------------------------------------------------
 logger = generate_logger()
@@ -108,6 +109,9 @@ def RunMisspecDQNTraders(Param):
     KLM = Param["KLM"]
     zero_action = Param["zero_action"]
     min_n_actions = Param["min_n_actions"]
+    side_only = Param['side_only']
+    discretization = Param['discretization']
+    temp = Param['temp']
     RT = Param["RT"]
     tablr = Param["tablr"]
     max_exp_pct = Param["max_exp_pct"]
@@ -387,40 +391,6 @@ def RunMisspecDQNTraders(Param):
     # 3. CREATE MARKET ENVIRONMENTS --------------------------------------------------------------
     # market env for DQN or its variant
 
-    if recurrent_env:
-        env = RecurrentMarketEnv(
-            HalfLife_fit,
-            Startholding,
-            sigma_fit,
-            CostMultiplier,
-            kappa,
-            N_train,
-            discount_rate,
-            f_param_fit,
-            f_speed_fit,
-            returns,
-            factors,
-            returns_tens,
-            factors_tens,
-            dates=dates,
-        )
-
-    else:
-        env = MarketEnv(
-            HalfLife_fit,
-            Startholding,
-            sigma_fit,
-            CostMultiplier,
-            kappa,
-            N_train,
-            discount_rate,
-            f_param_fit,
-            f_speed_fit,
-            returns,
-            factors,
-            dates=dates,
-        )
-
     action_quantiles, ret_quantile, holding_quantile = get_action_boundaries(
         HalfLife_fit,
         Startholding,
@@ -443,7 +413,45 @@ def RunMisspecDQNTraders(Param):
     Param["RT"] = RT
     Param["KLM"] = KLM
 
-    action_space = ActionSpace(KLM, zero_action)
+    action_space = ActionSpace(KLM, zero_action, side_only=side_only)
+
+    if recurrent_env:
+        env = RecurrentMarketEnv(
+            HalfLife_fit,
+            Startholding,
+            sigma_fit,
+            CostMultiplier,
+            kappa,
+            N_train,
+            discount_rate,
+            f_param_fit,
+            f_speed_fit,
+            returns,
+            factors,
+            returns_tens,
+            factors_tens,
+            action_limit=KLM[0],
+            dates=dates,
+        )
+
+    else:
+        env = MarketEnv(
+            HalfLife_fit,
+            Startholding,
+            sigma_fit,
+            CostMultiplier,
+            kappa,
+            N_train,
+            discount_rate,
+            f_param_fit,
+            f_speed_fit,
+            returns,
+            factors,
+            action_limit=KLM[0],
+            dates=dates,
+        )
+
+
     # market env for tab Q learning
     if executeRL:
         returns_space = ReturnSpace(RT)
@@ -573,7 +581,7 @@ def RunMisspecDQNTraders(Param):
     )
 
     logging.info(
-        "Successfully initialized the Deep Q Networks...YOU ARE CURRENTLY USING A SEED TO INITIALIZE WEIGHTS."
+        "Successfully initialized the Deep Q Networks..."
     )
 
 
@@ -587,9 +595,20 @@ def RunMisspecDQNTraders(Param):
     for i in tqdm(iterable=range(cycle_len), desc="Training DQNetwork"):
         if executeDRL:
             epsilon = max(min_eps, epsilon - eps_decay)
-            shares_traded = TrainQNet.eps_greedy_action(CurrState, epsilon)
+            shares_traded, qvalues = TrainQNet.eps_greedy_action(CurrState, epsilon, side_only=side_only)
 
-            NextState, Result, NextFactors = env.step(CurrState, shares_traded, i)
+            if not side_only:
+                unscaled_shares_traded = shares_traded
+            else:
+                unscaled_shares_traded = get_bet_size(qvalues,shares_traded,action_limit=KLM[0], 
+                                                      rng=rng,
+                                                      discretization=discretization,
+                                                      temp=temp)
+            # print('state {}'.format(CurrState),
+            #       'action {}'.format(unscaled_shares_traded),
+            #       'q {}'.format(qvalues))
+
+            NextState, Result, NextFactors = env.step(CurrState, unscaled_shares_traded, i)
             env.store_results(Result, i)
             exp = {
                 "s": CurrState,

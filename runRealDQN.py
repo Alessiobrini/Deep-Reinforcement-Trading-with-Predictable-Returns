@@ -33,7 +33,8 @@ from utils.env import (
 )
 from utils.DQN import DQN
 from utils.test import Out_sample_real_test, empty_series
-from utils.tools import get_action_boundaries, CalculateLaggedSharpeRatio, RunModels
+from utils.math_tools import unscale_action
+from utils.tools import get_action_boundaries, get_bet_size, CalculateLaggedSharpeRatio, RunModels
 
 
 # Generate Logger-------------------------------------------------------------
@@ -102,6 +103,9 @@ def RunRealDQNTraders(Param):
     KLM = Param["KLM"]
     zero_action = Param["zero_action"]
     min_n_actions = Param["min_n_actions"]
+    side_only = Param['side_only']
+    discretization = Param['discretization']
+    temp = Param['temp']
     # Data Simulation
     asset_class = Param["asset_class"]
     symbol = Param["symbol"]
@@ -268,40 +272,6 @@ def RunRealDQNTraders(Param):
     # 3. CREATE MARKET ENVIRONMENTS --------------------------------------------------------------
     # market env for DQN or its variant
 
-    if recurrent_env:
-        env = RecurrentMarketEnv(
-            HalfLife,
-            Startholding,
-            sigma,
-            CostMultiplier,
-            kappa,
-            N_train,
-            discount_rate,
-            f_param,
-            f_speed,
-            returns,
-            factors,
-            returns_tens,
-            factors_tens,
-            dates=dates,
-        )
-
-    else:
-        env = MarketEnv(
-            HalfLife,
-            Startholding,
-            sigma,
-            CostMultiplier,
-            kappa,
-            N_train,
-            discount_rate,
-            f_param,
-            f_speed,
-            returns,
-            factors,
-            dates=dates,
-        )
-
     action_quantiles, _, _ = get_action_boundaries(
         HalfLife,
         Startholding,
@@ -320,8 +290,45 @@ def RunRealDQNTraders(Param):
     
     KLM[:2] = action_quantiles
     Param["KLM"] = KLM
-    action_space = ActionSpace(KLM, zero_action)
-    # market env for tab Q learning
+    action_space = ActionSpace(KLM, zero_action, side_only=side_only)
+
+    if recurrent_env:
+        env = RecurrentMarketEnv(
+            HalfLife,
+            Startholding,
+            sigma,
+            CostMultiplier,
+            kappa,
+            N_train,
+            discount_rate,
+            f_param,
+            f_speed,
+            returns,
+            factors,
+            returns_tens,
+            factors_tens,
+            action_limit=KLM[0],
+            dates=dates,
+        )
+
+    else:
+        env = MarketEnv(
+            HalfLife,
+            Startholding,
+            sigma,
+            CostMultiplier,
+            kappa,
+            N_train,
+            discount_rate,
+            f_param,
+            f_speed,
+            returns,
+            factors,
+            action_limit=KLM[0],
+            dates=dates,
+        )
+
+
     logging.info("Successfully initialized the market environment...")
 
     # 4. CREATE INITIAL STATE AND NETWORKS ----------------------------------------------------------
@@ -440,7 +447,7 @@ def RunRealDQNTraders(Param):
     )
 
     logging.info(
-        "Successfully initialized the Deep Q Networks...YOU ARE CURRENTLY USING A SEED TO INITIALIZE WEIGHTS."
+        "Successfully initialized the Deep Q Networks..."
     )
 
 
@@ -456,9 +463,20 @@ def RunRealDQNTraders(Param):
         for i in tqdm(iterable=range(cycle_len), desc="Training DQNetwork"):
             if executeDRL:
                 epsilon = max(min_eps, epsilon - eps_decay)
-                shares_traded = TrainQNet.eps_greedy_action(CurrState, epsilon)
-
-                NextState, Result, NextFactors = env.step(CurrState, shares_traded, i)
+                shares_traded, qvalues = TrainQNet.eps_greedy_action(CurrState, epsilon, side_only=side_only)
+    
+                if not side_only:
+                    unscaled_shares_traded = shares_traded
+                else:
+                    unscaled_shares_traded = get_bet_size(qvalues,shares_traded,action_limit=KLM[0], 
+                                                          rng=rng,
+                                                          discretization=discretization,
+                                                          temp=temp)
+                # print('state {}'.format(CurrState),
+                #       'action {}'.format(unscaled_shares_traded),
+                #       'q {}'.format(qvalues))
+    
+                NextState, Result, NextFactors = env.step(CurrState, unscaled_shares_traded, i)
                 env.store_results(Result, i)
     
                 exp = {
@@ -556,9 +574,20 @@ def RunRealDQNTraders(Param):
 
                 epsilon = max(min_eps, epsilon - eps_decay)
 
-                shares_traded = TrainQNet.eps_greedy_action(CurrState, epsilon)
-
-                NextState, Result, NextFactors = env.step(CurrState, shares_traded, i)
+                shares_traded, qvalues = TrainQNet.eps_greedy_action(CurrState, epsilon, side_only=side_only)
+    
+                if not side_only:
+                    unscaled_shares_traded = shares_traded
+                else:
+                    unscaled_shares_traded = get_bet_size(qvalues,shares_traded,action_limit=KLM[0], 
+                                                          rng=rng,
+                                                          discretization=discretization,
+                                                          temp=temp)
+                # print('state {}'.format(CurrState),
+                #       'action {}'.format(unscaled_shares_traded),
+                #       'q {}'.format(qvalues))
+    
+                NextState, Result, NextFactors = env.step(CurrState, unscaled_shares_traded, i)
 
                 exp = {
                     "s": CurrState,
