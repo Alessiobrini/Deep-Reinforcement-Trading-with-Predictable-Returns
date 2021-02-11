@@ -29,11 +29,13 @@ qts : [0.001,0.999] # quantile to select action boundaries
 KLM :  [null, null, 100000] # list with actions that each trade can take: from 
                             #-K to +K lot sizes minimum size of tradable (equities/contracts) 
                             # and discretization of holding for TabQ (-M,M) holding
-zero_action : True # include the zero action (hold) in the action space
+zero_action : False # include the zero action (hold) in the action space
 min_n_actions : True # set up minimum number of actions (3) or more
 side_only : True # set the action space so that only the side of the bet is captured by the algorithm
-discretization : 0.2 # float in (0,1] to determine a level of discretization for the action space when side_only=True. Leave empty for no discretization
+discretization :  # float in (0,1] to determine a level of discretization for the action space when side_only=True. Leave empty for no discretization
 temp : 200.0 # temperature parameter for boltzmann equation
+bcm : True # allow behavioral cloning module
+bcm_scale : [0.001,0.0001]
 RT : [0.050, 0.0001] # boundaries for returns and ticksize to define the discrete space of returns (only for TabQ)
 tablr: 0.005 # learning rate for updating q table
 ############################## DL RELATED ##############################
@@ -94,9 +96,9 @@ use_GPU : True
 # FOLDER PARAMETERS
 outputDir: 'outputs' # main directory for the experiment
 outputClass: 'DQN' # first subdirectory
-outputModel: '20210204_GPGAUSS_3act' # second subdirectory
+outputModel: '20210211_GPGAUSS_decouple_bcm' # second subdirectory
 num_rnd_search : 8 # number of cores to use when experiments are parallelized
-varying_pars: ['seed_ret']  # choose parameters to vary while performing several different experiment
+varying_pars: ['bcm_scale','seed_ret']  # choose parameters to vary while performing several different experiment
 varying_type : 'chunk' # type of parallelization. 'chunk' will parallelize experiments
                        # in chunks of size 'num_rnd_search'. 'random_search' draw randomly some
                        # parameter combination depeding on all 'varying_pars' combinations.

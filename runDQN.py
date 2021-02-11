@@ -111,6 +111,8 @@ def RunDQNTraders(Param):
     side_only = Param['side_only']
     discretization = Param['discretization']
     temp = Param['temp']
+    bcm = Param['bcm']
+    bcm_scale = Param['bcm_scale']
     RT = Param["RT"]
     tablr = Param["tablr"]
     # Data Simulation
@@ -262,6 +264,7 @@ def RunDQNTraders(Param):
     Param["RT"] = RT
     Param["KLM"] = KLM
     action_space = ActionSpace(KLM, zero_action, side_only=side_only)
+
     
     if recurrent_env:
         env = RecurrentMarketEnv(
@@ -443,7 +446,7 @@ def RunDQNTraders(Param):
             if not side_only:
                 unscaled_shares_traded = shares_traded
             else:
-                unscaled_shares_traded = get_bet_size(qvalues,shares_traded,action_limit=KLM[0], 
+                unscaled_shares_traded = get_bet_size(qvalues,shares_traded,action_limit=KLM[0], zero_action=zero_action,
                                                       rng=rng,
                                                       discretization=discretization,
                                                       temp=temp)
@@ -453,7 +456,8 @@ def RunDQNTraders(Param):
 
             NextState, Result, NextFactors = env.step(CurrState, unscaled_shares_traded, i)
             env.store_results(Result, i)
-
+            
+             
             exp = {
                 "s": CurrState,
                 "a": shares_traded,
@@ -461,9 +465,28 @@ def RunDQNTraders(Param):
                 "s2": NextState,
                 "f": NextFactors,
             }
+            
+            if bcm and side_only:
+                
+                _, OptResult = env.opt_step(
+                    CurrOptState, OptRate, DiscFactorLoads, i
+                    )
+                
+                exp_bcm = {"unsc_a": unscaled_shares_traded,
+                           "opt_a": OptResult['OptNextAction']}
+                exp = {**exp, **exp_bcm}
+                
+            elif bcm and not side_only:
+                
+                _, OptResult = env.opt_step(
+                    CurrOptState, OptRate, DiscFactorLoads, i
+                    )
+                
+                exp_bcm = {"opt_a": OptResult['OptNextAction']}   
+                exp = {**exp, **exp_bcm}
 
             TrainQNet.add_experience(exp)
-            TrainQNet.train(TargetQNet, i)
+            TrainQNet.train(TargetQNet, i, side_only, bcm, bcm_scale)
 
             CurrState = NextState
             CurrFactors = NextFactors # TODO understand if they are useful for next improvement

@@ -68,6 +68,8 @@ class PER_buffer:
             "r": np.zeros(max_experiences, dtype=object),
             "s2": np.zeros(max_experiences, dtype=object),
             "f": np.zeros(max_experiences, dtype=object),
+            "unsc_a": np.zeros(max_experiences, dtype=object),
+            "opt_a": np.zeros(max_experiences, dtype=object),
         }
 
     def add(self, exp):

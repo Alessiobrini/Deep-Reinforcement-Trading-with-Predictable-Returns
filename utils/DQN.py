@@ -563,7 +563,7 @@ class DQN:
 
         rng = None
             Random number generator for reproducibility
-
+            
         modelname: str
             Name for the model
 
@@ -673,7 +673,7 @@ class DQN:
                 sample_type,
             )  # experience is stored as object of this class
         else:
-            self.experience = {"s": [], "a": [], "r": [], "s2": [], "f": []}
+            self.experience = {"s": [], "a": [], "r": [], "s2": [], "f": [], 'unsc_a': [], "opt_a": []}
         self.test_experience = None
         self.start_train = start_train
         self.stop_train = stop_train
@@ -733,7 +733,8 @@ class DQN:
         elif self.selected_loss == "huber":
             self.loss = tf.keras.losses.Huber()
 
-    def train(self, TargetNet, iteration: int):
+    def train(self, TargetNet, iteration: int, side_only: bool = False,
+              bcm: bool = False, bcm_scale: float = 0.01):
 
         """Parameters
         ----------
@@ -742,6 +743,11 @@ class DQN:
              DeepNetworkModel or DeepRecurrentNetworkModel class
         iteration: int
             Number of iteration update
+        side_only: bool
+            Regulate the decoupling between side and size of the bet
+            
+        bcm: bool
+            Regulate the part of the loss relative to the behaviorl cloning of an expert
         """
         if iteration < self.start_train or iteration > self.stop_train:
             return 0
@@ -752,6 +758,13 @@ class DQN:
             actions = np.asarray(minibatch["a"])
             rewards = np.asarray(minibatch["r"])
             states_next = np.asarray(minibatch["s2"])
+            # TODO implement BCM module in the case of PER
+            # if bcm and side_only:
+            #     unsc_actions = np.asarray(minibatch["unsc_a"])
+            #     opt_actions = np.asarray(minibatch["opt_a"])
+            # elif bcm and not side_only:
+            #     # TODO rescale action by actionb limit
+            #     opt_actions = np.asarray(minibatch["opt_a"])
 
         else:
             # find the index of streams included in the experience buffer that will
@@ -764,6 +777,17 @@ class DQN:
             actions = np.asarray([self.experience["a"][i] for i in ids])
             rewards = np.asarray([self.experience["r"][i] for i in ids])
             states_next = np.asarray([self.experience["s2"][i] for i in ids])
+            # TODO load unscaled actions and or expert actions
+            if bcm and side_only:
+                unsc_actions = np.asarray([self.experience["unsc_a"][i] for i in ids], dtype="float32")
+                opt_actions = np.asarray([self.experience["opt_a"][i] for i in ids], dtype="float32")
+                self.loss_bcm = tf.keras.losses.MeanSquaredError()
+
+            elif bcm and not side_only:
+                opt_actions = np.asarray([self.experience["opt_a"][i] for i in ids], dtype="float32")
+                # TODO probably in this scase it makes much more sense to use a log loss 
+                # because the size of the action is always the same
+                self.loss_bcm = tf.keras.losses.MeanSquaredError()
         
         with tf.GradientTape() as tape:
 
@@ -861,11 +885,24 @@ class DQN:
                     y_pred=selected_action_values,
                     sample_weight=scaled_w_IS.reshape(-1, 1),
                 )
+                # TODO bcm module not implemented yet
             else:
                 loss = self.loss(y_true=actual_values, y_pred=selected_action_values)
+                
+                if bcm and side_only:
+                    loss_bcm = self.loss_bcm(y_true=opt_actions, y_pred=unsc_actions)
 
+                    loss = tf.add(loss , bcm_scale * loss_bcm)
+                elif bcm and not side_only:
+                    loss_bcm = self.loss_bcm(y_true=actual_values, y_pred=actions)
+                    loss = tf.add(loss , bcm_scale * loss_bcm)
+                
+                
+                
         variables = self.model.trainable_variables
-
+        
+        # TODO compute here the piece of loss relative to behavioral cloning
+        
         # compute gradient of the loss with respect to the variables (weights)
         gradients = tape.gradient(loss, variables)
 

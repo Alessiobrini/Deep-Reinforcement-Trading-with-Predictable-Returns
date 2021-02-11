@@ -265,7 +265,8 @@ def RunModels(
 
 
 
-def get_bet_size(qvalues: np.ndarray,side_action: float,action_limit: float, rng, discretization: float = None,
+def get_bet_size(qvalues: np.ndarray,side_action: float,action_limit: float, 
+                 zero_action: bool, rng, discretization: float = None,
                  temp: float = 200.0) -> float:
     """
     Get the size of the bet by using qvalues of DQN as probabilities. In principle
@@ -282,6 +283,9 @@ def get_bet_size(qvalues: np.ndarray,side_action: float,action_limit: float, rng
 
     action_limit: bool
         Lower and upper boundary for the action space
+    
+    zero_action: bool
+        Regulate the presence of hold actions (no trade)
     
     rng: 
         Random number generator
@@ -313,7 +317,12 @@ def get_bet_size(qvalues: np.ndarray,side_action: float,action_limit: float, rng
     else:
         
         # one hot vector of qvalues by the max action
-        idx = tf.one_hot(tf.math.argmax(qvalues,axis=1), 3)
+        if zero_action:
+            n_actions = 3
+        else:
+            n_actions = 2
+        idx = tf.one_hot(tf.math.argmax(qvalues,axis=1), n_actions)
+
         # get prob by using boltzmann
         prob = boltzmann(qvalues,T=temp)
         act_prob = tf.math.reduce_sum(prob * idx, axis=1)

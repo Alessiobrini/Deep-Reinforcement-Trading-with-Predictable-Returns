@@ -87,13 +87,13 @@ class ActionSpace(Space):
         and return a boolean
     """
 
-    def __init__(self, KLM: list, zero_action: str = True, side_only: bool = False):
+    def __init__(self, KLM: list, zero_action: bool = True, side_only: bool = False):
         if not side_only:
             self.values = np.arange(-KLM[0], KLM[0] + 1, KLM[1])
         else:
             self.values = np.array([-1.0,0.0,1.0])
         if not zero_action:
-            self.values = self.values[self.values != 0]
+            self.values = self.values[self.values != 0.0]
         super().__init__(self.values.shape, self.values.dtype)
         
     def contains(self, x: int) -> bool:
