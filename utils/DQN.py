@@ -892,16 +892,14 @@ class DQN:
                 if bcm and side_only:
                     loss_bcm = self.loss_bcm(y_true=opt_actions, y_pred=unsc_actions)
 
-                    loss = tf.add(loss , bcm_scale * loss_bcm)
+                    loss = tf.add(loss, bcm_scale * loss_bcm)
                 elif bcm and not side_only:
-                    loss_bcm = self.loss_bcm(y_true=actual_values, y_pred=actions)
-                    loss = tf.add(loss , bcm_scale * loss_bcm)
+                    loss_bcm = self.loss_bcm(y_true=opt_actions, y_pred=actions)
+                    loss = tf.add(loss, bcm_scale * loss_bcm)
                 
                 
                 
         variables = self.model.trainable_variables
-        
-        # TODO compute here the piece of loss relative to behavioral cloning
         
         # compute gradient of the loss with respect to the variables (weights)
         gradients = tape.gradient(loss, variables)
@@ -1165,7 +1163,8 @@ class DQN:
         else:
             if len(self.experience["s"]) >= self.max_experiences:
                 for key in self.experience.keys():
-                    self.experience[key].pop(0)
+                    if self.experience[key]: # check if the list is not empty
+                        self.experience[key].pop(0)
             for key, value in exp.items():
                 self.experience[key].append(value)
     

@@ -29,13 +29,13 @@ qts : [0.001,0.999] # quantile to select action boundaries
 KLM :  [null, null, 100000] # list with actions that each trade can take: from 
                             #-K to +K lot sizes minimum size of tradable (equities/contracts) 
                             # and discretization of holding for TabQ (-M,M) holding
-zero_action : False # include the zero action (hold) in the action space
+zero_action : True # include the zero action (hold) in the action space
 min_n_actions : True # set up minimum number of actions (3) or more
-side_only : True # set the action space so that only the side of the bet is captured by the algorithm
+side_only : False # set the action space so that only the side of the bet is captured by the algorithm
 discretization :  # float in (0,1] to determine a level of discretization for the action space when side_only=True. Leave empty for no discretization
-temp : 200.0 # temperature parameter for boltzmann equation
-bcm : True # allow behavioral cloning module
-bcm_scale : [0.001,0.0001]
+temp : null #[10.0, 50.0, 100.0, 200.0] # temperature parameter for boltzmann equation
+bcm : False # allow behavioral cloning module
+bcm_scale :  #[0.001,0.0001]
 RT : [0.050, 0.0001] # boundaries for returns and ticksize to define the discrete space of returns (only for TabQ)
 tablr: 0.005 # learning rate for updating q table
 ############################## DL RELATED ##############################
@@ -63,7 +63,7 @@ clipvalue : 1.0 # limit to clip the value
 clipglob_steps: 50000 # steps for global clipping of the norm
 ############################## DATA SIMULATIONS PARAMETERS ##############################
 t_stud : False # Student's T noise in the simulation
-HalfLife : [350] # list of Halflives of mean reversion
+HalfLife : [450] # list of Halflives of mean reversion
 f0 : [0] # list initial values for simulating factors
 f_param : [0.00535] # list of factor loadings
 sigma  : 0.01 # return volatility
@@ -73,12 +73,13 @@ CostMultiplier: 0.001 # Cost multiplier to make the cost proportional to the ris
 discount_rate: 0.0 # discount rate for time value of money (not gamma in DQN)
 Startholding: 0.0 # initial portfolio holding
 ############################### LAUNCH SIMULATIONS ##############################
-start_train : 1000 # steps after which the training starts
+episodes : null
+start_train : 500 # steps after which the training starts
+training : 'online' # online or offline
 seed_ret : [573,   6, 446, 122, 535, 169, 734, 400] # seed for the return simulation
 seed_init :  # seed for weights initialization. Leave empty if you want it to be equal to seed_ret 
-N_train : 300000  # training iteration (each step consists of one action-value update)
-out_of_sample_test : False  # do out-of-sample test while training
-N_test: 1000 # test iteration
+N_train : 150000  # training iteration (each step consists of one action-value update)
+len_series : 150000 # length of simulated series, if null the legth is N_train
 plot_inputs : 0 # boolean for plotting generated ret and factors
 executeDRL: 1 # boolean to decide if run DRL agent
 executeRL: 0 # boolean to decide if run RL agent
@@ -90,15 +91,15 @@ plot_hist: 0 # boolean to decide if plot weight histogram distribution (reduce s
 plot_steps_hist : 20000 # steps for plotting histograms on tensorboard
 plot_steps: 1000 # steps for all the other plots on tensorboard
 save_model: 1 # save trained tf model
-save_ckpt_model: 100 # number of checkpoints to save during training
+save_ckpt_model: 25 # number of checkpoints to save during training
 use_GPU : True
 #########################################################################################################
 # FOLDER PARAMETERS
 outputDir: 'outputs' # main directory for the experiment
 outputClass: 'DQN' # first subdirectory
-outputModel: '20210211_GPGAUSS_decouple_bcm' # second subdirectory
-num_rnd_search : 8 # number of cores to use when experiments are parallelized
-varying_pars: ['bcm_scale','seed_ret']  # choose parameters to vary while performing several different experiment
+outputModel: '20210212_GPGAUSS_np_decoupling' # second subdirectory
+num_rnd_search : 8  # number of cores to use when experiments are parallelized
+varying_pars: ['seed_ret']  # choose parameters to vary while performing several different experiment
 varying_type : 'chunk' # type of parallelization. 'chunk' will parallelize experiments
                        # in chunks of size 'num_rnd_search'. 'random_search' draw randomly some
                        # parameter combination depeding on all 'varying_pars' combinations.

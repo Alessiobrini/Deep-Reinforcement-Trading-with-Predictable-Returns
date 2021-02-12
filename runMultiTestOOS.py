@@ -24,11 +24,10 @@ from utils.common import (
     generate_logger,
     format_tousands,
 )
+from utils.test import Out_sample_test, Out_sample_Misspec_test
 from utils.plot import (
     load_DQNmodel,
     load_Actor_Critic,
-    Out_sample_test,
-    Out_sample_Misspec_test,
     TrainedQTable,
 )
 
@@ -215,7 +214,6 @@ def runMultiTestOOS(p):
                         executeRL=p_mod[
                             "executeRL"
                         ],  # Put true if you want to OOS test also tab RL
-                        executeMV=p_mod["executeMV"],
                         RT=p_mod["RT"],
                         KLM=p_mod["KLM"],
                         executeGP=p_mod["executeGP"],
@@ -347,7 +345,6 @@ def runMultiTestOOS(p):
                         executeRL=p_mod[
                             "executeRL"
                         ],  # Put true if you want to OOS test also tab RL
-                        executeMV=p_mod["executeMV"],
                         RT=p_mod["RT"],
                         KLM=p_mod["KLM"],
                         executeGP=p_mod["executeGP"],

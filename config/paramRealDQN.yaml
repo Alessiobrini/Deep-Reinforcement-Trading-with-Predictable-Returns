@@ -41,6 +41,8 @@ min_n_actions : True
 side_only : True # set the action space so that only the side of the bet is captured by the algorithm
 discretization : 0.2 # float in (0,1] to determine a level of discretization for the action space when side_only=True. Leave empty for no discretization
 temp : 200.0 # temperature parameter for boltzmann equation
+bcm : True # allow behavioral cloning module
+bcm_scale : 0.1 #[0.001,0.0001]
 ############################## DL RELATED ##############################
 selected_loss: 'huber'
 activation : 'elu'
@@ -76,12 +78,9 @@ Startholding: 0.0
 ############################### LAUNCH SIMULATIONS ##############################
 episodes : 1 #200
 start_train : 300
-training : 'offline' # online or offline
 seed : 233 #[599, 517, 953, 916, 533, 752, 170, 334] # Seed for experiment reproducibility 
-out_of_sample_test : True
 executeDRL: 1 # boolean to decide if run DRL agent
 executeGP: 1 # boolean to decide if run GP solution
-executeMV: 0 # boolean to decide if run MV solution
 save_results: 1 # boolean to decide if save dataframe of results
 save_table: 1
 plot_hist: 0 # boolean to decide if plot weight histogram distribution (reduce size of tb logs)

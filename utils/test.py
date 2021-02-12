@@ -6,7 +6,7 @@ Created on Wed Jun  3 12:04:21 2020
 """
 from tqdm import tqdm
 from utils.simulation import ReturnSampler, GARCHSampler
-from utils.env import MarketEnv, RecurrentMarketEnv, ReturnSpace, HoldingSpace
+from utils.env import MarketEnv, RecurrentMarketEnv, ReturnSpace, HoldingSpace, ActionSpace
 from utils.simulation import create_lstm_tensor
 from utils.tools import CalculateLaggedSharpeRatio, RunModels
 from utils.common import format_tousands
@@ -33,13 +33,12 @@ def Out_sample_test(
     discount_rate: float,
     executeDRL: bool,
     executeRL: bool,
-    executeMV: bool,
     RT: list,
     KLM: list,
     executeGP: bool,
     TrainNet,
-    savedpath: Union[str or Path],
     iteration: int,
+    savedpath: Union[str or Path] = None,
     recurrent_env: bool = False,
     unfolding: int = 1,
     QTable: Optional[pd.DataFrame] = None,
@@ -48,10 +47,12 @@ def Out_sample_test(
     action_limit=None,
     uncorrelated=False,
     t_stud: bool = False,
+    variables: list = None,
     side_only: bool = False,
     discretization: float = None,
     temp: float = 200.0,
     zero_action: bool = True,
+    store_values : bool = True,
     tag="DQN",
 ):
     """
@@ -97,8 +98,7 @@ def Out_sample_test(
 
     executeRL: bool
         Boolean to regulate if perform the reinforcement learning algorithm
-    executeMV: bool
-        Boolean to regulate if perform the Markovitz solution
+
 
     RT: list
         List of boundaries for the discretized return space. The first element is
@@ -213,6 +213,8 @@ def Out_sample_test(
             action_limit,
         )
 
+    if "DQN" in tag:
+        action_space = ActionSpace(KLM, zero_action=zero_action, side_only=side_only) # TODO hard coded zero action
     if executeDRL:
         CurrState, _ = test_env.reset()
     if executeRL:
@@ -222,30 +224,32 @@ def Out_sample_test(
     if executeGP:
         CurrOptState = test_env.opt_reset()
         OptRate, DiscFactorLoads = test_env.opt_trading_rate_disc_loads()
-    if executeMV:
-        CurrMVState = test_env.opt_reset()
+
 
     for i in tqdm(iterable=range(N_test + 1), desc="Testing DQNetwork"):
         if executeDRL:
-            if tag == "DQN":
+            if "DQN" in tag:
 
-                shares_traded, qvalues = TrainNet.greedy_action(CurrState, side_only=side_only)
-
+                qvalues = TrainNet( np.atleast_2d(CurrState.astype("float32")), training=False)
+                shares_traded = action_space.values[np.argmax(qvalues[0])]
+                
                 if side_only:
-                    shares_traded = get_bet_size(qvalues,shares_traded,action_limit=KLM[0], rng=rng, zero_action=zero_action, 
+                    shares_traded = get_bet_size(qvalues,shares_traded,action_limit=KLM[0], rng=rng, 
+                                                 zero_action = zero_action,
                                                  discretization=discretization,
                                                  temp=temp)
-                    
+                
                 NextState, Result, NextFactors = test_env.step(
                     CurrState, shares_traded, i
                 )
                 test_env.store_results(Result, i)
-            elif tag == "DDPG":
-                shares_traded = TrainNet.p_model(
+            elif "DDPG" in tag:
+                tg = "DDPG"
+                shares_traded = TrainNet(
                     np.atleast_2d(CurrState.astype("float32")), training=False
                 )
                 NextState, Result, NextFactors = test_env.step(
-                    CurrState, shares_traded, i, tag=tag
+                    CurrState, shares_traded, i, tag=tg
                 )
                 test_env.store_results(Result, i)
             CurrState = NextState
@@ -265,12 +269,82 @@ def Out_sample_test(
             test_env.store_results(OptResult, i)
             CurrOptState = NextOptState
 
-        if executeMV:
-            NextMVState, MVResult = test_env.mv_step(CurrMVState, i)
-            test_env.store_results(MVResult, i)
-            CurrMVState = NextMVState
 
-    test_env.save_outputs(savedpath, test=True, iteration=iteration)
+    if store_values:
+        p_avg, r_avg, sr_avg, absp_avg, absr_avg, abssr_avg, abssr_hold = (
+            [],
+            [],
+            [],
+            [],
+            [],
+            [],
+            [],
+        )
+    
+        for t in tag:
+            # select interesting variables and express as a percentage of the GP results
+            pnl_str = list(filter(lambda x: "NetPNL_{}".format(t) in x, variables))
+            opt_pnl_str = list(filter(lambda x: "OptNetPNL" in x, variables))
+            rew_str = list(filter(lambda x: "Reward_{}".format(t) in x, variables))
+            opt_rew_str = list(filter(lambda x: "OptReward" in x, variables))
+    
+            # pnl
+            pnl = test_env.res_df[pnl_str + opt_pnl_str].iloc[:-1]
+            cum_pnl = pnl.cumsum()
+            ref_pnl = (np.array(cum_pnl[pnl_str]) / np.array(cum_pnl[opt_pnl_str])) * 100
+            # rewards
+            rew = test_env.res_df[rew_str + opt_rew_str].iloc[:-1]
+            cum_rew = rew.cumsum()
+            ref_rew = (np.array(cum_rew[rew_str]) / np.array(cum_rew[opt_rew_str])) * 100
+    
+            # SR
+            mean = np.array(pnl[pnl_str]).mean()
+            std = np.array(pnl[pnl_str]).std()
+            sr = (mean / std) * (252 ** 0.5)
+    
+            # Holding
+            hold = test_env.res_df["NextHolding_{}".format(t)].iloc[
+                -2
+            ]  # avoid last observation
+            opthold = test_env.res_df["OptNextHolding"].iloc[-2]
+    
+            opt_mean = np.array(pnl[opt_pnl_str]).mean()
+            opt_std = np.array(pnl[opt_pnl_str]).std()
+            optsr = (opt_mean / opt_std) * (252 ** 0.5)
+    
+            perc_SR = (sr / optsr) * 100
+    
+            p_avg.append(ref_pnl[-1])
+            r_avg.append(ref_rew[-1])
+            sr_avg.append(perc_SR)
+    
+            absp_avg.append(cum_pnl.iloc[-1].values[0])
+            absr_avg.append(cum_rew.iloc[-1].values[0])
+            abssr_avg.append(sr)
+    
+            abssr_hold.append(hold)
+    
+        # return only the last value of the series which is the cumulated pnl expressed as a percentage of GP
+        return (
+            np.array(p_avg).ravel(),
+            np.array(r_avg).ravel(),
+            np.array(sr_avg).ravel(),
+            np.array(absp_avg).ravel(),
+            cum_pnl.iloc[-1].values[1],
+            np.array(absr_avg).ravel(),
+            cum_rew.iloc[-1].values[1],
+            np.array(abssr_avg).ravel(),
+            optsr,
+            np.array(abssr_hold).ravel(),
+            opthold,
+        )
+    else:
+        if savedpath:
+            test_env.save_outputs(savedpath, test=True, iteration=iteration)
+        return test_env.res_df
+
+
+    
 
 
 def Out_sample_Misspec_test(
@@ -283,13 +357,12 @@ def Out_sample_Misspec_test(
     discount_rate: float,
     executeDRL: bool,
     executeRL: bool,
-    executeMV: bool,
     RT: list,
     KLM: list,
     executeGP: bool,
     TrainNet,
-    savedpath: Union[str or Path],
     iteration: int,
+    savedpath: Union[str or Path] = None,
     recurrent_env: bool = False,
     unfolding: int = 1,
     QTable: Optional[pd.DataFrame] = None,
@@ -309,11 +382,13 @@ def Out_sample_Misspec_test(
     uncorrelated: bool = False,
     degrees: int = None,
     rng=None,
+    variables: list = None,
     side_only: bool = False,
     discretization: float = None,
     temp: float = 200.0,
     zero_action: bool = True,
     tag="DQN",
+    store_values : bool = True,
 ):
     """
     Perform an out-of-sample test and store results in the case of misspecified
@@ -349,8 +424,7 @@ def Out_sample_Misspec_test(
 
     executeRL: bool
         Boolean to regulate if perform the reinforcement learning algorithm
-    executeMV: bool
-        Boolean to regulate if perform the Markovitz solution
+
 
     RT: list
         List of boundaries for the discretized return space. The first element is
@@ -465,7 +539,7 @@ def Out_sample_Misspec_test(
 
     elif datatype == "garch":
         return_series, params = GARCHSampler(
-            N_test + factor_lb[-1] + unfolding + 1,
+            N_test + factor_lb[-1] + 2,
             mean_process=mean_process,
             lags_mean_process=lags_mean_process,
             vol_process=vol_process,
@@ -480,7 +554,6 @@ def Out_sample_Misspec_test(
         dates = df.index
     elif datatype == "t_stud":
         plot_inputs = False
-        # df freedom for t stud distribution are hard coded inside the function
         returns, factors, test_f_speed = ReturnSampler(
             N_test + factor_lb[-1],
             sigmaf,
@@ -546,6 +619,32 @@ def Out_sample_Misspec_test(
             )
             y, X = df[df.columns[0]], df[df.columns[1:]]
         dates = df.index
+        
+    elif datatype == "garch_mr":
+
+        plot_inputs = False
+        # df freedom for t stud distribution are hard coded inside the function
+
+        returns, factors, f_speed = ReturnSampler(
+            N_test + factor_lb[-1],
+            sigmaf,
+            f0,
+            f_param,
+            sigma,
+            plot_inputs,
+            HalfLife,
+            rng=rng,
+            offset=unfolding + 1,
+            uncorrelated=uncorrelated,
+            t_stud=False,
+            vol = 'heterosk',
+        )
+        
+        df = CalculateLaggedSharpeRatio(
+            returns, factor_lb, nameTag=datatype, seriestype="return"
+        )
+        y, X = df[df.columns[0]], df[df.columns[1:]]
+        dates = df.index
     else:
         print("Datatype not correct")
         sys.exit()
@@ -610,7 +709,8 @@ def Out_sample_Misspec_test(
             action_limit,
             dates=dates,
         )
-
+    if "DQN" in tag:
+        action_space = ActionSpace(KLM, zero_action=zero_action, side_only=side_only)
     if executeDRL:
         CurrState, _ = test_env.reset()
     if executeRL:
@@ -620,19 +720,18 @@ def Out_sample_Misspec_test(
     if executeGP:
         CurrOptState = test_env.opt_reset()
         OptRate, DiscFactorLoads = test_env.opt_trading_rate_disc_loads()
-    if executeMV:
-        CurrMVState = test_env.opt_reset()
 
-    if datatype == "real":
-        cycle_len = N_test - 1
-    elif datatype != "real":
+
+    if recurrent_env:
+        cycle_len = N_test + 1 - (unfolding - 1)
+    else:
         cycle_len = N_test + 1
 
     for i in tqdm(iterable=range(cycle_len), desc="Testing DQNetwork"):
         if executeDRL:
             if tag == "DQN":
-                # shares_traded = TrainNet.greedy_action(CurrState)
-                shares_traded, qvalues = TrainNet.greedy_action(CurrState, side_only=side_only)
+                qvalues = TrainNet(np.atleast_2d(CurrState.astype("float32")), training=False)
+                shares_traded = action_space.values[np.argmax(qvalues[0])]
 
                 if side_only:
                     shares_traded = get_bet_size(qvalues,shares_traded,action_limit=KLM[0], rng=rng, zero_action=zero_action,
@@ -643,11 +742,12 @@ def Out_sample_Misspec_test(
                 )
                 test_env.store_results(Result, i)
             elif tag == "DDPG":
-                shares_traded = TrainNet.p_model(
+                tg = "DDPG"
+                shares_traded = TrainNet(
                     np.atleast_2d(CurrState.astype("float32")), training=False
                 )
                 NextState, Result, NextFactors = test_env.step(
-                    CurrState, shares_traded, i, tag=tag
+                    CurrState, shares_traded, i, tag=tg
                 )
                 test_env.store_results(Result, i)
             CurrState = NextState
@@ -667,14 +767,90 @@ def Out_sample_Misspec_test(
             test_env.store_results(OptResult, i)
             CurrOptState = NextOptState
 
-        if executeMV:
-            NextMVState, MVResult = test_env.mv_step(CurrMVState, i)
-            test_env.store_results(MVResult, i)
-            CurrMVState = NextMVState
 
-    test_env.save_outputs(savedpath, test=True, iteration=iteration, include_dates=True)
-
-
+    if store_values:
+        p_avg, r_avg, sr_avg, absp_avg, absr_avg, abssr_avg, abssr_hold = (
+            [],
+            [],
+            [],
+            [],
+            [],
+            [],
+            [],
+        )
+        for t in tag:
+            # select interesting variables and express as a percentage of the GP results
+            pnl_str = list(filter(lambda x: "NetPNL_{}".format(t) in x, variables))
+            opt_pnl_str = list(filter(lambda x: "OptNetPNL" in x, variables))
+            rew_str = list(filter(lambda x: "Reward_{}".format(t) in x, variables))
+            opt_rew_str = list(filter(lambda x: "OptReward" in x, variables))
+    
+            # pnl
+            pnl = test_env.res_df[pnl_str + opt_pnl_str].iloc[:-1]
+            cum_pnl = pnl.cumsum()
+    
+            if datatype == "garch" or datatype=='garch_mr':
+                ref_pnl = np.array(cum_pnl[pnl_str]) - np.array(cum_pnl[opt_pnl_str])
+            else:
+                ref_pnl = (
+                    np.array(cum_pnl[pnl_str]) / np.array(cum_pnl[opt_pnl_str])
+                ) * 100
+    
+            # rewards
+            rew = test_env.res_df[rew_str + opt_rew_str].iloc[:-1]
+            cum_rew = rew.cumsum()
+            if datatype == "garch" or datatype == "garch_mr":
+                ref_rew = np.array(cum_rew[rew_str]) - np.array(cum_rew[opt_rew_str])
+            else:
+                ref_rew = (
+                    np.array(cum_rew[rew_str]) / np.array(cum_rew[opt_rew_str])
+                ) * 100
+    
+            # SR
+            mean = np.array(pnl[pnl_str]).mean()
+            std = np.array(pnl[pnl_str]).std()
+            sr = (mean / std) * (252 ** 0.5)
+    
+            # Holding
+            hold = test_env.res_df["NextHolding_{}".format(t)].iloc[
+                -2
+            ]  # avoid last observation
+            opthold = test_env.res_df["OptNextHolding"].iloc[-2]
+    
+            opt_mean = np.array(pnl[opt_pnl_str]).mean()
+            opt_std = np.array(pnl[opt_pnl_str]).std()
+            optsr = (opt_mean / opt_std) * (252 ** 0.5)
+    
+            perc_SR = (sr / optsr) * 100
+    
+            p_avg.append(ref_pnl[-1])
+            r_avg.append(ref_rew[-1])
+            sr_avg.append(perc_SR)
+    
+            absp_avg.append(cum_pnl.iloc[-1].values[0])
+            absr_avg.append(cum_rew.iloc[-1].values[0])
+            abssr_avg.append(sr)
+    
+            abssr_hold.append(hold)
+    
+        # return only the last value of the series which is the cumulated pnl expressed as a percentage of GP
+        return (
+            np.array(p_avg).ravel(),
+            np.array(r_avg).ravel(),
+            np.array(sr_avg).ravel(),
+            np.array(absp_avg).ravel(),
+            cum_pnl.iloc[-1].values[1],
+            np.array(absr_avg).ravel(),
+            cum_rew.iloc[-1].values[1],
+            np.array(abssr_avg).ravel(),
+            optsr,
+            np.array(abssr_hold).ravel(),
+            opthold,
+        )
+    else:
+        if savedpath:
+            test_env.save_outputs(savedpath, test=True, iteration=iteration)
+        return test_env.res_df
 
 def Out_sample_real_test(
     N_test: int,
@@ -685,7 +861,6 @@ def Out_sample_real_test(
     kappa: float,
     discount_rate: float,
     executeDRL: bool,
-    executeMV: bool,
     KLM: list,
     executeGP: bool,
     TrainNet,
@@ -763,8 +938,7 @@ def Out_sample_real_test(
     if executeGP:
         CurrOptState = test_env.opt_reset()
         OptRate, DiscFactorLoads = test_env.opt_trading_rate_disc_loads()
-    # if executeMV:
-    #     CurrMVState = test_env.opt_reset()
+
 
 
     cycle_len = N_test - 1
@@ -799,12 +973,6 @@ def Out_sample_real_test(
             test_env.store_results(OptResult, i)
             CurrOptState = NextOptState
 
-        # if executeMV:
-        #     NextMVState, MVResult = test_env.mv_step(CurrMVState, i)
-        #     test_env.store_results(MVResult, i)
-        #     CurrMVState = NextMVState
-
-    # test_env.save_outputs(savedpath, test=True, iteration=iteration, include_dates=True)
 
     variables = []
     variables.append("NetPNL_{}".format(tag))
