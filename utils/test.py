@@ -51,6 +51,7 @@ def Out_sample_test(
     side_only: bool = False,
     discretization: float = None,
     temp: float = 200.0,
+    zero_action: bool = True,
     tag="DQN",
 ):
     """
@@ -231,7 +232,7 @@ def Out_sample_test(
                 shares_traded, qvalues = TrainNet.greedy_action(CurrState, side_only=side_only)
 
                 if side_only:
-                    shares_traded = get_bet_size(qvalues,shares_traded,action_limit=KLM[0], rng=rng,
+                    shares_traded = get_bet_size(qvalues,shares_traded,action_limit=KLM[0], rng=rng, zero_action=zero_action, 
                                                  discretization=discretization,
                                                  temp=temp)
                     
@@ -311,6 +312,7 @@ def Out_sample_Misspec_test(
     side_only: bool = False,
     discretization: float = None,
     temp: float = 200.0,
+    zero_action: bool = True,
     tag="DQN",
 ):
     """
@@ -633,7 +635,7 @@ def Out_sample_Misspec_test(
                 shares_traded, qvalues = TrainNet.greedy_action(CurrState, side_only=side_only)
 
                 if side_only:
-                    shares_traded = get_bet_size(qvalues,shares_traded,action_limit=KLM[0], rng=rng,
+                    shares_traded = get_bet_size(qvalues,shares_traded,action_limit=KLM[0], rng=rng, zero_action=zero_action,
                                                  discretization=discretization,
                                                  temp=temp)
                 NextState, Result, NextFactors = test_env.step(
@@ -700,6 +702,7 @@ def Out_sample_real_test(
     side_only: bool = False,
     discretization: float = None,
     temp: float = 200.0,
+    zero_action: bool = True,
     tag="DQN",
 ):
 
@@ -772,7 +775,7 @@ def Out_sample_real_test(
                 shares_traded, qvalues = TrainNet.greedy_action(CurrState, side_only=side_only)
 
                 if side_only:
-                    shares_traded = get_bet_size(qvalues,shares_traded,action_limit=KLM[0], rng=None,
+                    shares_traded = get_bet_size(qvalues,shares_traded,action_limit=KLM[0], rng=None, zero_action=zero_action,
                                                  discretization=discretization,
                                                  temp=temp)
                 NextState, Result, NextFactors = test_env.step(

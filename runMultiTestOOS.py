@@ -365,6 +365,7 @@ def runMultiTestOOS(p):
                         side_only = p_mod['side_only'],
                         discretization = p_mod['discretization'],
                         temp = p_mod['temp'],
+                        zero_action=p_mod['zero_action'],
                         tag=tag,
                     )
                     avg_pnls.append(pnl)

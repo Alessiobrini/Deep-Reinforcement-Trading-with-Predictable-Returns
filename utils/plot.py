@@ -839,6 +839,7 @@ def Out_sample_test(
     side_only: bool = False,
     discretization: float = None,
     temp: float = 200.0,
+    zero_action: bool = True,
     tag="DQN",
     store_values : bool = True,
 ):
@@ -1025,7 +1026,8 @@ def Out_sample_test(
                 shares_traded = action_space.values[np.argmax(qvalues[0])]
                 
                 if side_only:
-                    shares_traded = get_bet_size(qvalues,shares_traded,action_limit=KLM[0], rng=rng,
+                    shares_traded = get_bet_size(qvalues,shares_traded,action_limit=KLM[0], rng=rng, 
+                                                 zero_action = zero_action,
                                                  discretization=discretization,
                                                  temp=temp)
                 

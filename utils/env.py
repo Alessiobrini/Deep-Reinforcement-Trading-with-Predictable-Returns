@@ -408,6 +408,10 @@ class MarketEnv(gym.Env):
         self.res_df = res_df
 
 
+    def get_state_dim(self):
+        state, _ = self.reset()
+        return state.shape
+
     def reset(self) -> Tuple[np.ndarray, np.ndarray]:
         currState = np.array([self.returns[0], self.Startholding])
         currFactor = self.factors[0]
