@@ -98,7 +98,14 @@ class ActionSpace(Space):
         
     def contains(self, x: int) -> bool:
         return x in self.values
-
+    
+    def get_n_actions(self, policy_type: str):
+        # TODO note that this implementation is valid only for a single action. 
+        # If we want to do more than one action we should change it
+        if policy_type == 'continuous':
+            return self.values.ndim
+        elif policy_type == 'discrete':
+            return self.values.size
 
 class CreateQTable:
     """
@@ -431,7 +438,7 @@ class MarketEnv(gym.Env):
             shares_traded =  unscale_action(self.action_limit, shares_traded)
 
         nextHolding = currState[1] + shares_traded
-        nextState = np.array([nextRet, nextHolding], dtype=object)
+        nextState = np.array([nextRet, nextHolding], dtype=np.float32)
 
         Result = self._getreward(currState, nextState, tag)
         # reward scaling

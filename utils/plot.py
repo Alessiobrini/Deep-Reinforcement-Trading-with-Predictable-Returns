@@ -416,13 +416,19 @@ def plot_multitest_overlap_OOS(
     if 'datatype' not in params.keys():
         params['datatype'] = 'gp'
     if pgarch.size == 0 and 'garch' not in params['datatype']:
-        df.loc["Benchmark"] = 100.0
-        ax1.plot(
-            idxs, df.loc["Benchmark"].values, linestyle="--", linewidth=4, color="red"
-        )
-        # ax1.set_ylim(-10000,300)
-        ax1.set_ylim(0, 150)
-        # ax1.set_ylim(-150,150)
+        
+        if variable.split("_")[0] == "Pdist":
+            
+            ax1.set_ylim(-1e+4, 1e+12)
+        else:
+        
+            df.loc["Benchmark"] = 100.0
+            ax1.plot(
+                idxs, df.loc["Benchmark"].values, linestyle="--", linewidth=4, color="red"
+            )
+            # ax1.set_ylim(-10000,300)
+            ax1.set_ylim(0, 150)
+            # ax1.set_ylim(-150,150)
 
     else:
         if variable.split("_")[0] != "SR":
@@ -589,11 +595,8 @@ def plot_multitest_real_OOS(
 ):
 
     df_mean = df.mean(axis=0)
-    # pdb.set_trace()
-    if params['training'] == 'offline':
-        idxs = [int(i)* params['len_series'] for i in df.iloc[0, :].index]
-    else:
-        idxs = [int(i) for i in df.iloc[0, :].index]
+    idxs = [int(i)* params['len_series'] for i in df.iloc[0, :].index]
+
         
     # https://matplotlib.org/examples/color/colormaps_reference.html
     colormap = cm.get_cmap("plasma", len(df.index))
@@ -631,8 +634,8 @@ def plot_multitest_real_OOS(
         )
     # add benchmark series to plot the hline
 
-
-    if variable.split("_")[0] != "SR":
+    # pdb.set_trace()
+    if variable.split("_")[0] != "SR" and variable.split("_")[0] != "PnLstd":
         df.loc["Benchmark"] = 0.0
         ax1.plot(
             idxs,
@@ -642,9 +645,10 @@ def plot_multitest_real_OOS(
             color="red",
         )
 
-        ax1.set_ylim(-2500, 2500)
+        # ax1.set_ylim(-2500, 2500)
 
     else:
+
         df.loc["Benchmark"] = 100.0
         ax1.plot(
             idxs,
@@ -653,7 +657,7 @@ def plot_multitest_real_OOS(
             linewidth=4,
             color="red",
         )
-        # ax1.set_ylim(0, 150)
+        ax1.set_ylim(0, 350)
 
 
     ax1.set_title("{}".format(data_dir.split("/")[-2]))
@@ -788,7 +792,7 @@ def plot_multitest_paper(
             # ax1.set_ylim(20,120)
 
         else:
-            if variable.split("_")[0] != "SR":
+            if variable.split("_")[0] != "SR" or variable.split("_")[0] != "PnLstd":
                 df.loc["Benchmark"] = 0.0
                 ax1.plot(
                     idxs,

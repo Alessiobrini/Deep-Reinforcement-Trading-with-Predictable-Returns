@@ -271,7 +271,9 @@ def Out_sample_test(
 
 
     if store_values:
-        p_avg, r_avg, sr_avg, absp_avg, absr_avg, abssr_avg, abssr_hold = (
+        p_avg, r_avg, sr_avg, absp_avg, absr_avg, abssr_avg, abssr_hold, pnlstd_avg, pdist = (
+            [],
+            [],
             [],
             [],
             [],
@@ -307,22 +309,29 @@ def Out_sample_test(
                 -2
             ]  # avoid last observation
             opthold = test_env.res_df["OptNextHolding"].iloc[-2]
+            
+            pdist_avg = ((test_env.res_df["NextHolding_{}".format(t)].values - 
+                     test_env.res_df["OptNextHolding"].values)**2).mean()
     
             opt_mean = np.array(pnl[opt_pnl_str]).mean()
             opt_std = np.array(pnl[opt_pnl_str]).std()
             optsr = (opt_mean / opt_std) * (252 ** 0.5)
     
             perc_SR = (sr / optsr) * 100
+            pnl_std = (std / opt_std) * 100
     
             p_avg.append(ref_pnl[-1])
             r_avg.append(ref_rew[-1])
             sr_avg.append(perc_SR)
+            pnlstd_avg.append(pnl_std)
     
             absp_avg.append(cum_pnl.iloc[-1].values[0])
             absr_avg.append(cum_rew.iloc[-1].values[0])
             abssr_avg.append(sr)
     
             abssr_hold.append(hold)
+            
+            pdist.append(pdist_avg)
     
         # return only the last value of the series which is the cumulated pnl expressed as a percentage of GP
         return (
@@ -337,6 +346,8 @@ def Out_sample_test(
             optsr,
             np.array(abssr_hold).ravel(),
             opthold,
+            np.array(pnlstd_avg).ravel(),
+            np.array(pdist).ravel(),
         )
     else:
         if savedpath:
@@ -769,7 +780,8 @@ def Out_sample_Misspec_test(
 
 
     if store_values:
-        p_avg, r_avg, sr_avg, absp_avg, absr_avg, abssr_avg, abssr_hold = (
+        p_avg, r_avg, sr_avg, absp_avg, absr_avg, abssr_avg, abssr_hold, pnlstd_avg, pdist = (
+            [],
             [],
             [],
             [],
@@ -816,22 +828,29 @@ def Out_sample_Misspec_test(
                 -2
             ]  # avoid last observation
             opthold = test_env.res_df["OptNextHolding"].iloc[-2]
+            
+            pdist_avg = ((test_env.res_df["NextHolding_{}".format(t)].values - 
+                          test_env.res_df["OptNextHolding"].values)**2).mean()
     
             opt_mean = np.array(pnl[opt_pnl_str]).mean()
             opt_std = np.array(pnl[opt_pnl_str]).std()
             optsr = (opt_mean / opt_std) * (252 ** 0.5)
     
             perc_SR = (sr / optsr) * 100
+            pnl_std = (std / opt_std) * 100
     
             p_avg.append(ref_pnl[-1])
             r_avg.append(ref_rew[-1])
             sr_avg.append(perc_SR)
+            pnlstd_avg.append(pnl_std)
     
             absp_avg.append(cum_pnl.iloc[-1].values[0])
             absr_avg.append(cum_rew.iloc[-1].values[0])
             abssr_avg.append(sr)
     
             abssr_hold.append(hold)
+            
+            pdist.append(pdist_avg)
     
         # return only the last value of the series which is the cumulated pnl expressed as a percentage of GP
         return (
@@ -846,6 +865,8 @@ def Out_sample_Misspec_test(
             optsr,
             np.array(abssr_hold).ravel(),
             opthold,
+            np.array(pnlstd_avg).ravel(),
+            np.array(pdist).ravel()
         )
     else:
         if savedpath:
@@ -1014,6 +1035,11 @@ def Out_sample_real_test(
     optsr = (opt_mean / opt_std) * (252 ** 0.5)
 
     perc_SR = (sr / optsr) * 100
+    pnl_std = (std / opt_std) * 100
+    
+    pdist_avg = ((test_env.res_df["NextHolding_{}".format(tag)].values - 
+             test_env.res_df["OptNextHolding"].values)**2).mean()
+    
 
     return (
         ref_pnl[-1][0], # [0] to get the value instead of the numpy array
@@ -1027,6 +1053,8 @@ def Out_sample_real_test(
         optsr,
         hold,
         opthold,
+        pnl_std,
+        pdist_avg
     )
 
 
@@ -1036,6 +1064,7 @@ class empty_series:
         self.mean_series_pnl = pd.DataFrame(index=range(1), columns=iterations)
         self.mean_series_rew = pd.DataFrame(index=range(1), columns=iterations)
         self.mean_series_sr = pd.DataFrame(index=range(1), columns=iterations)
+        self.mean_series_pnlstd = pd.DataFrame(index=range(1), columns=iterations)
     
         self.abs_series_pnl_rl = pd.DataFrame(index=range(1), columns=iterations)
         self.abs_series_pnl_gp = pd.DataFrame(index=range(1), columns=iterations)
@@ -1049,6 +1078,8 @@ class empty_series:
         self.abs_series_hold_rl = pd.DataFrame(index=range(1), columns=iterations)
         self.abs_series_hold_gp = pd.DataFrame(index=range(1), columns=iterations)
         
+        self.pdist_series = pd.DataFrame(index=range(1), columns=iterations)
+        
         
     def collect(self,pnl,
                 rew,
@@ -1061,11 +1092,15 @@ class empty_series:
                 abs_srgp,
                 abs_hold,
                 abs_opthold,
+                pnl_std,
+                pdist_avg,
                 ckpt_it):
         
         self.mean_series_pnl.loc[0, str(ckpt_it)] = pnl
         self.mean_series_rew.loc[0, str(ckpt_it)] = rew
-        self. mean_series_sr.loc[0, str(ckpt_it)] = sr
+        self.mean_series_sr.loc[0, str(ckpt_it)] = sr
+        self.mean_series_pnlstd.loc[0, str(ckpt_it)] = pnl_std
+
        
         self.abs_series_pnl_rl.loc[0, str(ckpt_it)] = abs_prl
         self.abs_series_pnl_gp.loc[0, str(ckpt_it)] = abs_pgp
@@ -1078,6 +1113,8 @@ class empty_series:
         
         self.abs_series_hold_rl.loc[0, str(ckpt_it)] = abs_hold
         self.abs_series_hold_gp.loc[0, str(ckpt_it)] = abs_opthold
+        
+        self.pdist_series.loc[0, str(ckpt_it)] = pdist_avg
             
         
     def save(self,exp_path,tag, N_test):
@@ -1103,6 +1140,15 @@ class empty_series:
             os.path.join(
                 exp_path,
                 "SR_OOS_{}_{}.parquet.gzip".format(format_tousands(N_test), tag),
+            ),
+            compression="gzip",
+        )
+
+
+        self.mean_series_pnlstd.to_parquet(
+            os.path.join(
+                exp_path,
+                "PnLstd_OOS_{}_{}.parquet.gzip".format(format_tousands(N_test), tag),
             ),
             compression="gzip",
         )
@@ -1169,6 +1215,14 @@ class empty_series:
             os.path.join(
                 exp_path,
                 "AbsHold_OOS_{}_GP.parquet.gzip".format(format_tousands(N_test)),
+            ),
+            compression="gzip",
+        )
+        
+        self.pdist_series.to_parquet(
+            os.path.join(
+                exp_path,
+                "Pdist_OOS_{}_GP.parquet.gzip".format(format_tousands(N_test)),
             ),
             compression="gzip",
         )

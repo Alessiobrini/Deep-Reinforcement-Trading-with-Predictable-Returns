@@ -30,6 +30,7 @@ def get_action_boundaries(
     factors: Union[list or np.ndarray],
     qts: list = [0.01, 0.99],
     min_n_actions: bool = True,
+    experiment_type: str = 'synth',
 ):
 
     """
@@ -117,10 +118,16 @@ def get_action_boundaries(
         CurrOptState = NextOptState
 
     action_quantiles = env.res_df["OptNextAction"].quantile(qts).values
+    
+    if experiment_type == 'real':
+        qt = np.max(np.abs(action_quantiles))
+        length = len(str(int(np.round(qt))))
+        action = int(np.abs(np.round(qt, -length + 2)))
+    else:
+        qt = np.min(np.abs(action_quantiles))
+        length = len(str(int(np.round(qt))))
+        action = int(np.abs(np.round(qt, -length + 1)))
 
-    qt = np.min(np.abs(action_quantiles))
-    length = len(str(int(np.round(qt))))
-    action = int(np.abs(np.round(qt, -length + 1)))
     if min_n_actions:
         action_ranges = [action, action]
     else:
@@ -315,19 +322,20 @@ def get_bet_size(qvalues: np.ndarray,side_action: float,action_limit: float,
         size_action = unscale_action(action_limit, m)
     
     else:
-        
+
         # one hot vector of qvalues by the max action
         if zero_action:
             n_actions = 3
         else:
             n_actions = 2
+            
         idx = tf.one_hot(tf.math.argmax(qvalues,axis=1), n_actions)
-
+        
         # get prob by using boltzmann
         prob = boltzmann(qvalues,T=temp)
         act_prob = tf.math.reduce_sum(prob * idx, axis=1)
         # avoid division by 0 and get z statistics
-        z = (act_prob - (1/3)) / (tf.math.sqrt(act_prob * (1-act_prob)) + 0.00000007)
+        z = (act_prob - (1/n_actions)) / (tf.math.sqrt(act_prob * (1-act_prob)) + 0.00000007)
         # get size in the range -1,1
         m = (2*norm.cdf(z) - 1) * side_action
         if discretization:

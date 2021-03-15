@@ -122,9 +122,7 @@ def RunRealDQNTraders(Param):
     # Experiment and storage
     episodes = Param["episodes"]
     start_train = Param["start_train"]
-    training = Param['training']
     seed = Param["seed"]
-    out_of_sample_test = Param["out_of_sample_test"]
     executeDRL = Param["executeDRL"]
     executeGP = Param["executeGP"]
     save_results = Param["save_results"]
@@ -277,9 +275,10 @@ def RunRealDQNTraders(Param):
         returns,
         factors,
         qts=qts,
-        min_n_actions=min_n_actions
+        min_n_actions=min_n_actions,
+        experiment_type= 'real'
     )
-    
+
     KLM[:2] = action_quantiles
     Param["KLM"] = KLM
     action_space = ActionSpace(KLM, zero_action, side_only=side_only)
@@ -433,6 +432,9 @@ def RunRealDQNTraders(Param):
 
 
     # 7. TRAIN ALGORITHM ----------------------------------------------------------
+    
+    TrainQNet.experience['a_unsc'] = []
+    
     iterations = [ str(i+1) for i in range(episodes)]
     out_series = empty_series(iterations)
     iters = 0
@@ -450,7 +452,7 @@ def RunRealDQNTraders(Param):
             if not side_only:
                 unscaled_shares_traded = shares_traded
             else:
-                unscaled_shares_traded = get_bet_size(qvalues,shares_traded,action_limit=KLM[0], 
+                unscaled_shares_traded = get_bet_size(qvalues,shares_traded,action_limit=KLM[0], zero_action=zero_action,
                                                       rng=rng,
                                                       discretization=discretization,
                                                       temp=temp)
@@ -463,6 +465,7 @@ def RunRealDQNTraders(Param):
             exp = {
                 "s": CurrState,
                 "a": shares_traded,
+                "a_unsc": unscaled_shares_traded,
                 "r": Result["Reward_DQN"],
                 "s2": NextState,
             }
@@ -489,7 +492,6 @@ def RunRealDQNTraders(Param):
             TrainQNet.add_experience(exp)
             CurrState = NextState
 
-                
         for i in range(len_series - 1):
 
             TrainQNet.train(TargetQNet, i, side_only, bcm, bcm_scale)
@@ -524,6 +526,8 @@ def RunRealDQNTraders(Param):
                 abs_srgp,
                 abs_hold,
                 abs_opthold,
+                pnl_std,
+                pdist_avg
                 ) = Out_sample_real_test(
                 N_test,
                 df_test,
@@ -554,6 +558,8 @@ def RunRealDQNTraders(Param):
                                 abs_srgp,
                                 abs_hold,
                                 abs_opthold,
+                                pnl_std,
+                                pdist_avg,
                                 e+1)
 
     logging.info("Successfully trained the Deep Q Network...")

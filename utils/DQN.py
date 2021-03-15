@@ -887,6 +887,7 @@ class DQN:
                 )
                 # TODO bcm module not implemented yet
             else:
+
                 loss = self.loss(y_true=actual_values, y_pred=selected_action_values)
                 
                 if bcm and side_only:

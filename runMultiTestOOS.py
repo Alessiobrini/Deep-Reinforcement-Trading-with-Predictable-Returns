@@ -97,23 +97,10 @@ def runMultiTestOOS(p):
 
         # get iterations for loading checkpoints
         if extract_iterations:
-            if p_mod["out_of_sample_test"]:
-                ckpts = [
-                    each
-                    for each in os.listdir(
-                        os.path.join(os.getcwd(), data_dir, filtered_dir[0])
-                    )
-                    if each.startswith("Test")
-                ]
-                ckpts = natsorted(ckpts)
-                # get different point in time where we stored weights
-                iterations = [re.findall(r"\d+", ckpt)[-1] for ckpt in ckpts]
-                iterations_num = [int(float(i)) for i in iterations]
-            else:
-                iterations = p_mod["iterations"]
-                # iterations = [str(int(i)) for i in np.arange(0,p_mod['N_train']+1,p_mod['save_ckpt_steps'])][1:]
-                iterations_num = [int(float(i)) for i in iterations]
-                iterations = [str(int(float(i))) for i in iterations]
+            iterations = p_mod["iterations"]
+            # iterations = [str(int(i)) for i in np.arange(0,p_mod['N_train']+1,p_mod['save_ckpt_steps'])][1:]
+            iterations_num = [int(float(i)) for i in iterations]
+            iterations = [str(int(float(i))) for i in iterations]
 
             extract_iterations = False
 
@@ -134,6 +121,10 @@ def runMultiTestOOS(p):
         abs_series_rew_gp = pd.DataFrame(index=range(1), columns=iterations)
         abs_series_hold_rl = pd.DataFrame(index=range(1), columns=iterations)
         abs_series_hold_gp = pd.DataFrame(index=range(1), columns=iterations)
+        
+        mean_series_pnl_std = pd.DataFrame(index=range(1), columns=iterations)
+        
+        mean_series_pdist = pd.DataFrame(index=range(1), columns=iterations)
         if p_mod["executeRL"] and "Q" in tag:
             mean_series_pnl_q = pd.DataFrame(index=range(1), columns=iterations)
             mean_series_rew_q = pd.DataFrame(index=range(1), columns=iterations)
@@ -142,6 +133,8 @@ def runMultiTestOOS(p):
             abs_series_rew_q = pd.DataFrame(index=range(1), columns=iterations)
             abs_series_sr_q = pd.DataFrame(index=range(1), columns=iterations)
             abs_series_hold_q = pd.DataFrame(index=range(1), columns=iterations)
+            mean_series_pnl_std_q = pd.DataFrame(index=range(1), columns=iterations)
+            mean_series_pdist_q = pd.DataFrame(index=range(1), columns=iterations)
 
         # do tests for saved weights at intermediate time
         for ckpt_it in iterations_num:
@@ -188,7 +181,8 @@ def runMultiTestOOS(p):
                 abs_sr_gp = []
                 abs_hold_rl = []
                 abs_hold_gp = []
-                # opnl = []
+                avg_pnlstd = []
+                avg_pdist = []
                 for s in seeds:
                     (
                         pnl,
@@ -202,6 +196,8 @@ def runMultiTestOOS(p):
                         abs_srgp,
                         abs_hold,
                         abs_opthold,
+                        pnl_std,
+                        pdist
                     ) = Out_sample_Misspec_test(
                         N_test=N_test,
                         df=None,  # adapt if you have real data
@@ -253,6 +249,8 @@ def runMultiTestOOS(p):
                     abs_sr_gp.append(abs_srgp)
                     abs_hold_rl.append(abs_hold)
                     abs_hold_gp.append(abs_opthold)
+                    avg_pnlstd.append(pnl_std)
+                    avg_pdist.append(pdist)
 
                 # append the average cumulative pnl obtained
                 mean_series_pnl.loc[0, str(ckpt_it)] = np.mean(
@@ -280,6 +278,14 @@ def runMultiTestOOS(p):
                     np.array(abs_hold_rl)[:, 0]
                 )
                 abs_series_hold_gp.loc[0, str(ckpt_it)] = np.mean(abs_hold_gp)
+                
+                mean_series_pnl_std.loc[0, str(ckpt_it)] = np.mean(
+                                np.array(avg_pnlstd)[:, 0]
+                            )
+
+                mean_series_pdist.loc[0, str(ckpt_it)] = np.mean(
+                                np.array(avg_pdist)[:, 0]
+                            )
 
                 if p_mod["executeRL"] and "Q" in tag:
                     mean_series_pnl_q.loc[0, str(ckpt_it)] = np.mean(
@@ -303,7 +309,13 @@ def runMultiTestOOS(p):
                     abs_series_hold_q.loc[0, str(ckpt_it)] = np.mean(
                         np.array(abs_hold_rl)[:, 1]
                     )
-
+                    mean_series_pnl_std_q.loc[0, str(ckpt_it)] = np.mean(
+                                    np.array(avg_pnlstd)[:, 1]
+                                )
+                    mean_series_pdist.loc[0, str(ckpt_it)] = np.mean(
+                                    np.array(avg_pdist)[:, 1]
+                                )
+                    
             else:
                 avg_pnls = []
                 avg_rews = []
@@ -316,6 +328,8 @@ def runMultiTestOOS(p):
                 abs_sr_gp = []
                 abs_hold_rl = []
                 abs_hold_gp = []
+                avg_pnlstd = []
+                avg_pdist = []
                 for s in seeds:
                     (
                         pnl,
@@ -329,6 +343,8 @@ def runMultiTestOOS(p):
                         abs_srgp,
                         abs_hold,
                         abs_opthold,
+                        pnl_std,
+                        pdist
                     ) = Out_sample_test(
                         N_test=N_test,
                         sigmaf=p_mod["sigmaf"],
@@ -376,6 +392,8 @@ def runMultiTestOOS(p):
                     abs_sr_gp.append(abs_srgp)
                     abs_hold_rl.append(abs_hold)
                     abs_hold_gp.append(abs_opthold)
+                    avg_pnlstd.append(pnl_std)
+                    avg_pdist.append(pdist)
 
                 # append the average cumulative pnl obtained
 
@@ -404,6 +422,15 @@ def runMultiTestOOS(p):
                     np.array(abs_hold_rl)[:, 0]
                 )
                 abs_series_hold_gp.loc[0, str(ckpt_it)] = np.mean(abs_hold_gp)
+                
+                mean_series_pnl_std.loc[0, str(ckpt_it)] = np.mean(
+                                    np.array(avg_pnlstd)[:, 0]
+                                )
+                
+                mean_series_pdist.loc[0, str(ckpt_it)] = np.mean(
+                                np.array(avg_pdist)[:, 0]
+                            )                
+                
                 if p_mod["executeRL"] and "Q" in tag:
                     mean_series_pnl_q.loc[0, str(ckpt_it)] = np.mean(
                         np.array(avg_pnls)[:, 1]
@@ -426,6 +453,14 @@ def runMultiTestOOS(p):
                     abs_series_hold_q.loc[0, str(ckpt_it)] = np.mean(
                         np.array(abs_hold_rl)[:, 1]
                     )
+                    mean_series_pnl_std.loc[0, str(ckpt_it)] = np.mean(
+                                        np.array(avg_pnlstd)[:, 1]
+                                    )
+                    
+                    mean_series_pdist.loc[0, str(ckpt_it)] = np.mean(
+                                    np.array(avg_pdist)[:, 1]
+                                )
+                    
                     
         mean_series_pnl.to_parquet(
             os.path.join(
@@ -449,6 +484,14 @@ def runMultiTestOOS(p):
             os.path.join(
                 exp_path,
                 "SR_OOS_{}_{}.parquet.gzip".format(format_tousands(N_test), tag[0]),
+            ),
+            compression="gzip",
+        )
+        
+        mean_series_pnl_std.to_parquet(
+            os.path.join(
+                exp_path,
+                "PnLstd_OOS_{}_{}.parquet.gzip".format(format_tousands(N_test), tag[0]),
             ),
             compression="gzip",
         )
@@ -517,6 +560,24 @@ def runMultiTestOOS(p):
                 ),
                 compression="gzip",
             )
+            
+            mean_series_pnl_std_q.to_parquet(
+                os.path.join(
+                    exp_path,
+                    "PnLstd_OOS_{}_{}.parquet.gzip".format(format_tousands(N_test), tag[1]),
+                ),
+                compression="gzip",
+            )
+        
+        
+            mean_series_pdist_q.to_parquet(
+                os.path.join(
+                    exp_path,
+                    "Pdist_q_OOS_{}_GP.parquet.gzip".format(format_tousands(N_test)),
+                ),
+                compression="gzip",
+            )
+            
 
         abs_series_pnl_rl.to_parquet(
             os.path.join(
@@ -579,6 +640,14 @@ def runMultiTestOOS(p):
             os.path.join(
                 exp_path,
                 "AbsHold_OOS_{}_GP.parquet.gzip".format(format_tousands(N_test)),
+            ),
+            compression="gzip",
+        )
+        
+        mean_series_pdist.to_parquet(
+            os.path.join(
+                exp_path,
+                "Pdist_OOS_{}_GP.parquet.gzip".format(format_tousands(N_test)),
             ),
             compression="gzip",
         )
