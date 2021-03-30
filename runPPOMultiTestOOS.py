@@ -1,10 +1,9 @@
 # -*- coding: utf-8 -*-
 """
-Created on Mon Dec  7 10:04:36 2020
+Created on Tue Mar 16 15:26:21 2021
 
-@author: aless
+@author: alessiobrini
 """
-
 import os
 
 if any("SPYDER" in name for name in os.environ):
@@ -16,7 +15,7 @@ import os, re, logging
 import numpy as np
 import pandas as pd
 import time
-import tensorflow as tf
+import torch
 from natsort import natsorted
 from utils.common import (
     readConfigYaml,
@@ -24,17 +23,12 @@ from utils.common import (
     generate_logger,
     format_tousands,
 )
-from utils.test import Out_sample_test, Out_sample_Misspec_test
+from utils.test import Out_sample_test_PPO, Out_sample_Misspec_test
 from utils.plot import (
-    load_DQNmodel,
-    load_Actor_Critic,
-    TrainedQTable,
+    load_PPOmodel,
 )
 
-
-gpu_devices = tf.config.experimental.list_physical_devices("GPU")
-for device in gpu_devices:
-    tf.config.experimental.set_memory_growth(device, True)
+import pdb
 import seaborn as sns
 
 sns.set_style("darkgrid")
@@ -51,14 +45,20 @@ logging.info("Successfully read config file for Multi Test OOS...")
 def runMultiTestOOS(p):
 
     start = time.time()
+
     random_state = p["random_state"]
     N_test = p["N_test"]
     n_seeds = p["n_seeds"]
     outputClass = p["outputClass"]
     outputModel = p["outputModel"]
     algo = p["algo"]
-    length = p["length"]
+    
 
+    # get the latest created folder "length"
+    modelpath = os.path.join(os.getcwd(),'outputs',outputClass,outputModel)
+    all_subdirs = [os.path.join(modelpath,d) for d in os.listdir(modelpath) if os.path.isdir(os.path.join(modelpath,d))]
+    latest_subdir = max(all_subdirs, key=os.path.getmtime)
+    length = os.path.split(latest_subdir)[-1]
 
     tag = algo
     variables = []
@@ -70,6 +70,8 @@ def runMultiTestOOS(p):
 
     # read main folder
     data_dir = "outputs/{}/{}/{}".format(outputClass, outputModel, length)
+    
+
 
     # Generate and store multi test OOS ----------------------------------------------------------------
 
@@ -81,8 +83,6 @@ def runMultiTestOOS(p):
         if os.path.isdir(os.path.join(os.getcwd(), data_dir, dirname))
     ]
 
-    # flag to extract checkpoints
-    extract_iterations = True
     # iterate over experiments
     for exp in filtered_dir:
         exp_path = os.path.join(data_dir, exp)
@@ -90,19 +90,11 @@ def runMultiTestOOS(p):
         # path for the config file of the single experiment
         filenamep = os.path.join(data_dir, exp, "config_{}.yaml".format(length))
         p_mod = readConfigYaml(filenamep)
-
+        iterations = p_mod["iterations"]
         # temporary correction to the config
         if "seed_init" not in p_mod:
             p_mod["seed_init"] = p_mod["seed"]
 
-        # get iterations for loading checkpoints
-        if extract_iterations:
-            iterations = p_mod["iterations"]
-            # iterations = [str(int(i)) for i in np.arange(0,p_mod['N_train']+1,p_mod['save_ckpt_steps'])][1:]
-            iterations_num = [int(float(i)) for i in iterations]
-            iterations = [str(int(float(i))) for i in iterations]
-
-            extract_iterations = False
 
         # take seeds for OOS test and initialize Dataframe to store PnL averages
         rng = np.random.RandomState(random_state)
@@ -125,48 +117,11 @@ def runMultiTestOOS(p):
         mean_series_pnl_std = pd.DataFrame(index=range(1), columns=iterations)
         
         mean_series_pdist = pd.DataFrame(index=range(1), columns=iterations)
-        if 'executeRL' in p_mod and p_mod["executeRL"] and "Q" in tag:
-            mean_series_pnl_q = pd.DataFrame(index=range(1), columns=iterations)
-            mean_series_rew_q = pd.DataFrame(index=range(1), columns=iterations)
-            mean_series_sr_q = pd.DataFrame(index=range(1), columns=iterations)
-            abs_series_pnl_q = pd.DataFrame(index=range(1), columns=iterations)
-            abs_series_rew_q = pd.DataFrame(index=range(1), columns=iterations)
-            abs_series_sr_q = pd.DataFrame(index=range(1), columns=iterations)
-            abs_series_hold_q = pd.DataFrame(index=range(1), columns=iterations)
-            mean_series_pnl_std_q = pd.DataFrame(index=range(1), columns=iterations)
-            mean_series_pdist_q = pd.DataFrame(index=range(1), columns=iterations)
 
         # do tests for saved weights at intermediate time
-        for ckpt_it in iterations_num:
+        for ckpt_it in iterations:
             # import model and load trained weights
-            if "DQN" in tag:
-                model, actions = load_DQNmodel(
-                    p_mod, exp_path, ckpt=True, ckpt_it=ckpt_it
-                )
-                p_mod["action_limit"] = None
-            elif "DDPG" in tag:
-                if p_mod["DDPG_type"] == "DDPG":
-                    model = load_Actor_Critic(
-                        p_mod, exp_path, ckpt=True, ckpt_it=ckpt_it
-                    )
-                elif p_mod["DDPG_type"] == "TD3":
-                    model = load_Actor_Critic(
-                        p_mod, exp_path, ckpt=True, ckpt_it=ckpt_it, DDPG_type="TD3"
-                    )
-
-            # import Qtable
-            if 'executeRL' in p_mod and p_mod["executeRL"] and "Q" in tag:
-                tablefilename = "QTable{}.parquet.gzip".format(
-                    format_tousands(ckpt_it)
-                )
-                QTable = pd.read_parquet(
-                    os.path.join(os.getcwd(), data_dir, exp, "ckpt", tablefilename)
-                )
-                TrainedQ = TrainedQTable(QTable)
-
-            else:
-                TrainedQ = None
-                p_mod["executeRL"] = False
+            model, action = load_PPOmodel(p_mod, exp_path, int(ckpt_it))
 
             # check the type of experiment and do OOS tests accordingly
             if "datatype" in p_mod:
@@ -206,19 +161,13 @@ def runMultiTestOOS(p):
                         CostMultiplier=p_mod["CostMultiplier"],
                         kappa=p_mod["kappa"],
                         discount_rate=p_mod["discount_rate"],
-                        executeDRL=p_mod["executeDRL"],
-                        executeRL=p_mod[
-                            "executeRL"
-                        ],  # Put true if you want to OOS test also tab RL
-                        RT=p_mod["RT"],
                         KLM=p_mod["KLM"],
                         executeGP=p_mod["executeGP"],
                         TrainNet=model,  # loaded model
+                        policy_type=p_mod['policy_type'],
                         iteration=0,  # not useful, put 0
                         recurrent_env=p_mod["recurrent_env"],
                         unfolding=p_mod["unfolding"],
-                        QTable=TrainedQ,  # Put the loaded table if you want to OOS test also tab RL
-                        action_limit=p_mod["action_limit"],  # only useful for DDPG
                         datatype=p_mod["datatype"],
                         mean_process=p_mod["mean_process"],
                         lags_mean_process=p_mod["lags_mean_process"],
@@ -235,6 +184,10 @@ def runMultiTestOOS(p):
                         degrees=p_mod["degrees"],
                         rng=rng,  # not really useful if you pass a seed_test
                         variables=variables,
+                        side_only = p_mod['side_only'],
+                        discretization = p_mod['discretization'],
+                        temp = p_mod['temp'],
+                        zero_action=p_mod['zero_action'],
                         tag=tag,
                     )
 
@@ -287,35 +240,6 @@ def runMultiTestOOS(p):
                                 np.array(avg_pdist)[:, 0]
                             )
 
-                if p_mod["executeRL"] and "Q" in tag:
-                    mean_series_pnl_q.loc[0, str(ckpt_it)] = np.mean(
-                        np.array(avg_pnls)[:, 1]
-                    )
-                    mean_series_rew_q.loc[0, str(ckpt_it)] = np.mean(
-                        np.array(avg_rews)[:, 1]
-                    )
-                    mean_series_sr_q.loc[0, str(ckpt_it)] = np.mean(
-                        np.array(avg_srs)[:, 1]
-                    )
-                    abs_series_pnl_q.loc[0, str(ckpt_it)] = np.mean(
-                        np.array(abs_pnl_rl)[:, 1]
-                    )
-                    abs_series_rew_q.loc[0, str(ckpt_it)] = np.mean(
-                        np.array(abs_rew_rl)[:, 1]
-                    )
-                    abs_series_sr_q.loc[0, str(ckpt_it)] = np.mean(
-                        np.array(abs_sr_rl)[:, 1]
-                    )
-                    abs_series_hold_q.loc[0, str(ckpt_it)] = np.mean(
-                        np.array(abs_hold_rl)[:, 1]
-                    )
-                    mean_series_pnl_std_q.loc[0, str(ckpt_it)] = np.mean(
-                                    np.array(avg_pnlstd)[:, 1]
-                                )
-                    mean_series_pdist.loc[0, str(ckpt_it)] = np.mean(
-                                    np.array(avg_pdist)[:, 1]
-                                )
-                    
             else:
                 avg_pnls = []
                 avg_rews = []
@@ -345,7 +269,7 @@ def runMultiTestOOS(p):
                         abs_opthold,
                         pnl_std,
                         pdist
-                    ) = Out_sample_test(
+                    ) = Out_sample_test_PPO(
                         N_test=N_test,
                         sigmaf=p_mod["sigmaf"],
                         f0=p_mod["f0"],
@@ -357,21 +281,14 @@ def runMultiTestOOS(p):
                         CostMultiplier=p_mod["CostMultiplier"],
                         kappa=p_mod["kappa"],
                         discount_rate=p_mod["discount_rate"],
-                        executeDRL=p_mod["executeDRL"],
-                        executeRL=p_mod[
-                            "executeRL"
-                        ],  # Put true if you want to OOS test also tab RL
-                        RT=p_mod["RT"],
                         KLM=p_mod["KLM"],
                         executeGP=p_mod["executeGP"],
                         TrainNet=model,  # loaded model
-                        iteration=0,  # not useful, put 0
+                        policy_type = p_mod['policy_type'],
                         recurrent_env=p_mod["recurrent_env"],
                         unfolding=p_mod["unfolding"],
-                        QTable=TrainedQ,  # Put the loaded table if you want to OOS test also tab RL
                         rng=rng,
                         seed_test=s,
-                        action_limit=p_mod["action_limit"],  # only useful for DDPG
                         uncorrelated=p_mod["uncorrelated"],
                         t_stud=p_mod["t_stud"],
                         variables=variables,
@@ -381,6 +298,7 @@ def runMultiTestOOS(p):
                         zero_action=p_mod['zero_action'],
                         tag=tag,
                     )
+                        
                     avg_pnls.append(pnl)
                     avg_rews.append(rew)
                     avg_srs.append(sr)
@@ -431,37 +349,7 @@ def runMultiTestOOS(p):
                                 np.array(avg_pdist)[:, 0]
                             )                
                 
-                if p_mod["executeRL"] and "Q" in tag:
-                    mean_series_pnl_q.loc[0, str(ckpt_it)] = np.mean(
-                        np.array(avg_pnls)[:, 1]
-                    )
-                    mean_series_rew_q.loc[0, str(ckpt_it)] = np.mean(
-                        np.array(avg_rews)[:, 1]
-                    )
-                    mean_series_sr_q.loc[0, str(ckpt_it)] = np.mean(
-                        np.array(avg_srs)[:, 1]
-                    )
-                    abs_series_pnl_q.loc[0, str(ckpt_it)] = np.mean(
-                        np.array(abs_pnl_rl)[:, 1]
-                    )
-                    abs_series_rew_q.loc[0, str(ckpt_it)] = np.mean(
-                        np.array(abs_rew_rl)[:, 1]
-                    )
-                    abs_series_sr_q.loc[0, str(ckpt_it)] = np.mean(
-                        np.array(abs_sr_rl)[:, 1]
-                    )
-                    abs_series_hold_q.loc[0, str(ckpt_it)] = np.mean(
-                        np.array(abs_hold_rl)[:, 1]
-                    )
-                    mean_series_pnl_std.loc[0, str(ckpt_it)] = np.mean(
-                                        np.array(avg_pnlstd)[:, 1]
-                                    )
-                    
-                    mean_series_pdist.loc[0, str(ckpt_it)] = np.mean(
-                                    np.array(avg_pdist)[:, 1]
-                                )
-                    
-                    
+     
         mean_series_pnl.to_parquet(
             os.path.join(
                 exp_path,
@@ -496,88 +384,6 @@ def runMultiTestOOS(p):
             compression="gzip",
         )
 
-        if p_mod["executeRL"] and "Q" in tag:
-            mean_series_pnl_q.to_parquet(
-                os.path.join(
-                    exp_path,
-                    "NetPnl_OOS_{}_{}.parquet.gzip".format(
-                        format_tousands(N_test), tag[1]
-                    ),
-                ),
-                compression="gzip",
-            )
-            mean_series_rew_q.to_parquet(
-                os.path.join(
-                    exp_path,
-                    "Reward_OOS_{}_{}.parquet.gzip".format(
-                        format_tousands(N_test), tag[1]
-                    ),
-                ),
-                compression="gzip",
-            )
-            mean_series_sr_q.to_parquet(
-                os.path.join(
-                    exp_path,
-                    "SR_OOS_{}_{}.parquet.gzip".format(
-                        format_tousands(N_test), tag[1]
-                    ),
-                ),
-                compression="gzip",
-            )
-            abs_series_pnl_q.to_parquet(
-                os.path.join(
-                    exp_path,
-                    "AbsNetPnl_OOS_{}_{}.parquet.gzip".format(
-                        format_tousands(N_test), tag[1]
-                    ),
-                ),
-                compression="gzip",
-            )
-            abs_series_rew_q.to_parquet(
-                os.path.join(
-                    exp_path,
-                    "AbsReward_OOS_{}_{}.parquet.gzip".format(
-                        format_tousands(N_test), tag[1]
-                    ),
-                ),
-                compression="gzip",
-            )
-            abs_series_sr_q.to_parquet(
-                os.path.join(
-                    exp_path,
-                    "AbsSR_OOS_{}_{}.parquet.gzip".format(
-                        format_tousands(N_test), tag[1]
-                    ),
-                ),
-                compression="gzip",
-            )
-            abs_series_hold_q.to_parquet(
-                os.path.join(
-                    exp_path,
-                    "AbsHold_OOS_{}_{}.parquet.gzip".format(
-                        format_tousands(N_test), tag[1]
-                    ),
-                ),
-                compression="gzip",
-            )
-            
-            mean_series_pnl_std_q.to_parquet(
-                os.path.join(
-                    exp_path,
-                    "PnLstd_OOS_{}_{}.parquet.gzip".format(format_tousands(N_test), tag[1]),
-                ),
-                compression="gzip",
-            )
-        
-        
-            mean_series_pdist_q.to_parquet(
-                os.path.join(
-                    exp_path,
-                    "Pdist_q_OOS_{}_GP.parquet.gzip".format(format_tousands(N_test)),
-                ),
-                compression="gzip",
-            )
-            
 
         abs_series_pnl_rl.to_parquet(
             os.path.join(
@@ -653,6 +459,7 @@ def runMultiTestOOS(p):
         )
 
     end = time.time()
+
     logging.info("Script has finished in {} minutes".format((end - start) / 60))
 
 if __name__ == "__main__":

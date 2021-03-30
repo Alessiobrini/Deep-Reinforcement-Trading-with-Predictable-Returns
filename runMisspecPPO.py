@@ -28,25 +28,28 @@ from utils.common import (
     saveConfigYaml,
     GeneratePathFolder,
 )
-from utils.simulation import ReturnSampler, create_lstm_tensor
+import pandas as pd
+from utils.simulation import ReturnSampler, create_lstm_tensor, GARCHSampler
 from utils.env import (
     MarketEnv,
     RecurrentMarketEnv,
     ActionSpace,
 )
 from utils.PPO import PPO
-from utils.tools import get_action_boundaries, get_bet_size
+from utils.tools import get_action_boundaries
 from utils.math_tools import unscale_action
+from utils.tools import CalculateLaggedSharpeRatio, RunModels
+
 
 # Generate Logger-------------------------------------------------------------
 logger = generate_logger()
 
 # Read config ----------------------------------------------------------------
-p = readConfigYaml(os.path.join(os.getcwd(), "config", "paramPPO.yaml"))
+p = readConfigYaml(os.path.join(os.getcwd(), "config", "paramMisspecPPO.yaml"))
 logging.info("Successfully read config file with parameters...")
 
 
-def RunPPOTraders(p):
+def RunMisspecPPOTraders(p):
     """Main function which loads the parameters for the synthetic experiments
     and run both training and testing routines
 
@@ -72,10 +75,6 @@ def RunPPOTraders(p):
     zero_action = p["zero_action"]
     min_n_actions = p["min_n_actions"]
     side_only = p['side_only']
-    discretization = p['discretization']
-    temp = p['temp']
-    bcm = p['bcm']
-    bcm_scale = p['bcm_scale']
     # DL related
     activation = p["activation"]
     optimizer_name = p["optimizer_name"]
@@ -95,7 +94,8 @@ def RunPPOTraders(p):
     batch_norm_input = p["batch_norm_input"]
     batch_norm_value_out = p['batch_norm_value_out']
     # Data Simulation
-    t_stud = p["t_stud"]
+    datatype = p["datatype"]
+    factor_lb = p["factor_lb"]
     HalfLife = p["HalfLife"]
     f0 = p["f0"]
     f_param = p["f_param"]
@@ -109,23 +109,31 @@ def RunPPOTraders(p):
     ppo_epochs = p['ppo_epochs']
     episodes = p["episodes"]
     len_series = p['len_series']
-    seed_ret = p["seed_ret"]
-    seed_init = p["seed_init"]
+    seed = p["seed"]
+    seed_param = p["seed_param"]
     plot_inputs = p["plot_inputs"]
-    executeGP = p["executeGP"]
     save_results = p["save_results"]
     save_ckpt_model = p["save_ckpt_model"]
     outputDir = p["outputDir"]
     outputClass = p["outputClass"]
     outputModel = p["outputModel"]
     varying_pars = p["varying_pars"]
+    
+
+    len_series = p['len_series']
+    mean_process = p["mean_process"]
+    lags_mean_process = p["lags_mean_process"]
+    vol_process = p["vol_process"]
+    distr_noise = p["distr_noise"]
+    HalfLife = p["HalfLife"]
+    f0 = p["f0"]
+    f_param = p["f_param"]
+    sigma = p["sigma"]
+    sigmaf = p["sigmaf"]
+    degrees = p["degrees"]
 
     # set random number generator
-    rng = np.random.RandomState(seed_ret)
-
-    if seed_init is None:
-        seed_init = seed_ret
-        p["seed_init"] = seed_init
+    rng = np.random.RandomState(seed)
 
     if not recurrent_env:
         p["unfolding"] = unfolding = 1
@@ -134,24 +142,165 @@ def RunPPOTraders(p):
     p['N_train'] = N_train
     
     # 1. SIMULATE SYNTHETIC DATA --------------------------------------------------------------
-    returns, factors, f_speed = ReturnSampler(
-        len_series,
-        sigmaf,
-        f0,
-        f_param,
-        sigma,
-        plot_inputs,
-        HalfLife,
-        rng,
-        offset=unfolding + 1,
-        uncorrelated=uncorrelated,
-        t_stud=t_stud,
-    )
+    
+    if datatype == "garch":
+        return_series, params = GARCHSampler(
+            len_series + factor_lb[-1] + unfolding + 1,
+            mean_process=mean_process,
+            lags_mean_process=lags_mean_process,
+            vol_process=vol_process,
+            distr_noise=distr_noise,
+            seed=seed,
+            seed_param=seed_param,
+        )
+        params = {"_".join([datatype, k]): v for k, v in params.items()}
+        p = {**p, **params}
 
-    if recurrent_env:
-        returns_tens = create_lstm_tensor(returns.reshape(-1, 1), unfolding)
-        factors_tens = create_lstm_tensor(factors, unfolding)
-    logging.info("Successfully simulated data...")
+        df = CalculateLaggedSharpeRatio(
+            return_series, factor_lb, nameTag=datatype, seriestype="return"
+        )
+
+        y, X = df[df.columns[0]], df[df.columns[1:]]
+    elif datatype == "t_stud":
+        plot_inputs = False
+        # df freedom for t stud distribution are hard coded inside the function
+        returns, factors, f_speed = ReturnSampler(
+            len_series + factor_lb[-1],
+            sigmaf,
+            f0,
+            f_param,
+            sigma,
+            plot_inputs,
+            HalfLife,
+            rng=rng,
+            offset=unfolding + 1,
+            uncorrelated=uncorrelated,
+            t_stud=True,
+            degrees=degrees,
+        )
+        df = CalculateLaggedSharpeRatio(
+            returns, factor_lb, nameTag=datatype, seriestype="return"
+        )
+        y, X = df[df.columns[0]], df[df.columns[1:]]
+    elif datatype == "t_stud_mfit":
+        plot_inputs = False
+        # df freedom for t stud distribution are hard coded inside the function
+        if factor_lb:
+            returns, factors, f_speed = ReturnSampler(
+                len_series + factor_lb[-1],
+                sigmaf,
+                f0,
+                f_param,
+                sigma,
+                plot_inputs,
+                HalfLife,
+                rng=rng,
+                offset=unfolding + 1,
+                uncorrelated=uncorrelated,
+                t_stud=True,
+                degrees=degrees,
+            )
+            df = pd.DataFrame(
+                data=np.concatenate([returns.reshape(-1, 1), factors], axis=1)
+            ).loc[factor_lb[-1] :]
+            y, X = df[df.columns[0]], df[df.columns[1:]]
+        else:
+            returns, factors, f_speed = ReturnSampler(
+                len_series,
+                sigmaf,
+                f0,
+                f_param,
+                sigma,
+                plot_inputs,
+                HalfLife,
+                rng=rng,
+                offset=unfolding + 1,
+                uncorrelated=uncorrelated,
+                t_stud=True,
+                degrees=degrees,
+            )
+            df = pd.DataFrame(
+                data=np.concatenate([returns.reshape(-1, 1), factors], axis=1)
+            )
+            y, X = df[df.columns[0]], df[df.columns[1:]]
+            
+            
+    elif datatype == "garch_mr":
+        
+        plot_inputs = False
+        # df freedom for t stud distribution are hard coded inside the function
+
+        returns, factors, f_speed = ReturnSampler(
+            len_series + factor_lb[-1],
+            sigmaf,
+            f0,
+            f_param,
+            sigma,
+            plot_inputs,
+            HalfLife,
+            rng=rng,
+            offset=unfolding + 1,
+            uncorrelated=uncorrelated,
+            t_stud=False,
+            vol = 'heterosk',
+        )
+        df = CalculateLaggedSharpeRatio(
+            returns, factor_lb, nameTag=datatype, seriestype="return"
+        )
+        y, X = df[df.columns[0]], df[df.columns[1:]]
+        
+    else:
+        print("Datatype not correct")
+        sys.exit()
+
+    # do regressions
+
+    if datatype == "t_stud_mfit":
+        params_meanrev, fitted_ous = RunModels(y, X, mr_only=True)
+    else:
+        params_retmodel, params_meanrev, fitted_retmodel, fitted_ous = RunModels(y, X)
+        
+    returns = df.iloc[:, 0].values
+    factors = df.iloc[:, 1:].values
+
+    # store GP parameters
+    if datatype != "t_stud_mfit":
+        sigma_fit = df.iloc[:, 0].std()
+        f_param_fit = params_retmodel["params"]
+        sigmaf_fit = X.std().values
+    else:
+        sigma_fit = sigma
+        f_param_fit = f_param
+        sigmaf_fit = sigmaf
+    f_speed_fit = np.abs(
+        np.array([*params_meanrev.values()]).ravel()
+    )  
+    HalfLife_fit = np.around(np.log(2) / f_speed_fit, 2)
+
+    if datatype == "garch" or datatype == "real":
+        p["HalfLife"] = HalfLife_fit
+        p["f_speed"] = f_speed_fit
+        p["f_param"] = f_param_fit
+        p["sigma"] = sigma_fit
+        p["sigmaf"] = sigmaf_fit
+    elif datatype == "t_stud" or datatype == 'garch_mr':
+        p["HalfLife_fit"] = HalfLife_fit
+        p["f_speed_fit"] = f_speed_fit
+        p["f_param_fit"] = f_param_fit
+        p["sigma_fit"] = sigma_fit
+        p["sigmaf_fit"] = sigmaf_fit
+    elif datatype == "t_stud_mfit":
+        p["HalfLife_fit"] = HalfLife_fit
+        p["f_speed_fit"] = f_speed_fit
+        p["f_param_fit"] = f_param
+        p["sigma_fit"] = sigma
+        p["sigmaf_fit"] = sigmaf
+
+    # print(sigma,sigma_fit)
+    # print(HalfLife,HalfLife_fit)
+    # print(f_speed,f_speed_fit)
+    # print(f_param,f_param_fit)
+    # pdb.set_trace()
     
     # 2. SET UP SOME HYPERPARAMETERS --------------------------------------------------------------
 
@@ -162,6 +311,10 @@ def RunPPOTraders(p):
         save_ckpt_steps = int(episodes / save_ckpt_model)
         p["save_ckpt_steps"] = save_ckpt_steps
 
+    if recurrent_env:
+        returns_tens = create_lstm_tensor(returns.reshape(-1, 1), unfolding)
+        factors_tens = create_lstm_tensor(factors, unfolding)
+    logging.info("Successfully loaded data...")
 
     # 3. PATH FOR MODEL (CKPT) AND TENSORBOARD OUTPUT, STORE CONFIG FILE ---------------
     savedpath = GeneratePathFolder(
@@ -187,7 +340,7 @@ def RunPPOTraders(p):
         len_series,
         discount_rate,
         f_param,
-        f_speed,
+        f_speed_fit,
         returns,
         factors,
         qts=qts,
@@ -203,14 +356,14 @@ def RunPPOTraders(p):
     
     if recurrent_env:
         env = RecurrentMarketEnv(
-            HalfLife,
+            HalfLife_fit,
             Startholding,
-            sigma,
+            sigma_fit,
             CostMultiplier,
             kappa,
             N_train,
             discount_rate,
-            f_param,
+            f_param_fit,
             f_speed,
             returns,
             factors,
@@ -221,15 +374,15 @@ def RunPPOTraders(p):
 
     else:
         env = MarketEnv(
-            HalfLife,
+            HalfLife_fit,
             Startholding,
-            sigma,
+            sigma_fit,
             CostMultiplier,
             kappa,
             N_train,
             discount_rate,
-            f_param,
-            f_speed,
+            f_param_fit,
+            f_speed_fit,
             returns,
             factors,
             action_limit=KLM[0]
@@ -245,7 +398,7 @@ def RunPPOTraders(p):
     # device = torch.device('cpu')
     
     PPO_ = PPO(
-        seed_init,
+        seed,
         gamma,
         tau,
         clip_param,
@@ -284,6 +437,7 @@ def RunPPOTraders(p):
     for e in tqdm(iterable=range(episodes), desc='Running episodes...'):
         
         if universal:
+            # TODO fix universal
             returns, factors, f_speed = ReturnSampler( len_series,
                                                         sigmaf,
                                                         f0,
@@ -418,4 +572,4 @@ def RunPPOTraders(p):
         env.save_outputs(savedpath)
 
 if __name__ == "__main__":
-    RunPPOTraders(p)
+    RunMisspecPPOTraders(p)
