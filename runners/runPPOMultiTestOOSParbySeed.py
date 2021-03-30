@@ -426,7 +426,7 @@ def iterate_seeds(
 
 
 
-def runMultiTestOOSbySeed(p):
+def runPPOMultiTestOOSbySeed(p):
 
     start = time.time()
 

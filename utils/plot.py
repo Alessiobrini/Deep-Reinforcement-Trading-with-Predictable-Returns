@@ -23,7 +23,8 @@ from matplotlib.ticker import FuncFormatter, ScalarFormatter
 from matplotlib import cm
 from utils.common import format_tousands
 from utils.tools import get_bet_size
-
+import torch
+from utils.PPO import PPOActorCritic
 
 # LOAD UTILS
 def load_DQNmodel(
@@ -96,6 +97,65 @@ def load_DQNmodel(
         model.load_weights(os.path.join(data_dir, "DQN_final_weights"))
 
     return model, actions
+
+
+def load_PPOmodel(p: dict, data_dir: str, ckpt_it: int = None):
+    """
+    Load trained parameter for DQN
+
+    Parameters
+    ----------
+    d: dict
+        Parameter config loaded from the folder experiment
+
+    data_dir: str
+        Dicretory model where the weights are stores
+
+    ckpt: bool
+        Boolean to regulate if the loaded weights are a checkpoint or not
+
+    ckpt_it: int
+        Number of iteration of the checkpoint you want to load
+
+    Returns
+    ----------
+    model
+        Model with loaded weights
+    actions: np.ndarray
+        Array of possible actions
+
+    """
+
+    inp_shape = (p['n_inputs'],) 
+    action_space = ActionSpace(p["KLM"])
+    num_actions = action_space.get_n_actions(policy_type=p['policy_type']) 
+
+
+    model = PPOActorCritic(p['seed_init'],
+                            inp_shape,
+                            p['activation'],
+                            p["hidden_units_value"],
+                            p["hidden_units_actor"],
+                            num_actions,
+                            p['batch_norm_input'],
+                            p['batch_norm_value_out'],
+                            p['policy_type'],
+                            p['pol_std'],
+                            modelname='PPO',
+                            )
+
+
+    model.load_state_dict(
+        torch.load(
+            os.path.join(data_dir, "ckpt", "PPO_{}_ep_weights.pth".format(ckpt_it))
+        )
+    )
+
+
+
+
+    return model, action_space.values
+
 
 
 class TrainedQTable:

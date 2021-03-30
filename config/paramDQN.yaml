@@ -74,12 +74,12 @@ discount_rate: 0.0 # discount rate for time value of money (not gamma in DQN)
 Startholding: 0.0 # initial portfolio holding
 ############################### LAUNCH SIMULATIONS ##############################
 episodes : null
-start_train : 500 # steps after which the training starts
+start_train : 300 # steps after which the training starts
 training : 'online' # online or offline
-seed_ret : [573,   6, 446, 122, 535, 169, 734, 400] # seed for the return simulation
+seed_ret : 11 #[45,23] # seed for the return simulation
 seed_init :  # seed for weights initialization. Leave empty if you want it to be equal to seed_ret 
-N_train : 150000  # training iteration (each step consists of one action-value update)
-len_series : 150000 # length of simulated series, if null the legth is N_train
+N_train : 2000  # training iteration (each step consists of one action-value update)
+len_series : 2000 # length of simulated series, if null the legth is N_train
 plot_inputs : 0 # boolean for plotting generated ret and factors
 executeDRL: 1 # boolean to decide if run DRL agent
 executeRL: 0 # boolean to decide if run RL agent
@@ -91,13 +91,13 @@ plot_hist: 0 # boolean to decide if plot weight histogram distribution (reduce s
 plot_steps_hist : 20000 # steps for plotting histograms on tensorboard
 plot_steps: 1000 # steps for all the other plots on tensorboard
 save_model: 1 # save trained tf model
-save_ckpt_model: 25 # number of checkpoints to save during training
+save_ckpt_model: 5 # number of checkpoints to save during training
 use_GPU : True
 #########################################################################################################
 # FOLDER PARAMETERS
 outputDir: 'outputs' # main directory for the experiment
 outputClass: 'DQN' # first subdirectory
-outputModel: '20210212_GPGAUSS_np_decoupling' # second subdirectory
+outputModel: '20210330_GPGAUSS_test12' # second subdirectory
 num_rnd_search : 8  # number of cores to use when experiments are parallelized
 varying_pars: ['seed_ret']  # choose parameters to vary while performing several different experiment
 varying_type : 'chunk' # type of parallelization. 'chunk' will parallelize experiments

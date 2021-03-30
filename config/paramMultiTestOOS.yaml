@@ -1,8 +1,8 @@
 # MULTI TEST OOS PARAMS
 ############################### LAUNCH SIMULATIONS ##############################
 random_state : 4567  # Seed for experiment reproducibility OOS 
-N_test: 5000
-n_seeds : 10
+N_test: 100
+n_seeds : 2
 plot_lr : False
 plot_experience : False
 plot_buffer : False

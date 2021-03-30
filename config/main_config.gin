@@ -1,0 +1,13 @@
+# Macros:
+# ==============================================================================
+ALGO = 'DQN'   
+EXPERIMENT = 'GP' # GP or Misspec
+PARALLEL = False
+
+
+
+# Parameters for main_runner:
+# ==============================================================================
+main_runner.algo = %ALGO
+main_runner.experiment = %EXPERIMENT
+main_runner.parallel = %PARALLEL 

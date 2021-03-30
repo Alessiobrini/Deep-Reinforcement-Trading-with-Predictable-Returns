@@ -9,7 +9,7 @@ Created on Tue Apr 28 17:31:42 2020
 # The code below uses a class to define the structure,
 # and uses recursive functions to both traverse and create the SumTree
 
-
+import sys
 import pdb
 import numpy as np
 import matplotlib.pyplot as plt
@@ -299,21 +299,30 @@ if __name__=='__main__':
     # df.plot()
 
     N = 5000
-    sigma = 0.22
+    sigma = 0.06
+    mu = -0.01
     
     # thetas = np.arange(0.1,1.0,0.2)
-    thetas = [0.05 ,0.1, 0.35, 0.7]
-    df = pd.DataFrame(index=range(N))
+    thetas = [0.3, 0.4, 0.5]
+    # df = pd.DataFrame(index=range(N))
+    df_list = []
     for t in thetas:
-        rng = np.random.RandomState(123)
-        OU_process = OrnsteinUhlenbeckActionNoise(mu=np.array([0]), sigma=sigma, theta=t, x0=0, rng=rng)
+        rng = np.random.RandomState(None)
+        OU_process = OrnsteinUhlenbeckActionNoise(mu=np.ones(50)*mu, sigma=sigma, theta=t, x0=np.zeros(50), rng=rng)
+        df_list.append(OU_process)
         # rng = np.random.RandomState(123)
         # G_process = GaussianActionNoise(mu=np.array([0]), sigma=sigma, rng=rng)
     
         # noises_g = [G_process() for _ in range(N)]
-        noises_ou = [OU_process() for _ in range(N)]
+        # noises_ou = [OU_process() for _ in range(N)]
         # pdb.set_trace()
-        df['theta_{}'.format(np.round(t,2))] = np.array(noises_ou)
+        # df['theta_{}'.format(np.round(t,2))] = np.array(noises_ou)
 
-    df.plot()
-    print(df.describe())
+    # df.plot()
+    # print(df.describe())
+    for l,t in zip(df_list,thetas):
+        n = l()
+
+        print(t, n.mean(), n.min(), n.max())
+        print(n[n<0.0].shape[0],n[n>0.0].shape[0])
+        print()

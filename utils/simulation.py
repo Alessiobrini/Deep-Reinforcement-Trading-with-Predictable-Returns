@@ -47,6 +47,7 @@ def ReturnSampler(
     t_stud: bool = False,
     degrees: int = 8,
     vol: str = 'omosk',
+    disable_tqdm: bool = False,
 ) -> Tuple[
     Union[list or np.ndarray], Union[list or np.ndarray], Union[list or np.ndarray]
 ]:
@@ -144,7 +145,7 @@ def ReturnSampler(
         f = []
     
         # possibility of triple noise
-        for i in tqdm(iterable=range(N_train + offset), desc="Simulating Factors"):
+        for i in tqdm(iterable=range(N_train + offset), desc="Simulating Factors", disable=disable_tqdm):
             # multiply makes the hadamard (componentwise) product
             # if we want to add different volatility for different factors we could
             # add multiply also the the second part of the equation
@@ -179,7 +180,7 @@ def ReturnSampler(
 
         f = []
         # possibility of triple noise
-        for i in tqdm(iterable=range(N_train + offset), desc="Simulating Factors"):
+        for i in tqdm(iterable=range(N_train + offset), desc="Simulating Factors", disable=disable_tqdm):
             # multiply makes the hadamard (componentwise) product
             # if we want to add different volatility for different factors we could
             # add multiply also the the second part of the equation

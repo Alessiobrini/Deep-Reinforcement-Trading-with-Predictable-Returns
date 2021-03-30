@@ -1,0 +1,85 @@
+# PPO PARAMS
+############################## RL RELATED ##############################
+universal : True
+policy_type : 'continuous' #discrete or continuous
+pol_std : 0.0 # policy std dev for stochasticity
+recurrent_env : False # set up recurrent environment
+gamma : 0.99 # discounting factor for the Q target
+kappa : 0.001 # risk aversion
+tau: 0.95 # lambda in the original GAE paper
+clip_param : 0.2
+vf_c: 0.5
+ent_c : 0.001
+qts : [0.001,0.999] # quantile to select action boundaries
+KLM :  [null, null, 100000] # list with actions that each trade can take: from 
+                            #-K to +K lot sizes minimum size of tradable (equities/contracts) 
+                            # and discretization of holding for TabQ (-M,M) holding
+zero_action : True # include the zero action (hold) in the action space
+min_n_actions : True # set up minimum number of actions (3) or more
+side_only : False # set the action space so that only the side of the bet is captured by the algorithm
+discretization : null  # float in (0,1] to determine a level of discretization for the action space when side_only=True. Leave empty for no discretization
+temp : 50.0 # temperature parameter for boltzmann equation
+bcm : False   # allow behavioral cloning module
+bcm_scale : null #[0.001,0.0001,0.00001,0.000001,0.0000001]
+############################## DL RELATED ##############################
+activation : 'tanh' # 'elu', 'relu6', 'leaky_relu' or every other activation as aliased in TF2
+optimizer_name : 'adam' # 'sgd', 'sgdmom', 'sgdnest, 'adadelta', 'adamax', 'amsgrad', 'adam', 'nadam', 'rmsprop'
+beta_1: 0.9 # first parameter for adaptive optimizers
+beta_2: 0.99 # second parameter for adaptive optimizers
+eps_opt: 1e-8 # corrective parameter for adaptive optimizers
+hidden_units_value : [256,128]
+hidden_units_actor : [128,64]
+batch_size : 250
+learning_rate : 0.0003 # initial learning rate
+lr_schedule : '' # 'exponential', 'piecewise', 'inverse_time' or 'polynomial'
+exp_decay_pct : 0.30 # decay steps as percentage of the total iterations
+exp_decay_rate : 0.6 # decay rate
+hidden_memory_units: # size of the hidden recurrent layer, if any
+unfolding: 1 # timesteps for recurrence. Set as 1 if there is no recurrence
+############################## REGULARIZATION ##############################
+batch_norm_input : True # batch norm at input layer level
+batch_norm_value_out : False # normalize value function output
+############################## DATA SIMULATIONS PARAMETERS ##############################
+datatype: 'garch' # 'garch','t_stud','t_stud_mfit', 'garch_mr'
+factor_lb: [1] # lsit of lags for fitting autoregressive vairables of the return series
+CostMultiplier: 0.001 # Cost multiplier to make the cost proportional to the risk
+discount_rate: 0.0 # discount rate for time value of money (not gamma in DQN)
+Startholding: 0.0 # initial portfolio holding
+############################## data parameters for GARCH simulation ##############################
+mean_process: 'AR' # choice for mean process ['AR', 'Constant']
+lags_mean_process : 1 # lag or list of lags for the autoregressive component in the mean return
+vol_process : 'GARCH' # choice for volatility process ['GARCH', 'TGARCH', 'EGARCH', 'Constant']
+distr_noise :  'normal' # cheoice for noise distribution ['normal', 'studt', 'skewstud', 'ged']
+############################## data parameters for GP like simulation ##############################
+t_stud : False # Student's T noise in the simulation
+HalfLife : [350] # list of Halflives of mean reversion
+f0 : [0] # list initial values for simulating factors
+f_param : [0.00535] # list of factor loadings
+sigma  : 0.01 # return volatility
+sigmaf : [0.2] # list of factor volatilities
+uncorrelated : True # generate correlated or uncorrelated factors
+degrees : 6 # degrees of freedom for Student's T
+############################### LAUNCH SIMULATIONS ##############################
+episodes : 500
+len_series : 10000 # length of simulated series, if null the legth is N_train
+ppo_epochs: 3
+seed : 11 #[759, 637,  41,  94, 410, 401, 565, 945, 293, 967] # seed for the return simulation
+seed_param :  # seed for GARCH type simulation to sample random values for paramters
+plot_inputs : 0 # boolean for plotting generated ret and factors
+executeDRL: 1 # boolean to decide if run DRL agent
+executeGP: 1 # boolean to decide if run GP solution
+save_results: 0 # boolean to decide if save dataframe of results
+save_ckpt_model: 15 # number of checkpoints to save during training
+#########################################################################################################
+# FOLDER PARAMETERS
+outputDir: 'outputs' # main directory for the experiment
+outputClass: 'test' # first subdirectory
+outputModel: '20210319_PPOtest_misspec3' # second subdirectory
+num_rnd_search : 5  # number of cores to use when experiments are parallelized
+varying_pars:  #['seed_ret'] # choose parameters to vary while performing several different experiment
+varying_type : 'chunk' # type of parallelization. 'chunk' will parallelize experiments
+                       # in chunks of size 'num_rnd_search'. 'random_search' draw randomly some
+                       # parameter combination depeding on all 'varying_pars' combinations.
+                       # 'combination' parallelize all possible combination without considering
+                       # the limit of cores in 'num_rnd_search'.
+##########################################################################################################
