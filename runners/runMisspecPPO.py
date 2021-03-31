@@ -60,29 +60,29 @@ def RunMisspecPPOTraders(p):
     """
     # 0. EXTRACT parameters ----------------------------------------------------------
     # RL related
-    universal = p['universal']
-    policy_type = p['policy_type']
-    pol_std = p['pol_std']
+    universal = p["universal"]
+    policy_type = p["policy_type"]
+    pol_std = p["pol_std"]
     recurrent_env = p["recurrent_env"]
     gamma = p["gamma"]
     kappa = p["kappa"]
-    tau = p['tau']
-    clip_param = p['clip_param']
-    vf_c = p['vf_c']
-    ent_c = p['ent_c']
+    tau = p["tau"]
+    clip_param = p["clip_param"]
+    vf_c = p["vf_c"]
+    ent_c = p["ent_c"]
     qts = p["qts"]
     KLM = p["KLM"]
     zero_action = p["zero_action"]
     min_n_actions = p["min_n_actions"]
-    side_only = p['side_only']
+    side_only = p["side_only"]
     # DL related
     activation = p["activation"]
     optimizer_name = p["optimizer_name"]
     beta_1 = p["beta_1"]
     beta_2 = p["beta_2"]
     eps_opt = p["eps_opt"]
-    hidden_units_value = p['hidden_units_value']
-    hidden_units_actor = p['hidden_units_actor']
+    hidden_units_value = p["hidden_units_value"]
+    hidden_units_actor = p["hidden_units_actor"]
     batch_size = p["batch_size"]
     learning_rate = p["learning_rate"]
     lr_schedule = p["lr_schedule"]
@@ -92,7 +92,7 @@ def RunMisspecPPOTraders(p):
     unfolding = p["unfolding"]
     # Regularization
     batch_norm_input = p["batch_norm_input"]
-    batch_norm_value_out = p['batch_norm_value_out']
+    batch_norm_value_out = p["batch_norm_value_out"]
     # Data Simulation
     datatype = p["datatype"]
     factor_lb = p["factor_lb"]
@@ -106,9 +106,9 @@ def RunMisspecPPOTraders(p):
     discount_rate = p["discount_rate"]
     Startholding = p["Startholding"]
     # Experiment and storage
-    ppo_epochs = p['ppo_epochs']
+    ppo_epochs = p["ppo_epochs"]
     episodes = p["episodes"]
-    len_series = p['len_series']
+    len_series = p["len_series"]
     seed = p["seed"]
     seed_param = p["seed_param"]
     plot_inputs = p["plot_inputs"]
@@ -118,9 +118,8 @@ def RunMisspecPPOTraders(p):
     outputClass = p["outputClass"]
     outputModel = p["outputModel"]
     varying_pars = p["varying_pars"]
-    
 
-    len_series = p['len_series']
+    len_series = p["len_series"]
     mean_process = p["mean_process"]
     lags_mean_process = p["lags_mean_process"]
     vol_process = p["vol_process"]
@@ -137,12 +136,12 @@ def RunMisspecPPOTraders(p):
 
     if not recurrent_env:
         p["unfolding"] = unfolding = 1
-        
+
     N_train = len_series * episodes
-    p['N_train'] = N_train
-    
+    p["N_train"] = N_train
+
     # 1. SIMULATE SYNTHETIC DATA --------------------------------------------------------------
-    
+
     if datatype == "garch":
         return_series, params = GARCHSampler(
             len_series + factor_lb[-1] + unfolding + 1,
@@ -223,10 +222,9 @@ def RunMisspecPPOTraders(p):
                 data=np.concatenate([returns.reshape(-1, 1), factors], axis=1)
             )
             y, X = df[df.columns[0]], df[df.columns[1:]]
-            
-            
+
     elif datatype == "garch_mr":
-        
+
         plot_inputs = False
         # df freedom for t stud distribution are hard coded inside the function
 
@@ -242,13 +240,13 @@ def RunMisspecPPOTraders(p):
             offset=unfolding + 1,
             uncorrelated=uncorrelated,
             t_stud=False,
-            vol = 'heterosk',
+            vol="heterosk",
         )
         df = CalculateLaggedSharpeRatio(
             returns, factor_lb, nameTag=datatype, seriestype="return"
         )
         y, X = df[df.columns[0]], df[df.columns[1:]]
-        
+
     else:
         print("Datatype not correct")
         sys.exit()
@@ -259,7 +257,7 @@ def RunMisspecPPOTraders(p):
         params_meanrev, fitted_ous = RunModels(y, X, mr_only=True)
     else:
         params_retmodel, params_meanrev, fitted_retmodel, fitted_ous = RunModels(y, X)
-        
+
     returns = df.iloc[:, 0].values
     factors = df.iloc[:, 1:].values
 
@@ -272,9 +270,7 @@ def RunMisspecPPOTraders(p):
         sigma_fit = sigma
         f_param_fit = f_param
         sigmaf_fit = sigmaf
-    f_speed_fit = np.abs(
-        np.array([*params_meanrev.values()]).ravel()
-    )  
+    f_speed_fit = np.abs(np.array([*params_meanrev.values()]).ravel())
     HalfLife_fit = np.around(np.log(2) / f_speed_fit, 2)
 
     if datatype == "garch" or datatype == "real":
@@ -283,7 +279,7 @@ def RunMisspecPPOTraders(p):
         p["f_param"] = f_param_fit
         p["sigma"] = sigma_fit
         p["sigmaf"] = sigmaf_fit
-    elif datatype == "t_stud" or datatype == 'garch_mr':
+    elif datatype == "t_stud" or datatype == "garch_mr":
         p["HalfLife_fit"] = HalfLife_fit
         p["f_speed_fit"] = f_speed_fit
         p["f_param_fit"] = f_param_fit
@@ -301,7 +297,7 @@ def RunMisspecPPOTraders(p):
     # print(f_speed,f_speed_fit)
     # print(f_param,f_param_fit)
     # pdb.set_trace()
-    
+
     # 2. SET UP SOME HYPERPARAMETERS --------------------------------------------------------------
 
     exp_decay_steps = int(N_train * exp_decay_pct)
@@ -327,10 +323,8 @@ def RunMisspecPPOTraders(p):
         pass
     logging.info("Successfully generated path and stored config...")
 
-
-
     # 4. INSTANTIATE MARKET ENVIRONMENT --------------------------------------------------------------
-    
+
     action_quantiles, ret_quantile, holding_quantile = get_action_boundaries(
         HalfLife,
         Startholding,
@@ -346,14 +340,13 @@ def RunMisspecPPOTraders(p):
         qts=qts,
         min_n_actions=min_n_actions,
     )
-    
+
     KLM[:2] = action_quantiles
     KLM[2] = holding_quantile
     action_limit = KLM[0]
     p["KLM"] = KLM
     action_space = ActionSpace(KLM, zero_action, side_only=side_only)
 
-    
     if recurrent_env:
         env = RecurrentMarketEnv(
             HalfLife_fit,
@@ -369,7 +362,7 @@ def RunMisspecPPOTraders(p):
             factors,
             returns_tens,
             factors_tens,
-            action_limit=KLM[0]
+            action_limit=KLM[0],
         )
 
     else:
@@ -385,18 +378,18 @@ def RunMisspecPPOTraders(p):
             f_speed_fit,
             returns,
             factors,
-            action_limit=KLM[0]
+            action_limit=KLM[0],
         )
 
     logging.info("Successfully initialized the market environment...")
 
     # 4. CREATE INITIAL STATE AND NETWORKS ----------------------------------------------------------
     input_shape = env.get_state_dim()
-    p['n_inputs'] = input_shape[0]
+    p["n_inputs"] = input_shape[0]
     # create train and target network
-    device = torch.device('cuda' if torch.cuda.is_available() else 'cpu')
+    device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
     # device = torch.device('cpu')
-    
+
     PPO_ = PPO(
         seed,
         gamma,
@@ -426,150 +419,149 @@ def RunMisspecPPOTraders(p):
 
     PPO_.model.to(device)
 
-    logging.info(
-        "Successfully initialized the PPO model..."
-    )
-
+    logging.info("Successfully initialized the PPO model...")
 
     # 5. TRAIN ALGORITHM ----------------------------------------------------------
     iterations = []
     iters = 0
-    for e in tqdm(iterable=range(episodes), desc='Running episodes...'):
-        
+    for e in tqdm(iterable=range(episodes), desc="Running episodes..."):
+
         if universal:
             # TODO fix universal
-            returns, factors, f_speed = ReturnSampler( len_series,
-                                                        sigmaf,
-                                                        f0,
-                                                        f_param,
-                                                        sigma,
-                                                        plot_inputs,
-                                                        HalfLife,
-                                                        rng,
-                                                        offset=unfolding + 1,
-                                                        uncorrelated=uncorrelated,
-                                                        t_stud=t_stud,
-                                                        disable_tqdm=True,
-                                                    )
+            returns, factors, f_speed = ReturnSampler(
+                len_series,
+                sigmaf,
+                f0,
+                f_param,
+                sigma,
+                plot_inputs,
+                HalfLife,
+                rng,
+                offset=unfolding + 1,
+                uncorrelated=uncorrelated,
+                t_stud=t_stud,
+                disable_tqdm=True,
+            )
             env.returns = returns
             env.factors = factors
-        
+
         state, _ = env.reset()
         PPO_.reset_experience()
         # if executeGP:
         #     CurrOptState = env.opt_reset()
         #     OptRate, DiscFactorLoads = env.opt_trading_rate_disc_loads()
-        
+
         for i in range(len_series - 1):
-            
+
             # TODO implement case in which you output also qvalues and can calculate betsize
             dist, value = PPO_.act(state)
 
-            if policy_type == 'continuous':
+            if policy_type == "continuous":
                 action = dist.sample()
                 log_prob = dist.log_prob(action)
-                
+
                 clipped_action = nn.Tanh()(action).cpu().numpy().ravel()
                 action = action.cpu().numpy().ravel()
 
-                unscaled_action = unscale_action(action_limit,clipped_action)
+                unscaled_action = unscale_action(action_limit, clipped_action)
 
-            elif policy_type == 'discrete':
-                
+            elif policy_type == "discrete":
+
                 action = dist.sample()
                 log_prob = dist.log_prob(action)
-                
-                clipped_action = np.array([action_space.values[action]], dtype=np.float32)
+
+                clipped_action = np.array(
+                    [action_space.values[action]], dtype=np.float32
+                )
                 unscaled_action = clipped_action
                 action = np.array([action], dtype=np.float32)
-                
+
             else:
-                print('Select a policy as continuous or discrete')
+                print("Select a policy as continuous or discrete")
                 sys.exit()
-            
+
             # TODO eventually introduce bet size and bcm
             # if bcm and side_only:
-                
+
             #     _, OptResult = env.opt_step(
             #         CurrOptState, OptRate, DiscFactorLoads, i
             #         )
-                
+
             #     exp_bcm = {"unsc_a": unscaled_shares_traded,
             #                "opt_a": OptResult['OptNextAction']}
             #     exp = {**exp, **exp_bcm}
-                
+
             # elif bcm and not side_only:
-                
+
             #     _, OptResult = env.opt_step(
             #         CurrOptState, OptRate, DiscFactorLoads, i
             #         )
-                
-            #     exp_bcm = {"opt_a": OptResult['OptNextAction']}   
+
+            #     exp_bcm = {"opt_a": OptResult['OptNextAction']}
             #     exp = {**exp, **exp_bcm}
 
- 
-            next_state, Result, _ = env.step(state, unscaled_action[0], i, tag='PPO')
+            next_state, Result, _ = env.step(state, unscaled_action[0], i, tag="PPO")
 
-            exp = {"state": state, 
-                   "action": action, 
-                   "reward": Result['Reward_PPO'], 
-                   "log_prob": log_prob.detach().cpu().numpy().ravel(), # avoid require_grad and go back to numpy array
-                   "value": value.detach().cpu().numpy().ravel(),
-                   }
-            
+            exp = {
+                "state": state,
+                "action": action,
+                "reward": Result["Reward_PPO"],
+                "log_prob": log_prob.detach()
+                .cpu()
+                .numpy()
+                .ravel(),  # avoid require_grad and go back to numpy array
+                "value": value.detach().cpu().numpy().ravel(),
+            }
+
             PPO_.add_experience(exp)
-            
+
             state = next_state
             iters += 1
-        
+
         # next_state = torch.FloatTensor(next_state).to(device)
         _, next_value = PPO_.act(next_state)
         # compute the advantage estimate from the given rollout
         PPO_.compute_gae(next_value.detach().cpu().numpy().ravel())
-        
-        for _ in range(ppo_epochs): # run for more than one epochs
+
+        for _ in range(ppo_epochs):  # run for more than one epochs
             for state, action, old_log_probs, return_, advantage in PPO_.ppo_iter():
 
                 PPO_.train(state, action, old_log_probs, return_, advantage)
-                
+
             # recompute gae to avoid stale advantages
-            if _ == len(range(ppo_epochs)) -1 :
+            if _ == len(range(ppo_epochs)) - 1:
                 pass
             else:
-                PPO_.compute_gae(next_value.detach().cpu().numpy().ravel(),
-                                 recompute_value=True)
-                
-        # store weights every tot episodes
-        if (
-            save_ckpt_model
-            and (e % save_ckpt_steps == 0)
-        ):
-            torch.save(
-                PPO_.model.state_dict(),
-                os.path.join(savedpath, "ckpt", "PPO_{}_ep_weights.pth".format(e+1)),
-            )
-            
-            iterations.append(str(e+1))
-    
-        elif(
-            save_ckpt_model
-            and (e == range(episodes)[-1])
-        ):
-            
-            torch.save(
-                PPO_.model.state_dict(),
-                os.path.join(savedpath, "ckpt", "PPO_{}_ep_weights.pth".format(e+1)),
-            )
-            
-            iterations.append(str(e+1))
+                PPO_.compute_gae(
+                    next_value.detach().cpu().numpy().ravel(), recompute_value=True
+                )
 
-    logging.info("Successfully trained the PPO policy...") 
-                
+        # store weights every tot episodes
+        if save_ckpt_model and (e % save_ckpt_steps == 0):
+            torch.save(
+                PPO_.model.state_dict(),
+                os.path.join(savedpath, "ckpt", "PPO_{}_ep_weights.pth".format(e + 1)),
+            )
+
+            iterations.append(str(e + 1))
+
+        elif save_ckpt_model and (e == range(episodes)[-1]):
+
+            torch.save(
+                PPO_.model.state_dict(),
+                os.path.join(savedpath, "ckpt", "PPO_{}_ep_weights.pth".format(e + 1)),
+            )
+
+            iterations.append(str(e + 1))
+
+    logging.info("Successfully trained the PPO policy...")
+
     # 6. STORE RESULTS ----------------------------------------------------------
     p["iterations"] = iterations
     saveConfigYaml(p, savedpath)
     if save_results:
         env.save_outputs(savedpath)
+
 
 if __name__ == "__main__":
     RunMisspecPPOTraders(p)

@@ -106,11 +106,11 @@ def RunDQNTraders(Param):
     KLM = Param["KLM"]
     zero_action = Param["zero_action"]
     min_n_actions = Param["min_n_actions"]
-    side_only = Param['side_only']
-    discretization = Param['discretization']
-    temp = Param['temp']
-    bcm = Param['bcm']
-    bcm_scale = Param['bcm_scale']
+    side_only = Param["side_only"]
+    discretization = Param["discretization"]
+    temp = Param["temp"]
+    bcm = Param["bcm"]
+    bcm_scale = Param["bcm_scale"]
     RT = Param["RT"]
     tablr = Param["tablr"]
     # Data Simulation
@@ -127,11 +127,11 @@ def RunDQNTraders(Param):
     # Experiment and storage
     episodes = Param["episodes"]
     start_train = Param["start_train"]
-    training = Param['training']
+    training = Param["training"]
     seed_ret = Param["seed_ret"]
     seed_init = Param["seed_init"]
     N_train = Param["N_train"]
-    len_series = Param['len_series']
+    len_series = Param["len_series"]
     plot_inputs = Param["plot_inputs"]
     executeDRL = Param["executeDRL"]
     executeRL = Param["executeRL"]
@@ -168,22 +168,23 @@ def RunDQNTraders(Param):
 
     if not recurrent_env:
         Param["unfolding"] = unfolding = 1
-        
+
     # comment this if you want to update less frequently even when using polyak update ('soft')
     if update_target == "soft":
         assert copy_step == 1, "Soft target updates require copy step to be 1"
 
     # 1. SIMULATE SYNTHETIC DATA --------------------------------------------------------------
-    
-    if training == 'online':
-        assert N_train == len_series, "Online training requires N_train equal to len_series"
-    elif training == 'offline':
+
+    if training == "online":
+        assert (
+            N_train == len_series
+        ), "Online training requires N_train equal to len_series"
+    elif training == "offline":
         N_train = len_series * episodes
     else:
         print("Training mode not correct")
         sys.exit()
-    
-    
+
     returns, factors, f_speed = ReturnSampler(
         len_series,
         sigmaf,
@@ -202,9 +203,9 @@ def RunDQNTraders(Param):
         returns_tens = create_lstm_tensor(returns.reshape(-1, 1), unfolding)
         factors_tens = create_lstm_tensor(factors, unfolding)
     logging.info("Successfully simulated data...")
-    
+
     # 2. SET UP SOME HYPERPARAMETERS --------------------------------------------------------------
-    
+
     steps_to_min_eps = int(N_train * min_eps_pct)
     Param["steps_to_min_eps"] = steps_to_min_eps
 
@@ -250,10 +251,8 @@ def RunDQNTraders(Param):
         pass
     logging.info("Successfully generated path and stored config...")
 
-
-
     # 4. INSTANTIATE MARKET ENVIRONMENT --------------------------------------------------------------
-    
+
     action_quantiles, ret_quantile, holding_quantile = get_action_boundaries(
         HalfLife,
         Startholding,
@@ -269,7 +268,7 @@ def RunDQNTraders(Param):
         qts=qts,
         min_n_actions=min_n_actions,
     )
-    
+
     KLM[:2] = action_quantiles
     KLM[2] = holding_quantile
     RT[0] = ret_quantile
@@ -277,7 +276,6 @@ def RunDQNTraders(Param):
     Param["KLM"] = KLM
     action_space = ActionSpace(KLM, zero_action, side_only=side_only)
 
-    
     if recurrent_env:
         env = RecurrentMarketEnv(
             HalfLife,
@@ -293,7 +291,7 @@ def RunDQNTraders(Param):
             factors,
             returns_tens,
             factors_tens,
-            action_limit=KLM[0]
+            action_limit=KLM[0],
         )
 
     else:
@@ -309,9 +307,8 @@ def RunDQNTraders(Param):
             f_speed,
             returns,
             factors,
-            action_limit=KLM[0]
+            action_limit=KLM[0],
         )
-
 
     # market env for tab Q learning
     if executeRL:
@@ -426,13 +423,10 @@ def RunDQNTraders(Param):
         modelname="TargetQNet",
     )
 
-    logging.info(
-        "Successfully initialized the Deep Q Networks..."
-    )
-
+    logging.info("Successfully initialized the Deep Q Networks...")
 
     # 5. TRAIN ALGORITHM ----------------------------------------------------------
-    if training == 'online':
+    if training == "online":
         CurrState, _ = env.reset()
         if executeRL:
             env.returns_space = returns_space
@@ -447,58 +441,66 @@ def RunDQNTraders(Param):
         for i in tqdm(iterable=range(N_train + 1), desc="Training DQNetwork"):
             if executeDRL:
                 epsilon = max(min_eps, epsilon - eps_decay)
-                shares_traded, qvalues = TrainQNet.eps_greedy_action(CurrState, epsilon, side_only=side_only)
-                
+                shares_traded, qvalues = TrainQNet.eps_greedy_action(
+                    CurrState, epsilon, side_only=side_only
+                )
+
                 if not side_only:
                     unscaled_shares_traded = shares_traded
                 else:
-                    unscaled_shares_traded = get_bet_size(qvalues,shares_traded,action_limit=KLM[0], zero_action=zero_action,
-                                                          rng=rng,
-                                                          discretization=discretization,
-                                                          temp=temp)
+                    unscaled_shares_traded = get_bet_size(
+                        qvalues,
+                        shares_traded,
+                        action_limit=KLM[0],
+                        zero_action=zero_action,
+                        rng=rng,
+                        discretization=discretization,
+                        temp=temp,
+                    )
                 # print('state {}'.format(CurrState),
                 #       'action {}'.format(unscaled_shares_traded),
                 #       'q {}'.format(qvalues))
-    
+
                 NextState, Result, _ = env.step(CurrState, unscaled_shares_traded, i)
                 env.store_results(Result, i)
-                
-                 
+
                 exp = {
                     "s": CurrState,
                     "a": shares_traded,
                     "r": Result["Reward_DQN"],
                     "s2": NextState,
                 }
-                
+
                 if bcm and side_only:
-                    
+
                     _, OptResult = env.opt_step(
                         CurrOptState, OptRate, DiscFactorLoads, i
-                        )
-                    
-                    exp_bcm = {"unsc_a": unscaled_shares_traded,
-                               "opt_a": OptResult['OptNextAction']}
+                    )
+
+                    exp_bcm = {
+                        "unsc_a": unscaled_shares_traded,
+                        "opt_a": OptResult["OptNextAction"],
+                    }
                     exp = {**exp, **exp_bcm}
-                    
+
                 elif bcm and not side_only:
-                    
+
                     _, OptResult = env.opt_step(
                         CurrOptState, OptRate, DiscFactorLoads, i
-                        )
-                    
-                    exp_bcm = {"opt_a": OptResult['OptNextAction']}   
+                    )
+
+                    exp_bcm = {"opt_a": OptResult["OptNextAction"]}
                     exp = {**exp, **exp_bcm}
-    
+
                 TrainQNet.add_experience(exp)
                 TrainQNet.train(TargetQNet, i, side_only, bcm, bcm_scale)
-    
+
                 CurrState = NextState
 
                 iters += 1
                 if (iters % copy_step == 0) and (i > TrainQNet.start_train):
                     TargetQNet.copy_weights(TrainQNet)
-    
+
                 if (
                     save_ckpt_model
                     and (i % save_ckpt_steps == 0)
@@ -510,43 +512,52 @@ def RunDQNTraders(Param):
                     )
                     if executeRL:
                         QTable.save(os.path.join(savedpath, "ckpt"), i)
-    
+
             if executeRL:
                 shares_traded = QTable.chooseAction(DiscrCurrState, epsilon)
-                DiscrNextState, Result = env.discrete_step(DiscrCurrState, shares_traded, i)
+                DiscrNextState, Result = env.discrete_step(
+                    DiscrCurrState, shares_traded, i
+                )
                 env.store_results(Result, i)
                 QTable.update(DiscrCurrState, DiscrNextState, shares_traded, Result)
                 DiscrCurrState = DiscrNextState
-    
+
             if executeGP:
                 NextOptState, OptResult = env.opt_step(
                     CurrOptState, OptRate, DiscFactorLoads, i
                 )
                 env.store_results(OptResult, i)
                 CurrOptState = NextOptState
-        
-    elif training == 'offline':
+
+    elif training == "offline":
         iters = 0
-        for e in tqdm(iterable=range(episodes), desc='Running episodes...'):
-            
+        for e in tqdm(iterable=range(episodes), desc="Running episodes..."):
+
             CurrState, _ = env.reset()
             if executeGP:
                 CurrOptState = env.opt_reset()
                 OptRate, DiscFactorLoads = env.opt_trading_rate_disc_loads()
-            
+
             for i in range(len_series - 1):
 
                 epsilon = max(min_eps, epsilon - eps_decay)
 
-                shares_traded, qvalues = TrainQNet.eps_greedy_action(CurrState, epsilon, side_only=side_only)
-    
+                shares_traded, qvalues = TrainQNet.eps_greedy_action(
+                    CurrState, epsilon, side_only=side_only
+                )
+
                 if not side_only:
                     unscaled_shares_traded = shares_traded
                 else:
-                    unscaled_shares_traded = get_bet_size(qvalues,shares_traded,action_limit=KLM[0], 
-                                                          rng=rng, zero_action = zero_action,
-                                                          discretization=discretization,
-                                                          temp=temp)    
+                    unscaled_shares_traded = get_bet_size(
+                        qvalues,
+                        shares_traded,
+                        action_limit=KLM[0],
+                        rng=rng,
+                        zero_action=zero_action,
+                        discretization=discretization,
+                        temp=temp,
+                    )
                 NextState, Result, _ = env.step(CurrState, unscaled_shares_traded, i)
                 env.store_results(Result, i)
 
@@ -556,28 +567,30 @@ def RunDQNTraders(Param):
                     "r": Result["Reward_DQN"],
                     "s2": NextState,
                 }
-                
+
                 if bcm and side_only:
-                    
+
                     _, OptResult = env.opt_step(
                         CurrOptState, OptRate, DiscFactorLoads, i
-                        )
-                    
-                    exp_bcm = {"unsc_a": unscaled_shares_traded,
-                               "opt_a": OptResult['OptNextAction']}
+                    )
+
+                    exp_bcm = {
+                        "unsc_a": unscaled_shares_traded,
+                        "opt_a": OptResult["OptNextAction"],
+                    }
                     exp = {**exp, **exp_bcm}
-                    
+
                 elif bcm and not side_only:
-                    
+
                     _, OptResult = env.opt_step(
                         CurrOptState, OptRate, DiscFactorLoads, i
-                        )
-                    
-                    exp_bcm = {"opt_a": OptResult['OptNextAction']}   
+                    )
+
+                    exp_bcm = {"opt_a": OptResult["OptNextAction"]}
                     exp = {**exp, **exp_bcm}
-                    
+
                 TrainQNet.add_experience(exp)
-                
+
                 CurrState = NextState
 
                 if executeGP:
@@ -586,15 +599,14 @@ def RunDQNTraders(Param):
                     )
                     env.store_results(OptResult, i)
                     CurrOptState = NextOptState
-                    
-                
+
             for i in range(len_series - 1):
                 TrainQNet.train(TargetQNet, i, side_only, bcm, bcm_scale)
 
                 iters += 1
                 if (iters % copy_step == 0) and (iters > TrainQNet.start_train):
                     TargetQNet.copy_weights(TrainQNet)
-    
+
                 if (
                     save_ckpt_model
                     and (i % save_ckpt_steps == 0)
@@ -606,7 +618,9 @@ def RunDQNTraders(Param):
                     )
         logging.info("Successfully trained the Deep Q Network...")
     # 6. STORE RESULTS ----------------------------------------------------------
-    Param["iterations"] = [str(int(i)) for i in np.arange(0, N_train + 1, save_ckpt_steps)][1:]
+    Param["iterations"] = [
+        str(int(i)) for i in np.arange(0, N_train + 1, save_ckpt_steps)
+    ][1:]
     saveConfigYaml(Param, savedpath)
     if save_results:
         env.save_outputs(savedpath)

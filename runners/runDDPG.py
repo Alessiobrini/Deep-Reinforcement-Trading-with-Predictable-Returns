@@ -21,7 +21,12 @@ from tqdm import tqdm
 import tensorflow as tf
 import numpy as np
 
-from utils.common import (generate_logger, GeneratePathFolder, readConfigYaml, saveConfigYaml)
+from utils.common import (
+    generate_logger,
+    GeneratePathFolder,
+    readConfigYaml,
+    saveConfigYaml,
+)
 from utils.simulation import ReturnSampler, create_lstm_tensor
 from utils.env import (
     MarketEnv,
@@ -224,7 +229,7 @@ def RunDDPGTraders(Param):
     if recurrent_env:
         returns_tens = create_lstm_tensor(returns.reshape(-1, 1), unfolding)
         factors_tens = create_lstm_tensor(factors, unfolding)
-    logging.info("Successfully simulated data..." )
+    logging.info("Successfully simulated data...")
 
     # 3. INSTANTIATE MARKET ENVIRONMENTS --------------------------------------------------------------
     action_quantiles, ret_quantile, holding_quantile = get_action_boundaries(
@@ -279,7 +284,6 @@ def RunDDPGTraders(Param):
             factors,
             action_limit=action_quantiles[0],
         )
-
 
     # 4. CREATE INITIAL STATE AND NETWORKS ----------------------------------------------------------
     # instantiate the initial state (return, holding) for DDPG
@@ -447,7 +451,7 @@ def RunDDPGTraders(Param):
                 stddev_noise = max(0.0, stddev_noise - stddev_noise_decay)
                 TrainNet.action_noise.sigma = stddev_noise
                 shares_traded = TrainNet.noisy_action(CurrState)
-                
+
             NextState, Result, NextFactors = env.step(
                 CurrState, shares_traded, i, tag="DDPG"
             )
@@ -464,10 +468,7 @@ def RunDDPGTraders(Param):
             TrainNet.train(TargetNet, i)
             CurrState = NextState
             iters += 1
-            if (
-                (iters % copy_step == 0)
-                and (i > TrainNet.start_train)
-            ):
+            if (iters % copy_step == 0) and (i > TrainNet.start_train):
                 TargetNet.copy_weights_Q(TrainNet)
                 TargetNet.copy_weights_p(TrainNet)
 

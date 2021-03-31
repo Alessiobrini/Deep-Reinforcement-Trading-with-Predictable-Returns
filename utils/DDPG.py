@@ -18,7 +18,11 @@ from tensorflow.keras.layers import Dense, LSTM
 from tensorflow.keras.optimizers.schedules import PiecewiseConstantDecay
 from tensorflow.keras.optimizers.schedules import ExponentialDecay
 from tensorflow.keras.initializers import RandomUniform, VarianceScaling
-from utils.exploration import OrnsteinUhlenbeckActionNoise, GaussianActionNoise, PER_buffer
+from utils.exploration import (
+    OrnsteinUhlenbeckActionNoise,
+    GaussianActionNoise,
+    PER_buffer,
+)
 from utils.math_tools import scale_action
 
 
@@ -66,10 +70,15 @@ class CriticNetwork(tf.keras.Model):
         self.hids = []
 
         for i in hidden_units:
-            if kernel_initializer == 'ddpg_type':
-                self.hids.append(Dense(i, kernel_initializer=VarianceScaling(scale=(1.0/3.0), 
-                                                                             mode='fan_in', 
-                                                                             distribution="uniform")))
+            if kernel_initializer == "ddpg_type":
+                self.hids.append(
+                    Dense(
+                        i,
+                        kernel_initializer=VarianceScaling(
+                            scale=(1.0 / 3.0), mode="fan_in", distribution="uniform"
+                        ),
+                    )
+                )
             else:
                 self.hids.append(Dense(i, kernel_initializer=kernel_initializer))
             # check what type of activation is set
@@ -200,10 +209,15 @@ class ActorNetwork(tf.keras.Model):
         self.hids = []
 
         for i in hidden_units:
-            if kernel_initializer == 'ddpg_type':
-                self.hids.append(Dense(i, kernel_initializer=VarianceScaling(scale=(1.0/3.0), 
-                                                                             mode='fan_in', 
-                                                                             distribution="uniform")))
+            if kernel_initializer == "ddpg_type":
+                self.hids.append(
+                    Dense(
+                        i,
+                        kernel_initializer=VarianceScaling(
+                            scale=(1.0 / 3.0), mode="fan_in", distribution="uniform"
+                        ),
+                    )
+                )
             else:
                 self.hids.append(Dense(i, kernel_initializer=kernel_initializer))
             # check what type of activation is set
@@ -326,10 +340,15 @@ class CriticRecurrentNetwork(tf.keras.Model):
                 self.hids.append(BatchNormalization())
         if hidden_units:
             for i in hidden_units:
-                if kernel_initializer == 'ddpg_type':
-                    self.hids.append(Dense(i, kernel_initializer=VarianceScaling(scale=(1.0/3.0), 
-                                                                                 mode='fan_in', 
-                                                                                 distribution="uniform")))
+                if kernel_initializer == "ddpg_type":
+                    self.hids.append(
+                        Dense(
+                            i,
+                            kernel_initializer=VarianceScaling(
+                                scale=(1.0 / 3.0), mode="fan_in", distribution="uniform"
+                            ),
+                        )
+                    )
                 else:
                     self.hids.append(Dense(i, kernel_initializer=kernel_initializer))
                 # check what type of activation is set
@@ -469,10 +488,15 @@ class ActorRecurrentNetwork(tf.keras.Model):
                 self.hids.append(BatchNormalization())
         if hidden_units:
             for i in hidden_units:
-                if kernel_initializer == 'ddpg_type':
-                    self.hids.append(Dense(i, kernel_initializer=VarianceScaling(scale=(1.0/3.0), 
-                                                                                 mode='fan_in', 
-                                                                                 distribution="uniform")))
+                if kernel_initializer == "ddpg_type":
+                    self.hids.append(
+                        Dense(
+                            i,
+                            kernel_initializer=VarianceScaling(
+                                scale=(1.0 / 3.0), mode="fan_in", distribution="uniform"
+                            ),
+                        )
+                    )
                 else:
                     self.hids.append(Dense(i, kernel_initializer=kernel_initializer))
                 # check what type of activation is set
@@ -1040,7 +1064,7 @@ class DDPG:
                     TargetNet.p_model(states_next.astype("float32")) + noise,
                     -self.action_limit,
                     self.action_limit,
-                ) # TODO nonsense here because we should clip between -1 and 1
+                )  # TODO nonsense here because we should clip between -1 and 1
 
                 target_q1 = TargetNet.Q1_model(
                     states_next.astype("float32"), action_next
@@ -1064,9 +1088,7 @@ class DDPG:
                 )
                 # compute target action values
                 # here the action is in the range (-1,1)
-                action_next = TargetNet.p_model(
-                    states_next.astype("float32")
-                )  
+                action_next = TargetNet.p_model(states_next.astype("float32"))
                 target_q = TargetNet.Q_model(states_next.astype("float32"), action_next)
                 target_values = rewards + self.gamma * target_q
 
@@ -1123,7 +1145,6 @@ class DDPG:
                     (tf.clip_by_value(gv, -self.clipvalue, self.clipvalue))
                     for gv in gradients_q2
                 ]
-                
 
             # provide a list of (gradient, variable) pairs.
             self.optimizer_Q1.apply_gradients(zip(gradients_q1, variables_q1))
@@ -1171,11 +1192,10 @@ class DDPG:
                     states.astype("float32"),
                     self.p_model(
                         states.astype("float32"), store_intermediate_outputs=True
-                    ), 
+                    ),
                 )
             loss_p = -tf.math.reduce_mean(current_q_pg)
 
-    
         # compute gradient of the loss with respect to the variables (weights)
         variables_p = self.p_model.trainable_variables
         gradients_p = tape2.gradient(loss_p, variables_p)
@@ -1283,7 +1303,10 @@ class DDPG:
     def uniform_action(self):
         # return np.random.uniform(-self.action_limit, self.action_limit,self.nb_actions)
 
-        return scale_action(self.action_limit, self.rng.uniform(-self.action_limit, self.action_limit, self.nb_actions))
+        return scale_action(
+            self.action_limit,
+            self.rng.uniform(-self.action_limit, self.action_limit, self.nb_actions),
+        )
 
     def add_experience(self, exp):
 

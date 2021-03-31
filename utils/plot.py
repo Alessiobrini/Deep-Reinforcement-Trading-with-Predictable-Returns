@@ -13,7 +13,13 @@ from tqdm import tqdm
 from typing import Union, Optional
 from utils.simulation import ReturnSampler, GARCHSampler, create_lstm_tensor
 from sklearn.preprocessing import StandardScaler, MinMaxScaler
-from utils.env import MarketEnv, RecurrentMarketEnv, ReturnSpace, HoldingSpace, ActionSpace 
+from utils.env import (
+    MarketEnv,
+    RecurrentMarketEnv,
+    ReturnSpace,
+    HoldingSpace,
+    ActionSpace,
+)
 from utils.tools import CalculateLaggedSharpeRatio, RunModels
 import collections
 from natsort import natsorted
@@ -126,24 +132,23 @@ def load_PPOmodel(p: dict, data_dir: str, ckpt_it: int = None):
 
     """
 
-    inp_shape = (p['n_inputs'],) 
+    inp_shape = (p["n_inputs"],)
     action_space = ActionSpace(p["KLM"])
-    num_actions = action_space.get_n_actions(policy_type=p['policy_type']) 
+    num_actions = action_space.get_n_actions(policy_type=p["policy_type"])
 
-
-    model = PPOActorCritic(p['seed_init'],
-                            inp_shape,
-                            p['activation'],
-                            p["hidden_units_value"],
-                            p["hidden_units_actor"],
-                            num_actions,
-                            p['batch_norm_input'],
-                            p['batch_norm_value_out'],
-                            p['policy_type'],
-                            p['pol_std'],
-                            modelname='PPO',
-                            )
-
+    model = PPOActorCritic(
+        p["seed_init"],
+        inp_shape,
+        p["activation"],
+        p["hidden_units_value"],
+        p["hidden_units_actor"],
+        num_actions,
+        p["batch_norm_input"],
+        p["batch_norm_value_out"],
+        p["policy_type"],
+        p["pol_std"],
+        modelname="PPO",
+    )
 
     model.load_state_dict(
         torch.load(
@@ -151,11 +156,7 @@ def load_PPOmodel(p: dict, data_dir: str, ckpt_it: int = None):
         )
     )
 
-
-
-
     return model, action_space.values
-
 
 
 class TrainedQTable:
@@ -191,6 +192,7 @@ class TrainedQTable:
         at the current state
 
     """
+
     def __init__(self, Q_space):
         # generate row index of the dataframe with every possible combination
         # of state space variables
@@ -284,7 +286,7 @@ def load_Actor_Critic(
                 p["kernel_initializer"],
                 p["output_init"],
                 modelname="pmodel",
-                )
+            )
             p_model.load_weights(
                 os.path.join(
                     data_dir,
@@ -406,18 +408,22 @@ def plot_multitest_overlap_OOS(
         )
     # add benchmark series to plot the hline
 
-    if 'datatype' not in params.keys():
-        params['datatype'] = 'gp'
-    if pgarch.size == 0 and 'garch' not in params['datatype']:
-        
+    if "datatype" not in params.keys():
+        params["datatype"] = "gp"
+    if pgarch.size == 0 and "garch" not in params["datatype"]:
+
         if variable.split("_")[0] == "Pdist":
-            
-            ax1.set_ylim(-1e+4, 1e+12)
+
+            ax1.set_ylim(-1e4, 1e12)
         else:
-        
+
             df.loc["Benchmark"] = 100.0
             ax1.plot(
-                idxs, df.loc["Benchmark"].values, linestyle="--", linewidth=4, color="red"
+                idxs,
+                df.loc["Benchmark"].values,
+                linestyle="--",
+                linewidth=4,
+                color="red",
             )
             # ax1.set_ylim(-10000,300)
             ax1.set_ylim(0, 150)
@@ -442,7 +448,6 @@ def plot_multitest_overlap_OOS(
             elif params["datatype"] == "garch_mr":
                 # ax1.set_ylim(-100000,100000)
                 ax1.set_ylim(-5000000, 5000000)
-
 
         else:
             df.loc["Benchmark"] = 100.0
@@ -545,8 +550,7 @@ def plot_abs_pnl_OOS(
 ):
 
     df_mean = df.mean(axis=0)
-    
-    
+
     idxs = [int(i) for i in df.iloc[0, :].index]
 
     for j, i in enumerate(df.index):
@@ -588,9 +592,8 @@ def plot_multitest_real_OOS(
 ):
 
     df_mean = df.mean(axis=0)
-    idxs = [int(i)* params['len_series'] for i in df.iloc[0, :].index]
+    idxs = [int(i) * params["len_series"] for i in df.iloc[0, :].index]
 
-        
     # https://matplotlib.org/examples/color/colormaps_reference.html
     colormap = cm.get_cmap("plasma", len(df.index))
     for j, i in enumerate(df.index):
@@ -607,8 +610,6 @@ def plot_multitest_real_OOS(
             ax1.scatter(
                 x=idxs, y=df.iloc[i, :], alpha=0.6, color=colors, marker="o", s=7.5
             )
-
-
 
     ax1.plot(
         idxs,
@@ -651,7 +652,6 @@ def plot_multitest_real_OOS(
             color="red",
         )
         ax1.set_ylim(0, 350)
-
 
     ax1.set_title("{}".format(data_dir.split("/")[-2]))
     ax1.set_ylabel("% Reference {}".format(variable.split("_")[0]))
@@ -713,6 +713,7 @@ def plot_multitest_real_OOS(
             )
 
     # fig.savefig(os.path.join(data_dir,'{}.pdf'.format(variable)), dpi=300)
+
 
 # def scientific(x, pos):
 #     # x:  tick value - ie. what you currently see in yticks
@@ -814,4 +815,3 @@ def plot_multitest_paper(
                 )
                 ax1.set_ylim(20, 130)
                 # ax1.set_ylim(-500,500)
-

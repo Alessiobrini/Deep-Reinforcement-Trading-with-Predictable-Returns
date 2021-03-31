@@ -38,7 +38,12 @@ from utils.env import (
     CreateQTable,
 )
 from utils.DQN import DQN
-from utils.tools import get_action_boundaries, get_bet_size, CalculateLaggedSharpeRatio, RunModels
+from utils.tools import (
+    get_action_boundaries,
+    get_bet_size,
+    CalculateLaggedSharpeRatio,
+    RunModels,
+)
 
 # Generate Logger-------------------------------------------------------------
 logger = generate_logger()
@@ -58,8 +63,7 @@ def RunMisspecDQNTraders(Param):
         The dictionary containing the parameters
     """
     # 0. EXTRACT PARAMETERS ----------------------------------------------------------
-    
-    
+
     epsilon = Param["epsilon"]
     min_eps_pct = Param["min_eps_pct"]
     min_eps = Param["min_eps"]
@@ -108,11 +112,11 @@ def RunMisspecDQNTraders(Param):
     KLM = Param["KLM"]
     zero_action = Param["zero_action"]
     min_n_actions = Param["min_n_actions"]
-    side_only = Param['side_only']
-    discretization = Param['discretization']
-    temp = Param['temp']
-    bcm = Param['bcm']
-    bcm_scale = Param['bcm_scale']
+    side_only = Param["side_only"]
+    discretization = Param["discretization"]
+    temp = Param["temp"]
+    bcm = Param["bcm"]
+    bcm_scale = Param["bcm_scale"]
     RT = Param["RT"]
     tablr = Param["tablr"]
     # Data Simulation
@@ -125,7 +129,7 @@ def RunMisspecDQNTraders(Param):
     # Experiment and storage
     episodes = Param["episodes"]
     start_train = Param["start_train"]
-    training = Param['training']
+    training = Param["training"]
     seed = Param["seed"]
     seed_param = Param["seed_param"]
     plot_inputs = Param["plot_inputs"]
@@ -145,9 +149,8 @@ def RunMisspecDQNTraders(Param):
     outputModel = Param["outputModel"]
     varying_pars = Param["varying_pars"]
 
-
     N_train = Param["N_train"]
-    len_series = Param['len_series']
+    len_series = Param["len_series"]
     mean_process = Param["mean_process"]
     lags_mean_process = Param["lags_mean_process"]
     vol_process = Param["vol_process"]
@@ -179,16 +182,17 @@ def RunMisspecDQNTraders(Param):
     if update_target == "soft":
         assert copy_step == 1, "Soft target updates require copy step to be 1"
 
-
     # 1. GET REAL OR SYNTHETIC DATA AND MAKE REGRESSIONS --------------------------------------------------------------
-    if training == 'online':
-        assert len_series == N_train, "Online training requires N_train equal to len_series"
-    elif training == 'offline':
+    if training == "online":
+        assert (
+            len_series == N_train
+        ), "Online training requires N_train equal to len_series"
+    elif training == "offline":
         N_train = len_series * episodes
     else:
         print("Training mode not correct")
         sys.exit()
-    
+
     if datatype == "garch":
         return_series, params = GARCHSampler(
             len_series + factor_lb[-1] + unfolding + 1,
@@ -269,10 +273,9 @@ def RunMisspecDQNTraders(Param):
                 data=np.concatenate([returns.reshape(-1, 1), factors], axis=1)
             )
             y, X = df[df.columns[0]], df[df.columns[1:]]
-            
-            
+
     elif datatype == "garch_mr":
-        
+
         plot_inputs = False
         # df freedom for t stud distribution are hard coded inside the function
 
@@ -288,13 +291,13 @@ def RunMisspecDQNTraders(Param):
             offset=unfolding + 1,
             uncorrelated=uncorrelated,
             t_stud=False,
-            vol = 'heterosk',
+            vol="heterosk",
         )
         df = CalculateLaggedSharpeRatio(
             returns, factor_lb, nameTag=datatype, seriestype="return"
         )
         y, X = df[df.columns[0]], df[df.columns[1:]]
-        
+
     else:
         print("Datatype not correct")
         sys.exit()
@@ -305,7 +308,7 @@ def RunMisspecDQNTraders(Param):
         params_meanrev, fitted_ous = RunModels(y, X, mr_only=True)
     else:
         params_retmodel, params_meanrev, fitted_retmodel, fitted_ous = RunModels(y, X)
-        
+
     returns = df.iloc[:, 0].values
     factors = df.iloc[:, 1:].values
 
@@ -318,9 +321,7 @@ def RunMisspecDQNTraders(Param):
         sigma_fit = sigma
         f_param_fit = f_param
         sigmaf_fit = sigmaf
-    f_speed_fit = np.abs(
-        np.array([*params_meanrev.values()]).ravel()
-    )  
+    f_speed_fit = np.abs(np.array([*params_meanrev.values()]).ravel())
     HalfLife_fit = np.around(np.log(2) / f_speed_fit, 2)
 
     if datatype == "garch" or datatype == "real":
@@ -329,7 +330,7 @@ def RunMisspecDQNTraders(Param):
         Param["f_param"] = f_param_fit
         Param["sigma"] = sigma_fit
         Param["sigmaf"] = sigmaf_fit
-    elif datatype == "t_stud" or datatype == 'garch_mr':
+    elif datatype == "t_stud" or datatype == "garch_mr":
         Param["HalfLife_fit"] = HalfLife_fit
         Param["f_speed_fit"] = f_speed_fit
         Param["f_param_fit"] = f_param_fit
@@ -358,7 +359,7 @@ def RunMisspecDQNTraders(Param):
     Param["max_experiences"] = max_experiences
     exp_decay_steps = int(N_train * exp_decay_pct)
     Param["exp_decay_steps"] = exp_decay_steps
-    
+
     if PER_b_anneal:
         Param["PER_b_steps"] = PER_b_steps = N_train
         Param["PER_b_growth"] = (final_PER_b - PER_b) / PER_b_steps
@@ -569,13 +570,10 @@ def RunMisspecDQNTraders(Param):
         modelname="TargetQNet",
     )
 
-    logging.info(
-        "Successfully initialized the Deep Q Networks..."
-    )
-
+    logging.info("Successfully initialized the Deep Q Networks...")
 
     # 5. TRAIN ALGORITHM ----------------------------------------------------------
-    if training == 'online':
+    if training == "online":
         CurrState, _ = env.reset()
         if executeRL:
             env.returns_space = returns_space
@@ -584,20 +582,27 @@ def RunMisspecDQNTraders(Param):
         if executeGP:
             CurrOptState = env.opt_reset()
             OptRate, DiscFactorLoads = env.opt_trading_rate_disc_loads()
-        
+
         iters = 0
         for i in tqdm(iterable=range(N_train + 1), desc="Training DQNetwork"):
             if executeDRL:
                 epsilon = max(min_eps, epsilon - eps_decay)
-                shares_traded, qvalues = TrainQNet.eps_greedy_action(CurrState, epsilon, side_only=side_only)
-    
+                shares_traded, qvalues = TrainQNet.eps_greedy_action(
+                    CurrState, epsilon, side_only=side_only
+                )
+
                 if not side_only:
                     unscaled_shares_traded = shares_traded
                 else:
-                    unscaled_shares_traded = get_bet_size(qvalues,shares_traded,action_limit=KLM[0], 
-                                                          rng=rng, zero_action=zero_action,
-                                                          discretization=discretization,
-                                                          temp=temp)
+                    unscaled_shares_traded = get_bet_size(
+                        qvalues,
+                        shares_traded,
+                        action_limit=KLM[0],
+                        rng=rng,
+                        zero_action=zero_action,
+                        discretization=discretization,
+                        temp=temp,
+                    )
 
                 NextState, Result, _ = env.step(CurrState, unscaled_shares_traded, i)
                 env.store_results(Result, i)
@@ -607,36 +612,37 @@ def RunMisspecDQNTraders(Param):
                     "r": Result["Reward_DQN"],
                     "s2": NextState,
                 }
-                
-                
+
                 if bcm and side_only:
-                    
+
                     _, OptResult = env.opt_step(
                         CurrOptState, OptRate, DiscFactorLoads, i
-                        )
-                    
-                    exp_bcm = {"unsc_a": unscaled_shares_traded,
-                               "opt_a": OptResult['OptNextAction']}
+                    )
+
+                    exp_bcm = {
+                        "unsc_a": unscaled_shares_traded,
+                        "opt_a": OptResult["OptNextAction"],
+                    }
                     exp = {**exp, **exp_bcm}
-                    
+
                 elif bcm and not side_only:
-                    
+
                     _, OptResult = env.opt_step(
                         CurrOptState, OptRate, DiscFactorLoads, i
-                        )
-                    
-                    exp_bcm = {"opt_a": OptResult['OptNextAction']}   
+                    )
+
+                    exp_bcm = {"opt_a": OptResult["OptNextAction"]}
                     exp = {**exp, **exp_bcm}
-                
+
                 TrainQNet.add_experience(exp)
                 TrainQNet.train(TargetQNet, i, side_only, bcm, bcm_scale)
-    
+
                 CurrState = NextState
 
                 iters += 1
                 if (iters % copy_step == 0) and (i > TrainQNet.start_train):
                     TargetQNet.copy_weights(TrainQNet)
-    
+
                 if (
                     save_ckpt_model
                     and (i % save_ckpt_steps == 0)
@@ -649,14 +655,16 @@ def RunMisspecDQNTraders(Param):
                     )
                     if executeRL:
                         QTable.save(os.path.join(savedpath, "ckpt"), i)
-    
+
             if executeRL:
                 shares_traded = QTable.chooseAction(DiscrCurrState, epsilon)
-                DiscrNextState, Result = env.discrete_step(DiscrCurrState, shares_traded, i)
+                DiscrNextState, Result = env.discrete_step(
+                    DiscrCurrState, shares_traded, i
+                )
                 env.store_results(Result, i)
                 QTable.update(DiscrCurrState, DiscrNextState, shares_traded, Result)
                 DiscrCurrState = DiscrNextState
-    
+
             if executeGP:
                 NextOptState, OptResult = env.opt_step(
                     CurrOptState, OptRate, DiscFactorLoads, i
@@ -664,27 +672,34 @@ def RunMisspecDQNTraders(Param):
                 env.store_results(OptResult, i)
                 CurrOptState = NextOptState
 
-    elif training == 'offline':
+    elif training == "offline":
         iters = 0
-        for e in tqdm(iterable=range(episodes), desc='Running episodes...'):
-            
+        for e in tqdm(iterable=range(episodes), desc="Running episodes..."):
+
             CurrState, _ = env.reset()
             if executeGP:
                 CurrOptState = env.opt_reset()
                 OptRate, DiscFactorLoads = env.opt_trading_rate_disc_loads()
-            
+
             for i in range(len_series - 1):
 
                 epsilon = max(min_eps, epsilon - eps_decay)
-                shares_traded, qvalues = TrainQNet.eps_greedy_action(CurrState, epsilon, side_only=side_only)
-    
+                shares_traded, qvalues = TrainQNet.eps_greedy_action(
+                    CurrState, epsilon, side_only=side_only
+                )
+
                 if not side_only:
                     unscaled_shares_traded = shares_traded
                 else:
-                    unscaled_shares_traded = get_bet_size(qvalues,shares_traded,action_limit=KLM[0], 
-                                                          rng=rng, zero_action = zero_action,
-                                                          discretization=discretization,
-                                                          temp=temp)    
+                    unscaled_shares_traded = get_bet_size(
+                        qvalues,
+                        shares_traded,
+                        action_limit=KLM[0],
+                        rng=rng,
+                        zero_action=zero_action,
+                        discretization=discretization,
+                        temp=temp,
+                    )
                 NextState, Result, _ = env.step(CurrState, unscaled_shares_traded, i)
                 env.store_results(Result, i)
 
@@ -694,28 +709,30 @@ def RunMisspecDQNTraders(Param):
                     "r": Result["Reward_DQN"],
                     "s2": NextState,
                 }
-                
+
                 if bcm and side_only:
-                    
+
                     _, OptResult = env.opt_step(
                         CurrOptState, OptRate, DiscFactorLoads, i
-                        )
-                    
-                    exp_bcm = {"unsc_a": unscaled_shares_traded,
-                               "opt_a": OptResult['OptNextAction']}
+                    )
+
+                    exp_bcm = {
+                        "unsc_a": unscaled_shares_traded,
+                        "opt_a": OptResult["OptNextAction"],
+                    }
                     exp = {**exp, **exp_bcm}
-                    
+
                 elif bcm and not side_only:
-                    
+
                     _, OptResult = env.opt_step(
                         CurrOptState, OptRate, DiscFactorLoads, i
-                        )
-                    
-                    exp_bcm = {"opt_a": OptResult['OptNextAction']}   
+                    )
+
+                    exp_bcm = {"opt_a": OptResult["OptNextAction"]}
                     exp = {**exp, **exp_bcm}
-                    
+
                 TrainQNet.add_experience(exp)
-                
+
                 CurrState = NextState
 
                 if executeGP:
@@ -724,15 +741,14 @@ def RunMisspecDQNTraders(Param):
                     )
                     env.store_results(OptResult, i)
                     CurrOptState = NextOptState
-                    
-                
+
             for i in range(len_series - 1):
                 TrainQNet.train(TargetQNet, i, side_only, bcm, bcm_scale)
 
                 iters += 1
                 if (iters % copy_step == 0) and (iters > TrainQNet.start_train):
                     TargetQNet.copy_weights(TrainQNet)
-    
+
                 if (
                     save_ckpt_model
                     and (i % save_ckpt_steps == 0)
@@ -744,7 +760,9 @@ def RunMisspecDQNTraders(Param):
                     )
         logging.info("Successfully trained the Deep Q Network...")
     # 6. STORE RESULTS ----------------------------------------------------------
-    Param["iterations"] = [str(int(i)) for i in np.arange(0, N_train + 1, save_ckpt_steps)][1:]
+    Param["iterations"] = [
+        str(int(i)) for i in np.arange(0, N_train + 1, save_ckpt_steps)
+    ][1:]
     saveConfigYaml(Param, savedpath)
     if save_results:
         env.save_outputs(savedpath)

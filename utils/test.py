@@ -6,7 +6,13 @@ Created on Wed Jun  3 12:04:21 2020
 """
 from tqdm import tqdm
 from utils.simulation import ReturnSampler, GARCHSampler
-from utils.env import MarketEnv, RecurrentMarketEnv, ReturnSpace, HoldingSpace, ActionSpace
+from utils.env import (
+    MarketEnv,
+    RecurrentMarketEnv,
+    ReturnSpace,
+    HoldingSpace,
+    ActionSpace,
+)
 from utils.simulation import create_lstm_tensor
 from utils.tools import CalculateLaggedSharpeRatio, RunModels
 from utils.common import format_tousands
@@ -20,6 +26,7 @@ from utils.tools import get_bet_size
 import torch
 import torch.nn as nn
 from utils.math_tools import unscale_action
+
 
 def Out_sample_test(
     N_test: int,
@@ -54,7 +61,7 @@ def Out_sample_test(
     discretization: float = None,
     temp: float = 200.0,
     zero_action: bool = True,
-    store_values : bool = True,
+    store_values: bool = True,
     tag="DQN",
 ):
     """
@@ -151,13 +158,13 @@ def Out_sample_test(
 
     t_stud : bool = False
         Bool to regulate if Student\'s t noises are needed
-        
+
     side_only: bool
         Regulate the decoupling between side and size of the bet
-        
+
     discretization: float
         Level of discretization. If none, no discretization will be applied
-        
+
     temp: float
         Temperature of boltzmann equation
 
@@ -216,7 +223,9 @@ def Out_sample_test(
         )
 
     if "DQN" in tag:
-        action_space = ActionSpace(KLM, zero_action=zero_action, side_only=side_only) # TODO hard coded zero action
+        action_space = ActionSpace(
+            KLM, zero_action=zero_action, side_only=side_only
+        )  # TODO hard coded zero action
     if executeDRL:
         CurrState, _ = test_env.reset()
     if executeRL:
@@ -227,20 +236,26 @@ def Out_sample_test(
         CurrOptState = test_env.opt_reset()
         OptRate, DiscFactorLoads = test_env.opt_trading_rate_disc_loads()
 
-
     for i in tqdm(iterable=range(N_test + 1), desc="Testing DQNetwork"):
         if executeDRL:
             if "DQN" in tag:
 
-                qvalues = TrainNet( np.atleast_2d(CurrState.astype("float32")), training=False)
+                qvalues = TrainNet(
+                    np.atleast_2d(CurrState.astype("float32")), training=False
+                )
                 shares_traded = action_space.values[np.argmax(qvalues[0])]
-                
+
                 if side_only:
-                    shares_traded = get_bet_size(qvalues,shares_traded,action_limit=KLM[0], rng=rng, 
-                                                 zero_action = zero_action,
-                                                 discretization=discretization,
-                                                 temp=temp)
-                
+                    shares_traded = get_bet_size(
+                        qvalues,
+                        shares_traded,
+                        action_limit=KLM[0],
+                        rng=rng,
+                        zero_action=zero_action,
+                        discretization=discretization,
+                        temp=temp,
+                    )
+
                 NextState, Result, NextFactors = test_env.step(
                     CurrState, shares_traded, i
                 )
@@ -271,9 +286,18 @@ def Out_sample_test(
             test_env.store_results(OptResult, i)
             CurrOptState = NextOptState
 
-
     if store_values:
-        p_avg, r_avg, sr_avg, absp_avg, absr_avg, abssr_avg, abssr_hold, pnlstd_avg, pdist = (
+        (
+            p_avg,
+            r_avg,
+            sr_avg,
+            absp_avg,
+            absr_avg,
+            abssr_avg,
+            abssr_hold,
+            pnlstd_avg,
+            pdist,
+        ) = (
             [],
             [],
             [],
@@ -284,57 +308,66 @@ def Out_sample_test(
             [],
             [],
         )
-    
+
         for t in tag:
             # select interesting variables and express as a percentage of the GP results
             pnl_str = list(filter(lambda x: "NetPNL_{}".format(t) in x, variables))
             opt_pnl_str = list(filter(lambda x: "OptNetPNL" in x, variables))
             rew_str = list(filter(lambda x: "Reward_{}".format(t) in x, variables))
             opt_rew_str = list(filter(lambda x: "OptReward" in x, variables))
-    
+
             # pnl
             pnl = test_env.res_df[pnl_str + opt_pnl_str].iloc[:-1]
             cum_pnl = pnl.cumsum()
-            ref_pnl = (np.array(cum_pnl[pnl_str]) / np.array(cum_pnl[opt_pnl_str])) * 100
+            ref_pnl = (
+                np.array(cum_pnl[pnl_str]) / np.array(cum_pnl[opt_pnl_str])
+            ) * 100
             # rewards
             rew = test_env.res_df[rew_str + opt_rew_str].iloc[:-1]
             cum_rew = rew.cumsum()
-            ref_rew = (np.array(cum_rew[rew_str]) / np.array(cum_rew[opt_rew_str])) * 100
-    
+            ref_rew = (
+                np.array(cum_rew[rew_str]) / np.array(cum_rew[opt_rew_str])
+            ) * 100
+
             # SR
             mean = np.array(pnl[pnl_str]).mean()
             std = np.array(pnl[pnl_str]).std()
             sr = (mean / std) * (252 ** 0.5)
-    
+
             # Holding
             hold = test_env.res_df["NextHolding_{}".format(t)].iloc[
                 -2
             ]  # avoid last observation
             opthold = test_env.res_df["OptNextHolding"].iloc[-2]
-            
-            pdist_avg = ((test_env.res_df["NextHolding_{}".format(t)].values - 
-                     test_env.res_df["OptNextHolding"].values)**2).mean()
-    
+
+            pdist_avg = (
+                (
+                    test_env.res_df["NextHolding_{}".format(t)].values
+                    - test_env.res_df["OptNextHolding"].values
+                )
+                ** 2
+            ).mean()
+
             opt_mean = np.array(pnl[opt_pnl_str]).mean()
             opt_std = np.array(pnl[opt_pnl_str]).std()
             optsr = (opt_mean / opt_std) * (252 ** 0.5)
-    
+
             perc_SR = (sr / optsr) * 100
             pnl_std = (std / opt_std) * 100
-    
+
             p_avg.append(ref_pnl[-1])
             r_avg.append(ref_rew[-1])
             sr_avg.append(perc_SR)
             pnlstd_avg.append(pnl_std)
-    
+
             absp_avg.append(cum_pnl.iloc[-1].values[0])
             absr_avg.append(cum_rew.iloc[-1].values[0])
             abssr_avg.append(sr)
-    
+
             abssr_hold.append(hold)
-            
+
             pdist.append(pdist_avg)
-    
+
         # return only the last value of the series which is the cumulated pnl expressed as a percentage of GP
         return (
             np.array(p_avg).ravel(),
@@ -355,9 +388,6 @@ def Out_sample_test(
         if savedpath:
             test_env.save_outputs(savedpath, test=True, iteration=iteration)
         return test_env.res_df
-
-
-    
 
 
 def Out_sample_Misspec_test(
@@ -401,7 +431,7 @@ def Out_sample_Misspec_test(
     temp: float = 200.0,
     zero_action: bool = True,
     tag="DQN",
-    store_values : bool = True,
+    store_values: bool = True,
 ):
     """
     Perform an out-of-sample test and store results in the case of misspecified
@@ -532,13 +562,13 @@ def Out_sample_Misspec_test(
 
     rng: np.random.mtrand.RandomState
         Random number generator
-    
+
     side_only: bool
         Regulate the decoupling between side and size of the bet
-        
+
     discretization: float
         Level of discretization. If none, no discretization will be applied
-        
+
     temp: float
         Temperature of boltzmann equation
 
@@ -632,7 +662,7 @@ def Out_sample_Misspec_test(
             )
             y, X = df[df.columns[0]], df[df.columns[1:]]
         dates = df.index
-        
+
     elif datatype == "garch_mr":
 
         plot_inputs = False
@@ -650,9 +680,9 @@ def Out_sample_Misspec_test(
             offset=unfolding + 1,
             uncorrelated=uncorrelated,
             t_stud=False,
-            vol = 'heterosk',
+            vol="heterosk",
         )
-        
+
         df = CalculateLaggedSharpeRatio(
             returns, factor_lb, nameTag=datatype, seriestype="return"
         )
@@ -734,7 +764,6 @@ def Out_sample_Misspec_test(
         CurrOptState = test_env.opt_reset()
         OptRate, DiscFactorLoads = test_env.opt_trading_rate_disc_loads()
 
-
     if recurrent_env:
         cycle_len = N_test + 1 - (unfolding - 1)
     else:
@@ -743,13 +772,21 @@ def Out_sample_Misspec_test(
     for i in tqdm(iterable=range(cycle_len), desc="Testing DQNetwork"):
         if executeDRL:
             if tag == "DQN":
-                qvalues = TrainNet(np.atleast_2d(CurrState.astype("float32")), training=False)
+                qvalues = TrainNet(
+                    np.atleast_2d(CurrState.astype("float32")), training=False
+                )
                 shares_traded = action_space.values[np.argmax(qvalues[0])]
 
                 if side_only:
-                    shares_traded = get_bet_size(qvalues,shares_traded,action_limit=KLM[0], rng=rng, zero_action=zero_action,
-                                                 discretization=discretization,
-                                                 temp=temp)
+                    shares_traded = get_bet_size(
+                        qvalues,
+                        shares_traded,
+                        action_limit=KLM[0],
+                        rng=rng,
+                        zero_action=zero_action,
+                        discretization=discretization,
+                        temp=temp,
+                    )
                 NextState, Result, NextFactors = test_env.step(
                     CurrState, shares_traded, i
                 )
@@ -780,9 +817,18 @@ def Out_sample_Misspec_test(
             test_env.store_results(OptResult, i)
             CurrOptState = NextOptState
 
-
     if store_values:
-        p_avg, r_avg, sr_avg, absp_avg, absr_avg, abssr_avg, abssr_hold, pnlstd_avg, pdist = (
+        (
+            p_avg,
+            r_avg,
+            sr_avg,
+            absp_avg,
+            absr_avg,
+            abssr_avg,
+            abssr_hold,
+            pnlstd_avg,
+            pdist,
+        ) = (
             [],
             [],
             [],
@@ -798,18 +844,18 @@ def Out_sample_Misspec_test(
             opt_pnl_str = list(filter(lambda x: "OptNetPNL" in x, variables))
             rew_str = list(filter(lambda x: "Reward_{}".format(t) in x, variables))
             opt_rew_str = list(filter(lambda x: "OptReward" in x, variables))
-    
+
             # pnl
             pnl = test_env.res_df[pnl_str + opt_pnl_str].iloc[:-1]
             cum_pnl = pnl.cumsum()
-    
-            if datatype == "garch" or datatype=='garch_mr':
+
+            if datatype == "garch" or datatype == "garch_mr":
                 ref_pnl = np.array(cum_pnl[pnl_str]) - np.array(cum_pnl[opt_pnl_str])
             else:
                 ref_pnl = (
                     np.array(cum_pnl[pnl_str]) / np.array(cum_pnl[opt_pnl_str])
                 ) * 100
-    
+
             # rewards
             rew = test_env.res_df[rew_str + opt_rew_str].iloc[:-1]
             cum_rew = rew.cumsum()
@@ -819,41 +865,46 @@ def Out_sample_Misspec_test(
                 ref_rew = (
                     np.array(cum_rew[rew_str]) / np.array(cum_rew[opt_rew_str])
                 ) * 100
-    
+
             # SR
             mean = np.array(pnl[pnl_str]).mean()
             std = np.array(pnl[pnl_str]).std()
             sr = (mean / std) * (252 ** 0.5)
-    
+
             # Holding
             hold = test_env.res_df["NextHolding_{}".format(t)].iloc[
                 -2
             ]  # avoid last observation
             opthold = test_env.res_df["OptNextHolding"].iloc[-2]
-            
-            pdist_avg = ((test_env.res_df["NextHolding_{}".format(t)].values - 
-                          test_env.res_df["OptNextHolding"].values)**2).mean()
-    
+
+            pdist_avg = (
+                (
+                    test_env.res_df["NextHolding_{}".format(t)].values
+                    - test_env.res_df["OptNextHolding"].values
+                )
+                ** 2
+            ).mean()
+
             opt_mean = np.array(pnl[opt_pnl_str]).mean()
             opt_std = np.array(pnl[opt_pnl_str]).std()
             optsr = (opt_mean / opt_std) * (252 ** 0.5)
-    
+
             perc_SR = (sr / optsr) * 100
             pnl_std = (std / opt_std) * 100
-    
+
             p_avg.append(ref_pnl[-1])
             r_avg.append(ref_rew[-1])
             sr_avg.append(perc_SR)
             pnlstd_avg.append(pnl_std)
-    
+
             absp_avg.append(cum_pnl.iloc[-1].values[0])
             absr_avg.append(cum_rew.iloc[-1].values[0])
             abssr_avg.append(sr)
-    
+
             abssr_hold.append(hold)
-            
+
             pdist.append(pdist_avg)
-    
+
         # return only the last value of the series which is the cumulated pnl expressed as a percentage of GP
         return (
             np.array(p_avg).ravel(),
@@ -868,12 +919,13 @@ def Out_sample_Misspec_test(
             np.array(abssr_hold).ravel(),
             opthold,
             np.array(pnlstd_avg).ravel(),
-            np.array(pdist).ravel()
+            np.array(pdist).ravel(),
         )
     else:
         if savedpath:
             test_env.save_outputs(savedpath, test=True, iteration=iteration)
         return test_env.res_df
+
 
 def Out_sample_test_PPO(
     N_test: int,
@@ -891,7 +943,7 @@ def Out_sample_test_PPO(
     executeGP: bool,
     TrainNet,
     policy_type: str,
-    iteration: int=None,
+    iteration: int = None,
     savedpath: Union[str or Path] = None,
     recurrent_env: bool = False,
     unfolding: int = 1,
@@ -904,7 +956,7 @@ def Out_sample_test_PPO(
     discretization: float = None,
     temp: float = 200.0,
     zero_action: bool = True,
-    store_values : bool = True,
+    store_values: bool = True,
     tag="PPO",
 ):
     """
@@ -984,13 +1036,13 @@ def Out_sample_test_PPO(
 
     t_stud : bool = False
         Bool to regulate if Student\'s t noises are needed
-        
+
     side_only: bool
         Regulate the decoupling between side and size of the bet
-        
+
     discretization: float
         Level of discretization. If none, no discretization will be applied
-        
+
     temp: float
         Temperature of boltzmann equation
 
@@ -1047,10 +1099,10 @@ def Out_sample_test_PPO(
         )
 
     device = next(TrainNet.parameters()).device
-    action_space = ActionSpace(KLM, zero_action=zero_action, side_only=side_only) 
+    action_space = ActionSpace(KLM, zero_action=zero_action, side_only=side_only)
 
     CurrState, _ = test_env.reset()
-    
+
     if executeGP:
         CurrOptState = test_env.opt_reset()
         OptRate, DiscFactorLoads = test_env.opt_trading_rate_disc_loads()
@@ -1060,25 +1112,30 @@ def Out_sample_test_PPO(
         TrainNet.eval()
         CurrState = torch.from_numpy(CurrState).float()
         CurrState = CurrState.to(device)
-        
+
         # PPO actions
         dist, qvalues = TrainNet(CurrState.unsqueeze(0))
-        if policy_type == 'continuous':
+        if policy_type == "continuous":
             action = dist.sample()
 
             # clip the action in the space [0,1]
             shares_traded = nn.Tanh()(action).cpu().numpy().ravel()[0]
-            shares_traded = unscale_action(KLM[0],shares_traded)
-            
-        elif policy_type == 'discrete':
-            shares_traded = action_space.values[dist.sample()]        
+            shares_traded = unscale_action(KLM[0], shares_traded)
+
+        elif policy_type == "discrete":
+            shares_traded = action_space.values[dist.sample()]
 
         if side_only:
-            shares_traded = get_bet_size(qvalues,shares_traded,action_limit=KLM[0], rng=rng, 
-                                          zero_action = zero_action,
-                                          discretization=discretization,
-                                          temp=temp)
-        
+            shares_traded = get_bet_size(
+                qvalues,
+                shares_traded,
+                action_limit=KLM[0],
+                rng=rng,
+                zero_action=zero_action,
+                discretization=discretization,
+                temp=temp,
+            )
+
         NextState, Result, NextFactors = test_env.step(
             CurrState, shares_traded, i, tag=tag[0]
         )
@@ -1093,9 +1150,18 @@ def Out_sample_test_PPO(
             test_env.store_results(OptResult, i)
             CurrOptState = NextOptState
 
-    
     if store_values:
-        p_avg, r_avg, sr_avg, absp_avg, absr_avg, abssr_avg, abssr_hold, pnlstd_avg, pdist = (
+        (
+            p_avg,
+            r_avg,
+            sr_avg,
+            absp_avg,
+            absr_avg,
+            abssr_avg,
+            abssr_hold,
+            pnlstd_avg,
+            pdist,
+        ) = (
             [],
             [],
             [],
@@ -1106,57 +1172,66 @@ def Out_sample_test_PPO(
             [],
             [],
         )
-    
+
         for t in tag:
             # select interesting variables and express as a percentage of the GP results
             pnl_str = list(filter(lambda x: "NetPNL_{}".format(t) in x, variables))
             opt_pnl_str = list(filter(lambda x: "OptNetPNL" in x, variables))
             rew_str = list(filter(lambda x: "Reward_{}".format(t) in x, variables))
             opt_rew_str = list(filter(lambda x: "OptReward" in x, variables))
-            
+
             # pnl
             pnl = test_env.res_df[pnl_str + opt_pnl_str].iloc[:-1]
             cum_pnl = pnl.cumsum()
-            ref_pnl = (np.array(cum_pnl[pnl_str]) / np.array(cum_pnl[opt_pnl_str])) * 100
+            ref_pnl = (
+                np.array(cum_pnl[pnl_str]) / np.array(cum_pnl[opt_pnl_str])
+            ) * 100
             # rewards
             rew = test_env.res_df[rew_str + opt_rew_str].iloc[:-1]
             cum_rew = rew.cumsum()
-            ref_rew = (np.array(cum_rew[rew_str]) / np.array(cum_rew[opt_rew_str])) * 100
-    
+            ref_rew = (
+                np.array(cum_rew[rew_str]) / np.array(cum_rew[opt_rew_str])
+            ) * 100
+
             # SR
             mean = np.array(pnl[pnl_str]).mean()
             std = np.array(pnl[pnl_str]).std()
             sr = (mean / std) * (252 ** 0.5)
-    
+
             # Holding
             hold = test_env.res_df["NextHolding_{}".format(t)].iloc[
                 -2
             ]  # avoid last observation
             opthold = test_env.res_df["OptNextHolding"].iloc[-2]
-            
-            pdist_avg = ((test_env.res_df["NextHolding_{}".format(t)].values - 
-                     test_env.res_df["OptNextHolding"].values)**2).mean()
-    
+
+            pdist_avg = (
+                (
+                    test_env.res_df["NextHolding_{}".format(t)].values
+                    - test_env.res_df["OptNextHolding"].values
+                )
+                ** 2
+            ).mean()
+
             opt_mean = np.array(pnl[opt_pnl_str]).mean()
             opt_std = np.array(pnl[opt_pnl_str]).std()
             optsr = (opt_mean / opt_std) * (252 ** 0.5)
-    
+
             perc_SR = (sr / optsr) * 100
             pnl_std = (std / opt_std) * 100
-    
+
             p_avg.append(ref_pnl[-1])
             r_avg.append(ref_rew[-1])
             sr_avg.append(perc_SR)
             pnlstd_avg.append(pnl_std)
-    
+
             absp_avg.append(cum_pnl.iloc[-1].values[0])
             absr_avg.append(cum_rew.iloc[-1].values[0])
             abssr_avg.append(sr)
-    
+
             abssr_hold.append(hold)
-            
+
             pdist.append(pdist_avg)
-    
+
         # return only the last value of the series which is the cumulated pnl expressed as a percentage of GP
         return (
             np.array(p_avg).ravel(),
@@ -1216,7 +1291,7 @@ def Out_sample_Misspec_test_PPO(
     temp: float = 200.0,
     zero_action: bool = True,
     tag="PPO",
-    store_values : bool = True,
+    store_values: bool = True,
 ):
     """
     Perform an out-of-sample test and store results in the case of misspecified
@@ -1335,13 +1410,13 @@ def Out_sample_Misspec_test_PPO(
 
     rng: np.random.mtrand.RandomState
         Random number generator
-    
+
     side_only: bool
         Regulate the decoupling between side and size of the bet
-        
+
     discretization: float
         Level of discretization. If none, no discretization will be applied
-        
+
     temp: float
         Temperature of boltzmann equation
 
@@ -1435,7 +1510,7 @@ def Out_sample_Misspec_test_PPO(
             )
             y, X = df[df.columns[0]], df[df.columns[1:]]
         dates = df.index
-        
+
     elif datatype == "garch_mr":
 
         plot_inputs = False
@@ -1453,9 +1528,9 @@ def Out_sample_Misspec_test_PPO(
             offset=unfolding + 1,
             uncorrelated=uncorrelated,
             t_stud=False,
-            vol = 'heterosk',
+            vol="heterosk",
         )
-        
+
         df = CalculateLaggedSharpeRatio(
             returns, factor_lb, nameTag=datatype, seriestype="return"
         )
@@ -1534,7 +1609,6 @@ def Out_sample_Misspec_test_PPO(
         CurrOptState = test_env.opt_reset()
         OptRate, DiscFactorLoads = test_env.opt_trading_rate_disc_loads()
 
-
     if recurrent_env:
         cycle_len = N_test + 1 - (unfolding - 1)
     else:
@@ -1545,25 +1619,30 @@ def Out_sample_Misspec_test_PPO(
         TrainNet.eval()
         CurrState = torch.from_numpy(CurrState).float()
         CurrState = CurrState.to(device)
-        
+
         # PPO actions
         dist, qvalues = TrainNet(CurrState.unsqueeze(0))
-        if policy_type == 'continuous':
+        if policy_type == "continuous":
             action = dist.sample()
 
             # clip the action in the space [0,1]
             shares_traded = nn.Tanh()(action).cpu().numpy().ravel()[0]
-            shares_traded = unscale_action(KLM[0],shares_traded)
-            
-        elif policy_type == 'discrete':
-            shares_traded = action_space.values[dist.sample()]        
+            shares_traded = unscale_action(KLM[0], shares_traded)
+
+        elif policy_type == "discrete":
+            shares_traded = action_space.values[dist.sample()]
 
         if side_only:
-            shares_traded = get_bet_size(qvalues,shares_traded,action_limit=KLM[0], rng=rng, 
-                                          zero_action = zero_action,
-                                          discretization=discretization,
-                                          temp=temp)
-        
+            shares_traded = get_bet_size(
+                qvalues,
+                shares_traded,
+                action_limit=KLM[0],
+                rng=rng,
+                zero_action=zero_action,
+                discretization=discretization,
+                temp=temp,
+            )
+
         NextState, Result, NextFactors = test_env.step(
             CurrState, shares_traded, i, tag=tag[0]
         )
@@ -1578,9 +1657,18 @@ def Out_sample_Misspec_test_PPO(
             test_env.store_results(OptResult, i)
             CurrOptState = NextOptState
 
-
     if store_values:
-        p_avg, r_avg, sr_avg, absp_avg, absr_avg, abssr_avg, abssr_hold, pnlstd_avg, pdist = (
+        (
+            p_avg,
+            r_avg,
+            sr_avg,
+            absp_avg,
+            absr_avg,
+            abssr_avg,
+            abssr_hold,
+            pnlstd_avg,
+            pdist,
+        ) = (
             [],
             [],
             [],
@@ -1597,18 +1685,18 @@ def Out_sample_Misspec_test_PPO(
             opt_pnl_str = list(filter(lambda x: "OptNetPNL" in x, variables))
             rew_str = list(filter(lambda x: "Reward_{}".format(t) in x, variables))
             opt_rew_str = list(filter(lambda x: "OptReward" in x, variables))
-    
+
             # pnl
             pnl = test_env.res_df[pnl_str + opt_pnl_str].iloc[:-1]
             cum_pnl = pnl.cumsum()
-    
-            if datatype == "garch" or datatype=='garch_mr':
+
+            if datatype == "garch" or datatype == "garch_mr":
                 ref_pnl = np.array(cum_pnl[pnl_str]) - np.array(cum_pnl[opt_pnl_str])
             else:
                 ref_pnl = (
                     np.array(cum_pnl[pnl_str]) / np.array(cum_pnl[opt_pnl_str])
                 ) * 100
-    
+
             # rewards
             rew = test_env.res_df[rew_str + opt_rew_str].iloc[:-1]
             cum_rew = rew.cumsum()
@@ -1618,41 +1706,46 @@ def Out_sample_Misspec_test_PPO(
                 ref_rew = (
                     np.array(cum_rew[rew_str]) / np.array(cum_rew[opt_rew_str])
                 ) * 100
-    
+
             # SR
             mean = np.array(pnl[pnl_str]).mean()
             std = np.array(pnl[pnl_str]).std()
             sr = (mean / std) * (252 ** 0.5)
-    
+
             # Holding
             hold = test_env.res_df["NextHolding_{}".format(t)].iloc[
                 -2
             ]  # avoid last observation
             opthold = test_env.res_df["OptNextHolding"].iloc[-2]
-            
-            pdist_avg = ((test_env.res_df["NextHolding_{}".format(t)].values - 
-                          test_env.res_df["OptNextHolding"].values)**2).mean()
-    
+
+            pdist_avg = (
+                (
+                    test_env.res_df["NextHolding_{}".format(t)].values
+                    - test_env.res_df["OptNextHolding"].values
+                )
+                ** 2
+            ).mean()
+
             opt_mean = np.array(pnl[opt_pnl_str]).mean()
             opt_std = np.array(pnl[opt_pnl_str]).std()
             optsr = (opt_mean / opt_std) * (252 ** 0.5)
-    
+
             perc_SR = (sr / optsr) * 100
             pnl_std = (std / opt_std) * 100
-    
+
             p_avg.append(ref_pnl[-1])
             r_avg.append(ref_rew[-1])
             sr_avg.append(perc_SR)
             pnlstd_avg.append(pnl_std)
-    
+
             absp_avg.append(cum_pnl.iloc[-1].values[0])
             absr_avg.append(cum_rew.iloc[-1].values[0])
             abssr_avg.append(sr)
-    
+
             abssr_hold.append(hold)
-            
+
             pdist.append(pdist_avg)
-    
+
         # return only the last value of the series which is the cumulated pnl expressed as a percentage of GP
         return (
             np.array(p_avg).ravel(),
@@ -1667,13 +1760,12 @@ def Out_sample_Misspec_test_PPO(
             np.array(abssr_hold).ravel(),
             opthold,
             np.array(pnlstd_avg).ravel(),
-            np.array(pdist).ravel()
+            np.array(pdist).ravel(),
         )
     else:
         if savedpath:
             test_env.save_outputs(savedpath, test=True, iteration=iteration)
         return test_env.res_df
-
 
 
 def Out_sample_real_test(
@@ -1705,8 +1797,6 @@ def Out_sample_real_test(
     tag="DQN",
 ):
 
-
-    
     y, X = df[df.columns[0]], df[df.columns[1:]]
     dates = df.index
 
@@ -1718,7 +1808,6 @@ def Out_sample_real_test(
     f_param = params_retmodel["params"]
     f_speed = np.abs(np.array([*params_meanrev.values()]).ravel())
     HalfLife = np.around(np.log(2) / f_speed, 2)
-
 
     if recurrent_env:
         test_returns_tens = create_lstm_tensor(test_returns.reshape(-1, 1), unfolding)
@@ -1763,19 +1852,25 @@ def Out_sample_real_test(
         CurrOptState = test_env.opt_reset()
         OptRate, DiscFactorLoads = test_env.opt_trading_rate_disc_loads()
 
-
-
     cycle_len = N_test - 1
     for i in tqdm(iterable=range(cycle_len), desc="Testing DQNetwork"):
         if executeDRL:
             if tag == "DQN":
                 # shares_traded = TrainNet.greedy_action(CurrState)
-                shares_traded, qvalues = TrainNet.greedy_action(CurrState, side_only=side_only)
+                shares_traded, qvalues = TrainNet.greedy_action(
+                    CurrState, side_only=side_only
+                )
 
                 if side_only:
-                    shares_traded = get_bet_size(qvalues,shares_traded,action_limit=KLM[0], rng=None, zero_action=zero_action,
-                                                 discretization=discretization,
-                                                 temp=temp)
+                    shares_traded = get_bet_size(
+                        qvalues,
+                        shares_traded,
+                        action_limit=KLM[0],
+                        rng=None,
+                        zero_action=zero_action,
+                        discretization=discretization,
+                        temp=temp,
+                    )
                 NextState, Result, NextFactors = test_env.step(
                     CurrState, shares_traded, i
                 )
@@ -1797,7 +1892,6 @@ def Out_sample_real_test(
             test_env.store_results(OptResult, i)
             CurrOptState = NextOptState
 
-
     variables = []
     variables.append("NetPNL_{}".format(tag))
     variables.append("Reward_{}".format(tag))
@@ -1814,7 +1908,6 @@ def Out_sample_real_test(
     pnl = test_env.res_df[pnl_str + opt_pnl_str].iloc[:-1]
     cum_pnl = pnl.cumsum()
     ref_pnl = np.array(cum_pnl[pnl_str]) - np.array(cum_pnl[opt_pnl_str])
-
 
     # rewards
     rew = test_env.res_df[rew_str + opt_rew_str].iloc[:-1]
@@ -1839,13 +1932,17 @@ def Out_sample_real_test(
 
     perc_SR = (sr / optsr) * 100
     pnl_std = (std / opt_std) * 100
-    
-    pdist_avg = ((test_env.res_df["NextHolding_{}".format(tag)].values - 
-             test_env.res_df["OptNextHolding"].values)**2).mean()
-    
+
+    pdist_avg = (
+        (
+            test_env.res_df["NextHolding_{}".format(tag)].values
+            - test_env.res_df["OptNextHolding"].values
+        )
+        ** 2
+    ).mean()
 
     return (
-        ref_pnl[-1][0], # [0] to get the value instead of the numpy array
+        ref_pnl[-1][0],  # [0] to get the value instead of the numpy array
         ref_rew[-1][0],
         perc_SR,
         cum_pnl.iloc[-1].values[0],
@@ -1857,85 +1954,80 @@ def Out_sample_real_test(
         hold,
         opthold,
         pnl_std,
-        pdist_avg
+        pdist_avg,
     )
 
 
 class empty_series:
-    
-    def __init__(self,iterations):
+    def __init__(self, iterations):
         self.mean_series_pnl = pd.DataFrame(index=range(1), columns=iterations)
         self.mean_series_rew = pd.DataFrame(index=range(1), columns=iterations)
         self.mean_series_sr = pd.DataFrame(index=range(1), columns=iterations)
         self.mean_series_pnlstd = pd.DataFrame(index=range(1), columns=iterations)
-    
+
         self.abs_series_pnl_rl = pd.DataFrame(index=range(1), columns=iterations)
         self.abs_series_pnl_gp = pd.DataFrame(index=range(1), columns=iterations)
-        
+
         self.abs_series_rew_rl = pd.DataFrame(index=range(1), columns=iterations)
         self.abs_series_rew_gp = pd.DataFrame(index=range(1), columns=iterations)
-        
+
         self.abs_series_sr_rl = pd.DataFrame(index=range(1), columns=iterations)
         self.abs_series_sr_gp = pd.DataFrame(index=range(1), columns=iterations)
-        
+
         self.abs_series_hold_rl = pd.DataFrame(index=range(1), columns=iterations)
         self.abs_series_hold_gp = pd.DataFrame(index=range(1), columns=iterations)
-        
+
         self.pdist_series = pd.DataFrame(index=range(1), columns=iterations)
-        
-        
-    def collect(self,pnl,
-                rew,
-                sr,
-                abs_prl,
-                abs_pgp,
-                abs_rewrl,
-                abs_rewgp,
-                abs_srrl,
-                abs_srgp,
-                abs_hold,
-                abs_opthold,
-                pnl_std,
-                pdist_avg,
-                ckpt_it):
-        
+
+    def collect(
+        self,
+        pnl,
+        rew,
+        sr,
+        abs_prl,
+        abs_pgp,
+        abs_rewrl,
+        abs_rewgp,
+        abs_srrl,
+        abs_srgp,
+        abs_hold,
+        abs_opthold,
+        pnl_std,
+        pdist_avg,
+        ckpt_it,
+    ):
+
         self.mean_series_pnl.loc[0, str(ckpt_it)] = pnl
         self.mean_series_rew.loc[0, str(ckpt_it)] = rew
         self.mean_series_sr.loc[0, str(ckpt_it)] = sr
         self.mean_series_pnlstd.loc[0, str(ckpt_it)] = pnl_std
 
-       
         self.abs_series_pnl_rl.loc[0, str(ckpt_it)] = abs_prl
         self.abs_series_pnl_gp.loc[0, str(ckpt_it)] = abs_pgp
-        
+
         self.abs_series_rew_rl.loc[0, str(ckpt_it)] = abs_rewrl
         self.abs_series_rew_gp.loc[0, str(ckpt_it)] = abs_rewgp
-        
+
         self.abs_series_sr_rl.loc[0, str(ckpt_it)] = abs_srrl
         self.abs_series_sr_gp.loc[0, str(ckpt_it)] = abs_srgp
-        
+
         self.abs_series_hold_rl.loc[0, str(ckpt_it)] = abs_hold
         self.abs_series_hold_gp.loc[0, str(ckpt_it)] = abs_opthold
-        
+
         self.pdist_series.loc[0, str(ckpt_it)] = pdist_avg
-            
-        
-    def save(self,exp_path,tag, N_test):
+
+    def save(self, exp_path, tag, N_test):
         self.mean_series_pnl.to_parquet(
             os.path.join(
                 exp_path,
-                "NetPnl_OOS_{}_{}.parquet.gzip".format(
-                    format_tousands(N_test), tag
-                ),
+                "NetPnl_OOS_{}_{}.parquet.gzip".format(format_tousands(N_test), tag),
             ),
             compression="gzip",
         )
         self.mean_series_rew.to_parquet(
             os.path.join(
                 exp_path,
-                "Reward_OOS_{}_{}.parquet.gzip".format(
-                    format_tousands(N_test), tag
-                ),
+                "Reward_OOS_{}_{}.parquet.gzip".format(format_tousands(N_test), tag),
             ),
             compression="gzip",
         )
@@ -1947,7 +2039,6 @@ class empty_series:
             compression="gzip",
         )
 
-
         self.mean_series_pnlstd.to_parquet(
             os.path.join(
                 exp_path,
@@ -1956,13 +2047,10 @@ class empty_series:
             compression="gzip",
         )
 
-
         self.abs_series_pnl_rl.to_parquet(
             os.path.join(
                 exp_path,
-                "AbsNetPnl_OOS_{}_{}.parquet.gzip".format(
-                    format_tousands(N_test), tag
-                ),
+                "AbsNetPnl_OOS_{}_{}.parquet.gzip".format(format_tousands(N_test), tag),
             ),
             compression="gzip",
         )
@@ -1976,9 +2064,7 @@ class empty_series:
         self.abs_series_rew_rl.to_parquet(
             os.path.join(
                 exp_path,
-                "AbsRew_OOS_{}_{}.parquet.gzip".format(
-                    format_tousands(N_test), tag
-                ),
+                "AbsRew_OOS_{}_{}.parquet.gzip".format(format_tousands(N_test), tag),
             ),
             compression="gzip",
         )
@@ -1992,9 +2078,7 @@ class empty_series:
         self.abs_series_sr_rl.to_parquet(
             os.path.join(
                 exp_path,
-                "AbsSR_OOS_{}_{}.parquet.gzip".format(
-                    format_tousands(N_test), tag
-                ),
+                "AbsSR_OOS_{}_{}.parquet.gzip".format(format_tousands(N_test), tag),
             ),
             compression="gzip",
         )
@@ -2008,9 +2092,7 @@ class empty_series:
         self.abs_series_hold_rl.to_parquet(
             os.path.join(
                 exp_path,
-                "AbsHold_OOS_{}_{}.parquet.gzip".format(
-                    format_tousands(N_test), tag
-                ),
+                "AbsHold_OOS_{}_{}.parquet.gzip".format(format_tousands(N_test), tag),
             ),
             compression="gzip",
         )
@@ -2021,7 +2103,7 @@ class empty_series:
             ),
             compression="gzip",
         )
-        
+
         self.pdist_series.to_parquet(
             os.path.join(
                 exp_path,
@@ -2029,4 +2111,3 @@ class empty_series:
             ),
             compression="gzip",
         )
-

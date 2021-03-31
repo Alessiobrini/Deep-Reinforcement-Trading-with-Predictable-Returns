@@ -46,7 +46,7 @@ def ReturnSampler(
     seed_test: int = None,
     t_stud: bool = False,
     degrees: int = 8,
-    vol: str = 'omosk',
+    vol: str = "omosk",
     disable_tqdm: bool = False,
 ) -> Tuple[
     Union[list or np.ndarray], Union[list or np.ndarray], Union[list or np.ndarray]
@@ -99,7 +99,7 @@ def ReturnSampler(
 
     degrees : int = 8
         Degrees of freedom for Student\'s t noises
-        
+
     vol: str = 'omosk'
         Choose between 'omosk' and 'eterosk' for the kind of volatility
     Returns
@@ -126,11 +126,10 @@ def ReturnSampler(
     # it is faster to increase the size of a python list than a numpy array
     # therefore we convert later the list
     # https://www.jmp.com/en_us/statistics-knowledge-portal/t-test/t-distribution.html#:~:text=The%20shape%20of%20the%20t,%E2%80%9D%20than%20the%20z%2Ddistribution.
-    
-    
+
     lambdas = np.around(np.log(2) / HalfLife, 4)
-    
-    if vol == 'omosk':
+
+    if vol == "omosk":
         if t_stud:
             if uncorrelated:
                 eps = rng.standard_t(degrees, (N_train + offset, len(HalfLife)))
@@ -141,46 +140,54 @@ def ReturnSampler(
                 eps = rng.randn(N_train + offset, len(HalfLife))
             else:
                 eps = rng.randn(N_train + offset)
-                
+
         f = []
-    
+
         # possibility of triple noise
-        for i in tqdm(iterable=range(N_train + offset), desc="Simulating Factors", disable=disable_tqdm):
+        for i in tqdm(
+            iterable=range(N_train + offset),
+            desc="Simulating Factors",
+            disable=disable_tqdm,
+        ):
             # multiply makes the hadamard (componentwise) product
             # if we want to add different volatility for different factors we could
             # add multiply also the the second part of the equation
             f1 = np.multiply((1 - lambdas), f0) + np.multiply(sigmaf, eps[i])
             f.append(f1)
             f0 = f1
-            
-    elif vol == 'heterosk':
-        volmodel = GARCH(p=1,q=1)
+
+    elif vol == "heterosk":
+        volmodel = GARCH(p=1, q=1)
         # these factors, if multiple, are uncorrelated by default because the noise is constructed one by one
         if len(sigmaf) > 1:
-        
+
             eps = []
             for i in range(len(sigmaf)):
-                om = sigmaf[i]**2  # same vol as original GP experiments
+                om = sigmaf[i] ** 2  # same vol as original GP experiments
                 alph = 0.05
-                b = 1-alph-om
+                b = 1 - alph - om
                 garch_p = np.array([om, alph, b])
- 
+
                 e = volmodel.simulate(garch_p, N_train + offset, rng.randn)[0]
-                eps.append(e.reshape(-1,1))
+                eps.append(e.reshape(-1, 1))
 
             eps = np.concatenate(eps, axis=1)
         else:
-            
-            om = sigmaf[0]**2  # same vol as original GP experiments
+
+            om = sigmaf[0] ** 2  # same vol as original GP experiments
             alph = 0.05
-            b = 1-alph-om
+            b = 1 - alph - om
             garch_p = np.array([om, alph, b])
-            
-            eps = volmodel.simulate(garch_p, N_train + offset, rng.randn)[0] 
+
+            eps = volmodel.simulate(garch_p, N_train + offset, rng.randn)[0]
 
         f = []
         # possibility of triple noise
-        for i in tqdm(iterable=range(N_train + offset), desc="Simulating Factors", disable=disable_tqdm):
+        for i in tqdm(
+            iterable=range(N_train + offset),
+            desc="Simulating Factors",
+            disable=disable_tqdm,
+        ):
             # multiply makes the hadamard (componentwise) product
             # if we want to add different volatility for different factors we could
             # add multiply also the the second part of the equation
@@ -189,32 +196,29 @@ def ReturnSampler(
             f0 = f1
 
     factors = np.vstack(f)
-    if vol == 'omosk':
+    if vol == "omosk":
         if t_stud:
             u = rng.standard_t(degrees, N_train + offset)
         else:
             u = rng.randn(N_train + offset)
-            
+
         realret = np.sum(f_param * factors, axis=1) + sigma * u
-        
-    elif vol == 'heterosk':
-        volmodel = GARCH(p=1,q=1)
-        om = sigma**2  # same vol as original GP experiments
+
+    elif vol == "heterosk":
+        volmodel = GARCH(p=1, q=1)
+        om = sigma ** 2  # same vol as original GP experiments
         alph = 0.05
-        b = 1-alph-om
+        b = 1 - alph - om
         garch_p = np.array([om, alph, b])
 
         u = volmodel.simulate(garch_p, N_train + offset, rng.randn)[0]
-        
-        
+
         realret = np.sum(f_param * factors, axis=1) + sigma * u
 
-    
     f_speed = lambdas
     # now we add noise to the equation of return by default, while in the previous
     # implementation we were using a boolean
     # single noise
-
 
     # plots for factor, returns and prices
     if plot_inputs:
@@ -515,8 +519,8 @@ if __name__ == "__main__":
     N = 5000
     sigmaf = [0.2, 0.1, 0.5]  # [0.59239224, 0.06442296, 0.02609584]
     f0 = [0.0, 0.0, 0.0]
-    f_param = (
-        np.array([0.00635, 0.00535, 0.00435])
+    f_param = np.array(
+        [0.00635, 0.00535, 0.00435]
     )  # [8.51579723e-05, -0.000846756903, -0.00186581236] #
     sigma = 0.01
     plot_inputs = False
@@ -525,7 +529,7 @@ if __name__ == "__main__":
     offset = 2
     uncorrelated = True
     t_stud = False
-    
+
     rng = np.random.RandomState(seed_ret)
     ret_norm, _, _ = ReturnSampler(
         N,
@@ -557,10 +561,9 @@ if __name__ == "__main__":
         adftest=False,
         uncorrelated=uncorrelated,
         t_stud=t_stud,
-        vol='heterosk',
+        vol="heterosk",
     )
-    
-    
+
     # ret_garch = GARCHSampler(N,
     #             mean_process= 'Constant',
     #             lags_mean_process=1,
@@ -568,8 +571,6 @@ if __name__ == "__main__":
     #             distr_noise='normal',
     #             seed= 13,
     #             seed_param= 24)
-
-
 
     fig1 = plt.figure()
     ax1 = fig1.add_subplot()

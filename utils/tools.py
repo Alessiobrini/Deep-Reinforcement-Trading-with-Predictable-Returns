@@ -30,7 +30,7 @@ def get_action_boundaries(
     factors: Union[list or np.ndarray],
     qts: list = [0.01, 0.99],
     min_n_actions: bool = True,
-    experiment_type: str = 'synth',
+    experiment_type: str = "synth",
 ):
 
     """
@@ -118,8 +118,8 @@ def get_action_boundaries(
         CurrOptState = NextOptState
 
     action_quantiles = env.res_df["OptNextAction"].quantile(qts).values
-    
-    if experiment_type == 'real':
+
+    if experiment_type == "real":
         qt = np.max(np.abs(action_quantiles))
         length = len(str(int(np.round(qt))))
         action = int(np.abs(np.round(qt, -length + 2)))
@@ -271,10 +271,15 @@ def RunModels(
     return params_retmodel, params_meanrev, fitted_retmodel, fitted_ous
 
 
-
-def get_bet_size(qvalues: np.ndarray,side_action: float,action_limit: float, 
-                 zero_action: bool, rng, discretization: float = None,
-                 temp: float = 200.0) -> float:
+def get_bet_size(
+    qvalues: np.ndarray,
+    side_action: float,
+    action_limit: float,
+    zero_action: bool,
+    rng,
+    discretization: float = None,
+    temp: float = 200.0,
+) -> float:
     """
     Get the size of the bet by using qvalues of DQN as probabilities. In principle
     a continuous range of action inside a boundary is outputted, but there is also
@@ -290,16 +295,16 @@ def get_bet_size(qvalues: np.ndarray,side_action: float,action_limit: float,
 
     action_limit: bool
         Lower and upper boundary for the action space
-    
+
     zero_action: bool
         Regulate the presence of hold actions (no trade)
-    
-    rng: 
+
+    rng:
         Random number generator
-    
+
     discretization: float
         Level of discretization. If none, no discretization will be applied
-        
+
     temp: float
         Temperature of boltzmann equation
 
@@ -308,19 +313,19 @@ def get_bet_size(qvalues: np.ndarray,side_action: float,action_limit: float,
     size_action: float
         Action which reflect the size of the bet in addition the provided side
 
-    """ 
+    """
     # when qvalues are not provided because the action is taked at random
     if qvalues == None:
         if side_action == 0.0:
             m = 0
         elif side_action == -1.0:
-            m = rng.uniform(-1.0,0.0)
+            m = rng.uniform(-1.0, 0.0)
         elif side_action == 1.0:
-            m = rng.uniform(0.0,1.0)
+            m = rng.uniform(0.0, 1.0)
         if discretization:
-            m = np.round(m/discretization,0)*discretization
+            m = np.round(m / discretization, 0) * discretization
         size_action = unscale_action(action_limit, m)
-    
+
     else:
 
         # one hot vector of qvalues by the max action
@@ -328,19 +333,21 @@ def get_bet_size(qvalues: np.ndarray,side_action: float,action_limit: float,
             n_actions = 3
         else:
             n_actions = 2
-            
-        idx = tf.one_hot(tf.math.argmax(qvalues,axis=1), n_actions)
-        
+
+        idx = tf.one_hot(tf.math.argmax(qvalues, axis=1), n_actions)
+
         # get prob by using boltzmann
-        prob = boltzmann(qvalues,T=temp)
+        prob = boltzmann(qvalues, T=temp)
         act_prob = tf.math.reduce_sum(prob * idx, axis=1)
         # avoid division by 0 and get z statistics
-        z = (act_prob - (1/n_actions)) / (tf.math.sqrt(act_prob * (1-act_prob)) + 0.00000007)
+        z = (act_prob - (1 / n_actions)) / (
+            tf.math.sqrt(act_prob * (1 - act_prob)) + 0.00000007
+        )
         # get size in the range -1,1
-        m = (2*norm.cdf(z) - 1) * side_action
+        m = (2 * norm.cdf(z) - 1) * side_action
         if discretization:
-            m = np.round(m/discretization,0)*discretization
+            m = np.round(m / discretization, 0) * discretization
         # rescale action to the proper range
         size_action = float(unscale_action(action_limit, m))
-    
+
     return size_action

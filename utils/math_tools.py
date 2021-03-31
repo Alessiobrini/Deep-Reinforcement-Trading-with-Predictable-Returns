@@ -8,6 +8,7 @@ Created on Tue Feb  9 14:44:16 2021
 import numpy as np
 from typing import Union
 
+
 def scale_action(action_limit, action):
     """
     Rescale the action from [low, high] to [-1, 1]
@@ -16,7 +17,7 @@ def scale_action(action_limit, action):
     :param action: (np.ndarray)
     :return: (np.ndarray)
     """
-    low, high = -action_limit ,action_limit
+    low, high = -action_limit, action_limit
     return 2.0 * ((action - low) / (high - low)) - 1.0
 
 
@@ -28,8 +29,9 @@ def unscale_action(action_limit, scaled_action):
     :param action: (np.ndarray)
     :return: (np.ndarray)
     """
-    low, high = -action_limit ,action_limit
+    low, high = -action_limit, action_limit
     return low + (0.5 * (scaled_action + 1.0) * (high - low))
+
 
 def boltzmann(x: np.ndarray, T: Union[float or int]) -> np.ndarray:
     """
@@ -49,7 +51,7 @@ def boltzmann(x: np.ndarray, T: Union[float or int]) -> np.ndarray:
         Array of Q values transformed by the boltmann equation
 
     """
-    e_x = np.exp((x - np.max(x))/T)
-    y = e_x / e_x.sum(axis=1).reshape(-1,1)
-    
+    e_x = np.exp((x - np.max(x)) / T)
+    y = e_x / e_x.sum(axis=1).reshape(-1, 1)
+
     return y

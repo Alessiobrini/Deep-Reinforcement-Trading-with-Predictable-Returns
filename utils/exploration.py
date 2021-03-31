@@ -257,15 +257,14 @@ class OrnsteinUhlenbeckActionNoise:
 
 ################################################################################
 # TEST PART
-if __name__=='__main__':
+if __name__ == "__main__":
 
     # N = 5000
     # sigma = 0.22
     # sigma_lab = str(sigma)
     # sigma_decay = (sigma- 0.01)/N
     # theta = 0.1
-    
-    
+
     # rng = np.random.RandomState(123)
     # OU_process = OrnsteinUhlenbeckActionNoise(mu=np.array([0]), sigma=sigma, theta=theta, x0=0, rng=rng)
     # # rng = np.random.RandomState(123)
@@ -278,10 +277,10 @@ if __name__=='__main__':
     # noises_ou_decay = []
     # for _ in range(N):
     #     sigma = max(0.0, sigma - sigma_decay)
-        # G_process.sigma = sigma
-        # noises_g_decay.append(G_process())
-        # OU_process.sigma = sigma
-        # noises_ou_decay.append(OU_process())
+    # G_process.sigma = sigma
+    # noises_g_decay.append(G_process())
+    # OU_process.sigma = sigma
+    # noises_ou_decay.append(OU_process())
 
     # fig = plt.figure()
     # ax = fig.add_subplot()
@@ -301,18 +300,20 @@ if __name__=='__main__':
     N = 5000
     sigma = 0.06
     mu = -0.01
-    
+
     # thetas = np.arange(0.1,1.0,0.2)
     thetas = [0.3, 0.4, 0.5]
     # df = pd.DataFrame(index=range(N))
     df_list = []
     for t in thetas:
         rng = np.random.RandomState(None)
-        OU_process = OrnsteinUhlenbeckActionNoise(mu=np.ones(50)*mu, sigma=sigma, theta=t, x0=np.zeros(50), rng=rng)
+        OU_process = OrnsteinUhlenbeckActionNoise(
+            mu=np.ones(50) * mu, sigma=sigma, theta=t, x0=np.zeros(50), rng=rng
+        )
         df_list.append(OU_process)
         # rng = np.random.RandomState(123)
         # G_process = GaussianActionNoise(mu=np.array([0]), sigma=sigma, rng=rng)
-    
+
         # noises_g = [G_process() for _ in range(N)]
         # noises_ou = [OU_process() for _ in range(N)]
         # pdb.set_trace()
@@ -320,9 +321,9 @@ if __name__=='__main__':
 
     # df.plot()
     # print(df.describe())
-    for l,t in zip(df_list,thetas):
+    for l, t in zip(df_list, thetas):
         n = l()
 
         print(t, n.mean(), n.min(), n.max())
-        print(n[n<0.0].shape[0],n[n>0.0].shape[0])
+        print(n[n < 0.0].shape[0], n[n > 0.0].shape[0])
         print()

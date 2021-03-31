@@ -10,7 +10,13 @@ from matplotlib import cm
 from matplotlib import gridspec
 import tensorflow as tf
 from utils.simulation import ReturnSampler, GARCHSampler, create_lstm_tensor
-from utils.env import MarketEnv, RecurrentMarketEnv, ReturnSpace, HoldingSpace, ActionSpace
+from utils.env import (
+    MarketEnv,
+    RecurrentMarketEnv,
+    ReturnSpace,
+    HoldingSpace,
+    ActionSpace,
+)
 from utils.tools import CalculateLaggedSharpeRatio, RunModels
 from utils.test import Out_sample_test, Out_sample_Misspec_test
 from tqdm import tqdm
@@ -345,7 +351,6 @@ def plot_portfolio(r: pd.DataFrame, tag: str, ax2: matplotlib.axes.Axes):
     ax2.plot(r["OptNextHolding"].values[1:-1], label="benchmark", alpha=0.5)
 
 
-
 if __name__ == "__main__":
 
     params_plt = {  # Use LaTeX to write all text
@@ -568,7 +573,9 @@ if __name__ == "__main__":
             experiment = "side_only_True_seed_ret_6"
         elif htype == "risk":
             experiment = "seed_ret_924"
-        data_dir = "outputs/DQN/20210209_GPGAUSS_decouple_side_only_True/{}/{}".format(length, experiment)
+        data_dir = "outputs/DQN/20210209_GPGAUSS_decouple_side_only_True/{}/{}".format(
+            length, experiment
+        )
         filenamep = os.path.join(data_dir, "config_{}.yaml".format(length))
         p = readConfigYaml(filenamep)
         p["N_test"] = ntest
@@ -576,7 +583,7 @@ if __name__ == "__main__":
         ck_it = "end"
 
         model, actions = load_DQNmodel(p, data_dir, True, 300000)
-        
+
         res = Out_sample_test(
             p["N_test"],
             p["sigmaf"],
@@ -604,12 +611,12 @@ if __name__ == "__main__":
             seed,
             uncorrelated=p["executeGP"],
             t_stud=False,
-            side_only=p['side_only'],
-            discretization=p['discretization'],
-            temp=p['temp'],
-            store_values= False
+            side_only=p["side_only"],
+            discretization=p["discretization"],
+            temp=p["temp"],
+            store_values=False,
         )
-        
+
         plot_portfolio(res, "DQN", ax1)
 
         # STUD mfit

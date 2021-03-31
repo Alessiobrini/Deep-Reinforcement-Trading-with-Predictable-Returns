@@ -15,7 +15,6 @@ from utils.math_tools import unscale_action
 from utils.common import format_tousands
 
 
-
 class ReturnSpace(Space):
     """
     Class used to discretize the space of returns. It inherits from the Space class
@@ -34,6 +33,7 @@ class ReturnSpace(Space):
         check if a real-valued return is contained in the discretized space
         and return a boolean
     """
+
     def __init__(self, RT: list):
         self.values = np.arange(-RT[0], RT[0], RT[1])
         super().__init__(self.values.shape, self.values.dtype)
@@ -59,6 +59,7 @@ class HoldingSpace(Space):
         check if a real-valued holding is contained in the discretized space
         and return a boolean
     """
+
     def __init__(self, KLM: list):
         self.values = np.arange(-KLM[2], KLM[2] + 1, KLM[1])
         if 0 not in self.values:
@@ -91,21 +92,22 @@ class ActionSpace(Space):
         if not side_only:
             self.values = np.arange(-KLM[0], KLM[0] + 1, KLM[1])
         else:
-            self.values = np.array([-1.0,0.0,1.0])
+            self.values = np.array([-1.0, 0.0, 1.0])
         if not zero_action:
             self.values = self.values[self.values != 0.0]
         super().__init__(self.values.shape, self.values.dtype)
-        
+
     def contains(self, x: int) -> bool:
         return x in self.values
-    
+
     def get_n_actions(self, policy_type: str):
-        # TODO note that this implementation is valid only for a single action. 
+        # TODO note that this implementation is valid only for a single action.
         # If we want to do more than one action we should change it
-        if policy_type == 'continuous':
+        if policy_type == "continuous":
             return self.values.ndim
-        elif policy_type == 'discrete':
+        elif policy_type == "discrete":
             return self.values.size
+
 
 class CreateQTable:
     """
@@ -402,7 +404,6 @@ class MarketEnv(gym.Env):
 
         colnames = ["returns"] + ["factor_" + str(hl) for hl in HalfLife]
 
-
         res_df = pd.DataFrame(
             np.concatenate(
                 [np.array(self.returns).reshape(-1, 1), np.array(self.factors)], axis=1
@@ -413,7 +414,6 @@ class MarketEnv(gym.Env):
         self.dates = dates
         res_df = res_df.astype(np.float32)
         self.res_df = res_df
-
 
     def get_state_dim(self):
         state, _ = self.reset()
@@ -431,11 +431,11 @@ class MarketEnv(gym.Env):
         iteration: int,
         tag: str = "DQN",
     ) -> Tuple[np.ndarray, dict, np.ndarray]:
-        
+
         nextFactors = self.factors[iteration + 1]
         nextRet = self.returns[iteration + 1]
         if tag == "DDPG":
-            shares_traded =  unscale_action(self.action_limit, shares_traded)
+            shares_traded = unscale_action(self.action_limit, shares_traded)
 
         nextHolding = currState[1] + shares_traded
         nextState = np.array([nextRet, nextHolding], dtype=np.float32)
@@ -461,7 +461,9 @@ class MarketEnv(gym.Env):
         discretecurrState: Union[Tuple or np.ndarray],
         shares_traded: int,
         iteration: int,
-    ) -> Tuple[np.ndarray, dict, np.ndarray]: # TODO implement here decoupling if needed
+    ) -> Tuple[
+        np.ndarray, dict, np.ndarray
+    ]:  # TODO implement here decoupling if needed
         discretenextRet = self._find_nearest_return(self.returns[iteration + 1])
         discretenextHolding = self._find_nearest_holding(
             discretecurrState[1] + shares_traded
@@ -806,7 +808,6 @@ class RecurrentMarketEnv(gym.Env):
                nextState: Tuple[Union[float or int],Union[float or int]],
                tag: str) -> dict
     """
-
 
     def __init__(
         self,

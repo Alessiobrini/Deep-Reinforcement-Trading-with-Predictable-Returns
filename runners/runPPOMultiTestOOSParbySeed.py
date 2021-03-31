@@ -60,7 +60,6 @@ def iterate_seeds(
     if "seed_init" not in p_mod:
         p_mod["seed_init"] = p_mod["seed"]
 
-
     # take seeds for OOS test and initialize Dataframe to store PnL averages
     rng = np.random.RandomState(random_state)
     seeds = rng.choice(1000, n_seeds, replace=False)
@@ -78,9 +77,9 @@ def iterate_seeds(
     abs_series_rew_gp = pd.DataFrame(index=range(1), columns=iterations)
     abs_series_hold_rl = pd.DataFrame(index=range(1), columns=iterations)
     abs_series_hold_gp = pd.DataFrame(index=range(1), columns=iterations)
-    
+
     mean_series_pnl_std = pd.DataFrame(index=range(1), columns=iterations)
-    
+
     mean_series_pdist = pd.DataFrame(index=range(1), columns=iterations)
 
     # do tests for saved weights at intermediate time
@@ -117,7 +116,7 @@ def iterate_seeds(
                     abs_hold,
                     abs_opthold,
                     pnl_std,
-                    pdist
+                    pdist,
                 ) = Out_sample_Misspec_test_PPO(
                     N_test=N_test,
                     df=None,  # adapt if you have real data
@@ -129,7 +128,7 @@ def iterate_seeds(
                     KLM=p_mod["KLM"],
                     executeGP=p_mod["executeGP"],
                     TrainNet=model,  # loaded model
-                    policy_type=p_mod['policy_type'],
+                    policy_type=p_mod["policy_type"],
                     iteration=0,  # not useful, put 0
                     recurrent_env=p_mod["recurrent_env"],
                     unfolding=p_mod["unfolding"],
@@ -149,13 +148,12 @@ def iterate_seeds(
                     degrees=p_mod["degrees"],
                     rng=rng,  # not really useful if you pass a seed_test
                     variables=variables,
-                    side_only = p_mod['side_only'],
-                    discretization = p_mod['discretization'],
-                    temp = p_mod['temp'],
-                    zero_action=p_mod['zero_action'],
+                    side_only=p_mod["side_only"],
+                    discretization=p_mod["discretization"],
+                    temp=p_mod["temp"],
+                    zero_action=p_mod["zero_action"],
                     tag=tag,
                 )
-
 
                 avg_pnls.append(pnl)
                 avg_rews.append(rew)
@@ -172,39 +170,25 @@ def iterate_seeds(
                 avg_pdist.append(pdist)
 
             # append the average cumulative pnl obtained
-            mean_series_pnl.loc[0, str(ckpt_it)] = np.mean(
-                np.array(avg_pnls)[:, 0]
-            )
-            mean_series_rew.loc[0, str(ckpt_it)] = np.mean(
-                np.array(avg_rews)[:, 0]
-            )
-            mean_series_sr.loc[0, str(ckpt_it)] = np.mean(
-                np.array(avg_srs)[:, 0]
-            )
-            abs_series_pnl_rl.loc[0, str(ckpt_it)] = np.mean(
-                np.array(abs_pnl_rl)[:, 0]
-            )
+            mean_series_pnl.loc[0, str(ckpt_it)] = np.mean(np.array(avg_pnls)[:, 0])
+            mean_series_rew.loc[0, str(ckpt_it)] = np.mean(np.array(avg_rews)[:, 0])
+            mean_series_sr.loc[0, str(ckpt_it)] = np.mean(np.array(avg_srs)[:, 0])
+            abs_series_pnl_rl.loc[0, str(ckpt_it)] = np.mean(np.array(abs_pnl_rl)[:, 0])
             abs_series_pnl_gp.loc[0, str(ckpt_it)] = np.mean(abs_pnl_gp)
-            abs_series_rew_rl.loc[0, str(ckpt_it)] = np.mean(
-                np.array(abs_rew_rl)[:, 0]
-            )
+            abs_series_rew_rl.loc[0, str(ckpt_it)] = np.mean(np.array(abs_rew_rl)[:, 0])
             abs_series_rew_gp.loc[0, str(ckpt_it)] = np.mean(abs_rew_gp)
-            abs_series_sr_rl.loc[0, str(ckpt_it)] = np.mean(
-                np.array(abs_sr_rl)[:, 0]
-            )
+            abs_series_sr_rl.loc[0, str(ckpt_it)] = np.mean(np.array(abs_sr_rl)[:, 0])
             abs_series_sr_gp.loc[0, str(ckpt_it)] = np.mean(abs_sr_gp)
             abs_series_hold_rl.loc[0, str(ckpt_it)] = np.mean(
                 np.array(abs_hold_rl)[:, 0]
             )
             abs_series_hold_gp.loc[0, str(ckpt_it)] = np.mean(abs_hold_gp)
-            
-            mean_series_pnl_std.loc[0, str(ckpt_it)] = np.mean(
-                            np.array(avg_pnlstd)[:, 0]
-                        )
 
-            mean_series_pdist.loc[0, str(ckpt_it)] = np.mean(
-                            np.array(avg_pdist)[:, 0]
-                        )
+            mean_series_pnl_std.loc[0, str(ckpt_it)] = np.mean(
+                np.array(avg_pnlstd)[:, 0]
+            )
+
+            mean_series_pdist.loc[0, str(ckpt_it)] = np.mean(np.array(avg_pdist)[:, 0])
 
         else:
             avg_pnls = []
@@ -234,7 +218,7 @@ def iterate_seeds(
                     abs_hold,
                     abs_opthold,
                     pnl_std,
-                    pdist
+                    pdist,
                 ) = Out_sample_test_PPO(
                     N_test=N_test,
                     sigmaf=p_mod["sigmaf"],
@@ -250,7 +234,7 @@ def iterate_seeds(
                     KLM=p_mod["KLM"],
                     executeGP=p_mod["executeGP"],
                     TrainNet=model,  # loaded model
-                    policy_type = p_mod['policy_type'],
+                    policy_type=p_mod["policy_type"],
                     recurrent_env=p_mod["recurrent_env"],
                     unfolding=p_mod["unfolding"],
                     rng=rng,
@@ -258,13 +242,13 @@ def iterate_seeds(
                     uncorrelated=p_mod["uncorrelated"],
                     t_stud=p_mod["t_stud"],
                     variables=variables,
-                    side_only = p_mod['side_only'],
-                    discretization = p_mod['discretization'],
-                    temp = p_mod['temp'],
-                    zero_action=p_mod['zero_action'],
+                    side_only=p_mod["side_only"],
+                    discretization=p_mod["discretization"],
+                    temp=p_mod["temp"],
+                    zero_action=p_mod["zero_action"],
                     tag=tag,
                 )
-                    
+
                 avg_pnls.append(pnl)
                 avg_rews.append(rew)
                 avg_srs.append(sr)
@@ -281,56 +265,37 @@ def iterate_seeds(
 
             # append the average cumulative pnl obtained
 
-            mean_series_pnl.loc[0, str(ckpt_it)] = np.mean(
-                np.array(avg_pnls)[:, 0]
-            )
-            mean_series_rew.loc[0, str(ckpt_it)] = np.mean(
-                np.array(avg_rews)[:, 0]
-            )
-            mean_series_sr.loc[0, str(ckpt_it)] = np.mean(
-                np.array(avg_srs)[:, 0]
-            )
-            abs_series_pnl_rl.loc[0, str(ckpt_it)] = np.mean(
-                np.array(abs_pnl_rl)[:, 0]
-            )
+            mean_series_pnl.loc[0, str(ckpt_it)] = np.mean(np.array(avg_pnls)[:, 0])
+            mean_series_rew.loc[0, str(ckpt_it)] = np.mean(np.array(avg_rews)[:, 0])
+            mean_series_sr.loc[0, str(ckpt_it)] = np.mean(np.array(avg_srs)[:, 0])
+            abs_series_pnl_rl.loc[0, str(ckpt_it)] = np.mean(np.array(abs_pnl_rl)[:, 0])
             abs_series_pnl_gp.loc[0, str(ckpt_it)] = np.mean(abs_pnl_gp)
-            abs_series_rew_rl.loc[0, str(ckpt_it)] = np.mean(
-                np.array(abs_rew_rl)[:, 0]
-            )
+            abs_series_rew_rl.loc[0, str(ckpt_it)] = np.mean(np.array(abs_rew_rl)[:, 0])
             abs_series_rew_gp.loc[0, str(ckpt_it)] = np.mean(abs_rew_gp)
-            abs_series_sr_rl.loc[0, str(ckpt_it)] = np.mean(
-                np.array(abs_sr_rl)[:, 0]
-            )
+            abs_series_sr_rl.loc[0, str(ckpt_it)] = np.mean(np.array(abs_sr_rl)[:, 0])
             abs_series_sr_gp.loc[0, str(ckpt_it)] = np.mean(abs_sr_gp)
             abs_series_hold_rl.loc[0, str(ckpt_it)] = np.mean(
                 np.array(abs_hold_rl)[:, 0]
             )
             abs_series_hold_gp.loc[0, str(ckpt_it)] = np.mean(abs_hold_gp)
-            
+
             mean_series_pnl_std.loc[0, str(ckpt_it)] = np.mean(
-                                np.array(avg_pnlstd)[:, 0]
-                            )
-            
-            mean_series_pdist.loc[0, str(ckpt_it)] = np.mean(
-                            np.array(avg_pdist)[:, 0]
-                        )                
-            
- 
+                np.array(avg_pnlstd)[:, 0]
+            )
+
+            mean_series_pdist.loc[0, str(ckpt_it)] = np.mean(np.array(avg_pdist)[:, 0])
+
     mean_series_pnl.to_parquet(
         os.path.join(
             exp_path,
-            "NetPnl_OOS_{}_{}.parquet.gzip".format(
-                format_tousands(N_test), tag[0]
-            ),
+            "NetPnl_OOS_{}_{}.parquet.gzip".format(format_tousands(N_test), tag[0]),
         ),
         compression="gzip",
     )
     mean_series_rew.to_parquet(
         os.path.join(
             exp_path,
-            "Reward_OOS_{}_{}.parquet.gzip".format(
-                format_tousands(N_test), tag[0]
-            ),
+            "Reward_OOS_{}_{}.parquet.gzip".format(format_tousands(N_test), tag[0]),
         ),
         compression="gzip",
     )
@@ -341,7 +306,7 @@ def iterate_seeds(
         ),
         compression="gzip",
     )
-    
+
     mean_series_pnl_std.to_parquet(
         os.path.join(
             exp_path,
@@ -350,13 +315,10 @@ def iterate_seeds(
         compression="gzip",
     )
 
-
     abs_series_pnl_rl.to_parquet(
         os.path.join(
             exp_path,
-            "AbsNetPnl_OOS_{}_{}.parquet.gzip".format(
-                format_tousands(N_test), tag[0]
-            ),
+            "AbsNetPnl_OOS_{}_{}.parquet.gzip".format(format_tousands(N_test), tag[0]),
         ),
         compression="gzip",
     )
@@ -370,9 +332,7 @@ def iterate_seeds(
     abs_series_rew_rl.to_parquet(
         os.path.join(
             exp_path,
-            "AbsRew_OOS_{}_{}.parquet.gzip".format(
-                format_tousands(N_test), tag[0]
-            ),
+            "AbsRew_OOS_{}_{}.parquet.gzip".format(format_tousands(N_test), tag[0]),
         ),
         compression="gzip",
     )
@@ -386,9 +346,7 @@ def iterate_seeds(
     abs_series_sr_rl.to_parquet(
         os.path.join(
             exp_path,
-            "AbsSR_OOS_{}_{}.parquet.gzip".format(
-                format_tousands(N_test), tag[0]
-            ),
+            "AbsSR_OOS_{}_{}.parquet.gzip".format(format_tousands(N_test), tag[0]),
         ),
         compression="gzip",
     )
@@ -402,9 +360,7 @@ def iterate_seeds(
     abs_series_hold_rl.to_parquet(
         os.path.join(
             exp_path,
-            "AbsHold_OOS_{}_{}.parquet.gzip".format(
-                format_tousands(N_test), tag[0]
-            ),
+            "AbsHold_OOS_{}_{}.parquet.gzip".format(format_tousands(N_test), tag[0]),
         ),
         compression="gzip",
     )
@@ -415,7 +371,7 @@ def iterate_seeds(
         ),
         compression="gzip",
     )
-    
+
     mean_series_pdist.to_parquet(
         os.path.join(
             exp_path,
@@ -423,7 +379,6 @@ def iterate_seeds(
         ),
         compression="gzip",
     )
-
 
 
 def runPPOMultiTestOOSbySeed(p):
@@ -437,8 +392,12 @@ def runPPOMultiTestOOSbySeed(p):
     outputModel = p["outputModel"]
     algo = p["algo"]
     # get the latest created folder "length"
-    modelpath = os.path.join(os.getcwd(),'outputs',outputClass,outputModel)
-    all_subdirs = [os.path.join(modelpath,d) for d in os.listdir(modelpath) if os.path.isdir(os.path.join(modelpath,d))]
+    modelpath = os.path.join(os.getcwd(), "outputs", outputClass, outputModel)
+    all_subdirs = [
+        os.path.join(modelpath, d)
+        for d in os.listdir(modelpath)
+        if os.path.isdir(os.path.join(modelpath, d))
+    ]
     latest_subdir = max(all_subdirs, key=os.path.getmtime)
     length = os.path.split(latest_subdir)[-1]
 
@@ -462,8 +421,6 @@ def runPPOMultiTestOOSbySeed(p):
         for dirname in os.listdir(data_dir)
         if os.path.isdir(os.path.join(os.getcwd(), data_dir, dirname))
     ]
-    
-
 
     if p["varying_type"] == "chunk":
         num_cores = p["num_rnd_search"]

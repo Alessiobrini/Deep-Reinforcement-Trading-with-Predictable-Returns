@@ -19,6 +19,7 @@ from tensorflow.keras.optimizers.schedules import PiecewiseConstantDecay
 from tensorflow.keras.optimizers.schedules import PolynomialDecay
 from utils.exploration import PER_buffer
 import pdb
+
 ################################ Class to create a Deep Q Network model ################################
 class DeepNetworkModel(tf.keras.Model):
     def __init__(
@@ -357,6 +358,7 @@ class DeepRecurrentNetworkModel(tf.keras.Model):
 ############################### DQN ALGORITHM ################################
 class DQN:
     """DQN algorithm class"""
+
     def __init__(
         self,
         seed: int,
@@ -563,7 +565,7 @@ class DQN:
 
         rng = None
             Random number generator for reproducibility
-            
+
         modelname: str
             Name for the model
 
@@ -651,7 +653,6 @@ class DQN:
                 centered=False,
             )
 
-
         self.recurrent_env = recurrent_env
         self.beta_1 = beta_1
         self.eps_opt = eps_opt
@@ -673,7 +674,15 @@ class DQN:
                 sample_type,
             )  # experience is stored as object of this class
         else:
-            self.experience = {"s": [], "a": [], "r": [], "s2": [], "f": [], 'unsc_a': [], "opt_a": []}
+            self.experience = {
+                "s": [],
+                "a": [],
+                "r": [],
+                "s2": [],
+                "f": [],
+                "unsc_a": [],
+                "opt_a": [],
+            }
         self.test_experience = None
         self.start_train = start_train
         self.stop_train = stop_train
@@ -733,8 +742,14 @@ class DQN:
         elif self.selected_loss == "huber":
             self.loss = tf.keras.losses.Huber()
 
-    def train(self, TargetNet, iteration: int, side_only: bool = False,
-              bcm: bool = False, bcm_scale: float = 0.01):
+    def train(
+        self,
+        TargetNet,
+        iteration: int,
+        side_only: bool = False,
+        bcm: bool = False,
+        bcm_scale: float = 0.01,
+    ):
 
         """Parameters
         ----------
@@ -745,13 +760,13 @@ class DQN:
             Number of iteration update
         side_only: bool
             Regulate the decoupling between side and size of the bet
-            
+
         bcm: bool
             Regulate the part of the loss relative to the behaviorl cloning of an expert
         """
         if iteration < self.start_train or iteration > self.stop_train:
             return 0
-        
+
         if self.use_PER:
             b_idx, minibatch = self.PERmemory.sample_batch(self.batch_size)
             states = np.asarray(minibatch["s"])
@@ -779,16 +794,22 @@ class DQN:
             states_next = np.asarray([self.experience["s2"][i] for i in ids])
             # TODO load unscaled actions and or expert actions
             if bcm and side_only:
-                unsc_actions = np.asarray([self.experience["unsc_a"][i] for i in ids], dtype="float32")
-                opt_actions = np.asarray([self.experience["opt_a"][i] for i in ids], dtype="float32")
+                unsc_actions = np.asarray(
+                    [self.experience["unsc_a"][i] for i in ids], dtype="float32"
+                )
+                opt_actions = np.asarray(
+                    [self.experience["opt_a"][i] for i in ids], dtype="float32"
+                )
                 self.loss_bcm = tf.keras.losses.MeanSquaredError()
 
             elif bcm and not side_only:
-                opt_actions = np.asarray([self.experience["opt_a"][i] for i in ids], dtype="float32")
-                # TODO probably in this scase it makes much more sense to use a log loss 
+                opt_actions = np.asarray(
+                    [self.experience["opt_a"][i] for i in ids], dtype="float32"
+                )
+                # TODO probably in this scase it makes much more sense to use a log loss
                 # because the size of the action is always the same
                 self.loss_bcm = tf.keras.losses.MeanSquaredError()
-        
+
         with tf.GradientTape() as tape:
 
             # compute current action values
@@ -831,7 +852,7 @@ class DQN:
                     std_rewards = (
                         actual_values - self.rwds_run_mean
                     ) / self.rwds_run_std
-                    actual_values = std_rewards 
+                    actual_values = std_rewards
                 else:
                     actual_values = np.array(rewards + self.gamma * value_next)
                     sample_mean = actual_values.mean()
@@ -889,7 +910,7 @@ class DQN:
             else:
 
                 loss = self.loss(y_true=actual_values, y_pred=selected_action_values)
-                
+
                 if bcm and side_only:
                     loss_bcm = self.loss_bcm(y_true=opt_actions, y_pred=unsc_actions)
 
@@ -897,11 +918,9 @@ class DQN:
                 elif bcm and not side_only:
                     loss_bcm = self.loss_bcm(y_true=opt_actions, y_pred=actions)
                     loss = tf.add(loss, bcm_scale * loss_bcm)
-                
-                
-                
+
         variables = self.model.trainable_variables
-        
+
         # compute gradient of the loss with respect to the variables (weights)
         gradients = tape.gradient(loss, variables)
 
@@ -920,13 +939,11 @@ class DQN:
                     self.clipglob = np.mean(self.global_norms)
             else:
 
-                gradients, gbnorm = tf.clip_by_global_norm(
-                    gradients, self.clipglob
-                )
+                gradients, gbnorm = tf.clip_by_global_norm(gradients, self.clipglob)
 
         # provide a list of (gradient, variable) pairs.
         self.optimizer.apply_gradients(zip(gradients, variables))
-        
+
         # TODO uncomment to visualize TB results
         # if ((iteration % self.plot_steps) == 0) or (iteration == self.start_train):
         #     with self.summary_writer.as_default():
@@ -1079,22 +1096,20 @@ class DQN:
 
         #         self.summary_writer.flush()
 
-
-
     def eps_greedy_action(
-         self, states: np.ndarray, epsilon: float, side_only: bool = False
-     ) -> Tuple[Union[float or int],np.ndarray]:
+        self, states: np.ndarray, epsilon: float, side_only: bool = False
+    ) -> Tuple[Union[float or int], np.ndarray]:
         """Parameters
         ----------
         states: np.ndarray
             Current state representation
-       
+
         epsilon: float
             Epsilon parameter for exploration
-            
+
         side_only: bool
             Regulate the decoupling between side and size of the bet
-       
+
         Returns
         ----------
         action: Union[float or int]
@@ -1109,9 +1124,9 @@ class DQN:
             else:
                 action = self.action_space.values[
                     np.argmax(
-                        self.model(np.atleast_2d(states.astype("float32")), training=False)[
-                            0
-                        ]
+                        self.model(
+                            np.atleast_2d(states.astype("float32")), training=False
+                        )[0]
                     )
                 ]
                 return action, None
@@ -1120,55 +1135,62 @@ class DQN:
                 action = self.rng.choice(self.action_space.values)
                 return action, None
             else:
-                qvalues = self.model(np.atleast_2d(states.astype("float32")), training=False)
+                qvalues = self.model(
+                    np.atleast_2d(states.astype("float32")), training=False
+                )
                 action = self.action_space.values[np.argmax(qvalues[0])]
                 return action, qvalues
-    
-    def greedy_action(self, states: np.ndarray, side_only: bool = False) -> Tuple[Union[float or int],np.ndarray]:
+
+    def greedy_action(
+        self, states: np.ndarray, side_only: bool = False
+    ) -> Tuple[Union[float or int], np.ndarray]:
         """Parameters
         ----------
         states: np.ndarray
             Current state representation
-    
+
         side_only: bool
             Regulate the decoupling between side and size of the bet
-       
+
         Returns
         ----------
         action: Union[float or int]
             Greedy selected action
-            
+
         qvalues : np.ndarray
             Q values associated to the actions space
         """
         if not side_only:
-            qvalues = self.model(np.atleast_2d(states.astype("float32")), training=False)
+            qvalues = self.model(
+                np.atleast_2d(states.astype("float32")), training=False
+            )
             action = self.action_space.values[np.argmax(qvalues[0])]
             return action, None
         else:
 
-            qvalues = self.model(np.atleast_2d(states.astype("float32")), training=False)
+            qvalues = self.model(
+                np.atleast_2d(states.astype("float32")), training=False
+            )
             action = self.action_space.values[np.argmax(qvalues[0])]
             return action, qvalues
 
-    
     def add_experience(self, exp):
         """Parameters
         ----------
         exp: dict
             Sequences of experience to store
-       
+
         """
         if self.use_PER:
             self.PERmemory.add(exp)
         else:
             if len(self.experience["s"]) >= self.max_experiences:
                 for key in self.experience.keys():
-                    if self.experience[key]: # check if the list is not empty
+                    if self.experience[key]:  # check if the list is not empty
                         self.experience[key].pop(0)
             for key, value in exp.items():
                 self.experience[key].append(value)
-    
+
     def copy_weights(self, TrainNet):
         """Parameters
         ----------
@@ -1187,5 +1209,3 @@ class DQN:
             variables2 = TrainNet.model.trainable_variables
             for v1, v2 in zip(variables1, variables2):
                 v1.assign(v2.numpy())
-
-

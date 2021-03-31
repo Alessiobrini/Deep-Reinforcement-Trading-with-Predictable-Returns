@@ -195,6 +195,7 @@ def GeneratePathFolder(
 
     return savedpath
 
+
 def set_size(width, fraction=1, subplots=(1, 1)) -> tuple:
     """Set figure dimensions to avoid scaling in LaTeX.
 
@@ -254,7 +255,7 @@ def prime_factors(n: int) -> list:
 
 def chunks(lst: list, n: int) -> list:
     """Yield successive n-sized chunks from lst.
-    
+
     Parameters
     ----------
     lst: list
