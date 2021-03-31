@@ -1,14 +1,15 @@
 # PPO PARAMS
 ############################## RL RELATED ##############################
+universal : True # universal will simulate a new return path for each episode
 policy_type : 'discrete' #['discrete', 'continuous'] #discrete or continuous
 pol_std : 0.0 # policy std dev for stochasticity
 recurrent_env : False # set up recurrent environment
 gamma : 0.99 # discounting factor for the Q target
 kappa : 0.001 # risk aversion
 tau: 0.95 # lambda in the original GAE paper
-clip_param : 0.2
-vf_c: 0.5
-ent_c : 0.001
+clip_param : 0.2 # clipping of objective function
+vf_c: 0.5 # coefficient for the value error
+ent_c : 0.001 # coefficient for entropy
 qts : [0.001,0.999] # quantile to select action boundaries
 KLM :  [null, null, 100000] # list with actions that each trade can take: from 
                             #-K to +K lot sizes minimum size of tradable (equities/contracts) 

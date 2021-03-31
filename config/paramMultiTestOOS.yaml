@@ -1,49 +1,31 @@
 # MULTI TEST OOS PARAMS
 ############################### LAUNCH SIMULATIONS ##############################
-random_state : 4567  # Seed for experiment reproducibility OOS 
-N_test: 100
-n_seeds : 2
-plot_lr : False
-plot_experience : False
-plot_buffer : False
-conf_interval: False
+N_test: 5000 # Length of OOS test
+n_seeds : 10 # Number of OOS test to perform for each agent at each checkpoint
+random_state : 4567  # Seed for experiment reproducibility OOS. Used to draw "n_seeds" for OOS testing
 use_GPU : True
+varying_type : 'chunk'
+varying_pars: ['outputModel'] 
+num_rnd_search : 2 # number of parallelized OOS test to perform
+parbyseed : True # Choose if parallelize by seeds. 
+                 # If False the parallelization will be done through folders as specified in "varying_pars"
 #########################################################################################################
 # FOLDER PARAMETERS
 outputDir: 'outputs'
-outputClass: 'DQN'
-outputModel: ['20210210_GPGAUSS_decouple_discretization_None_temp_100.0', 
-'20210210_GPGAUSS_decouple_discretization_None_temp_50.0',
-'20210209_GPGAUSS_decouple_side_only_True',
-'20210209_GPGAUSS_decouple_side_only_False']
-
-
-
- # ['20210211_GPGAUSS_decouple_bcm_bcm_scale_0.0001']#, '20210211_GPGAUSS_decouple_bcm_bcm_scale_0.001']
- # '20210211_decoupl_symbol_BRK.A_side_only_False', '20210211_decoupl_symbol_BRK.A_side_only_True']
-
-
-
-# ['20210208_real_3act_symbol_BRK.A','20210208_real_symbol_BRK.A']
-
-length : '300k'
-algo :  ['DQN'] #['DQN','Q']
-gen_test : True
-gen_plot : False
-parbyseed : True
-varying_pars: ['outputModel'] 
-varying_type : 'chunk'
-num_rnd_search : 8
-plot_type: 'holdings'
-
-# GAUSS
-# ['20210107_GPGAUSS_final', '20210108_GPGAUSS_2f_final']
-# STUD
-# ['20210107_GPSTUDmfit_final','20210108_GPSTUDfullfit_final',
-#               '20210108_GPSTUD_df8_final_datatype_t_stud_mfit', '20210108_GPSTUD_df8_final_datatype_t_stud']
-# GARCH
-# ['20210109_GARCH_long_distr_noise_normal', '20210109_GARCH_long_distr_noise_studt']
-# ['20210108_GARCH_final_distr_noise_normal','20210108_GARCH_final_distr_noise_studt',
-# '20210109_EGARCH','20210109_EGARCH_studt']
-# GARCH MR
-# ['20210202_GARCH_MR_correct_factor_lb_32', '20210202_GARCH_MR_correct_factor_lb_36', '20210202_GARCH_MR_correct_factor_lb_43']
+outputClass: 'PPO'
+outputModel: ['20210328_PPO_final','20210328_PPO_misspec_final']
+length : '1_2M' # string representing the length of experiment folder to plot
+algo :  ['PPO'] # list of algorithm to plot their results. 'DQN' and 'Q' as possible values
+plot_type: 'ppo' 
+# Possible choices for this last parameter are:
+# 'pnlsrgauss' (Figure 1 paper)
+# 'pnlsrstud' (Figure 3 paper)
+# 'pnlsrgarch' (Figure 4 paper)
+# 'policies' (Figure 2 paper)
+# 'holdings' (Figure 5 paper)
+# 'rewgauss' (Figure 1 supplementary material)
+# 'rewstud' (Figure 2 supplementary material)
+# 'rewgarch' (Figure 3 supplementary material)
+# 'ppo' (Figure 1 rebuttal)
+# In this one one could reproduce similar figures to the paper and the supplementary material,
+# as long as the folder path in the list "outputModel" contains relevant experiment to plot
