@@ -27,6 +27,7 @@ from utils.common import format_tousands
 # TODO integrate these two scripts into a single one
 from runners.runMultiTestOOSParbySeed import runMultiTestOOSbySeed
 from runners.runPPOMultiTestOOSParbySeed import runPPOMultiTestOOSbySeed
+from runners.runMultiTestOOS import runMultiTestOOS
 
 
 def RunMultiParallelExp(var_par: list, Param: dict, func: object):
@@ -145,7 +146,7 @@ def main_runner(configs_path: str, algo: str, experiment: str, parallel: bool):
             Parallel(n_jobs=num_cores)(
                 delayed(RunMultiParallelExp)(var_par, Param) for var_par in variables
             )
-            time.sleep(10)
+            time.sleep(3)
             os.execv(sys.executable, ["python"] + sys.argv)
 
         if Param["varying_type"] == "chunk":
@@ -155,7 +156,7 @@ def main_runner(configs_path: str, algo: str, experiment: str, parallel: bool):
                     delayed(RunMultiParallelExp)(var_par, Param, func)
                     for var_par in chunk_var
                 )
-                time.sleep(10)
+                time.sleep(3)
 
         else:
             Parallel(n_jobs=num_cores)(
@@ -167,23 +168,29 @@ def main_runner(configs_path: str, algo: str, experiment: str, parallel: bool):
 
         func(Param)
 
-    # transfer path of the current experiment among yaml files
-    f = open(os.path.join(configs_path, "paramMultiTestOOS.yaml"))
-    paramtest = yaml.safe_load(f)
+    if parallel:
+        # transfer path of the current experiment among yaml files
+        f = open(os.path.join(configs_path, "paramMultiTestOOS.yaml"))
+        paramtest = yaml.safe_load(f)
 
-    g = open(os.path.join(configs_path, configname))
-    x = yaml.safe_load(g)
+        g = open(os.path.join(configs_path, configname))
+        x = yaml.safe_load(g)
 
-    paramtest["outputClass"] = x["outputClass"]
-    paramtest["outputModel"] = x["outputModel"]
-    paramtest["length"] = format_tousands(x["N_train"])
+        paramtest["outputClass"] = x["outputClass"]
+        paramtest["outputModel"] = x["outputModel"]
+        paramtest["algo"] = [algo]
+        if algo!= 'PPO':
+            paramtest["length"] = format_tousands(x["N_train"])
+    
+        # run OOS tests
+        # TODO integrate PPO out-of-sample in the original testing function
+        if algo != "PPO":
+            runMultiTestOOSbySeed(p=paramtest) #runMultiTestOOSbySeed
+        else:
+            runPPOMultiTestOOSbySeed(p=paramtest)
 
-    # run OOS tests
-    # TODO integrate PPO out-of-sample in the original testing function
-    if algo != "PPO":
-        runMultiTestOOSbySeed(p=paramtest)
-    else:
-        runPPOMultiTestOOSbySeed(p=paramtest)
+
+
 
 
 if __name__ == "__main__":

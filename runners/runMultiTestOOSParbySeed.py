@@ -29,15 +29,8 @@ import seaborn as sns
 sns.set_style("darkgrid")
 
 
-# Generate Logger-------------------------------------------------------------
-logger = generate_logger()
-
-# Read config ----------------------------------------------------------------
-p = readConfigYaml(os.path.join(os.getcwd(), "config", "paramMultiTestOOS.yaml"))
-logging.info("Successfully read config file for Multi Test OOS...")
-
-
 def iterate_seeds(
+    p,
     data_dir,
     length,
     extract_iterations,
@@ -104,6 +97,7 @@ def iterate_seeds(
 
     # do tests for saved weights at intermediate time
     for ckpt_it in iterations_num:
+        
         if "DQN" in tag:
             model, actions = load_DQNmodel(p_mod, exp_path, ckpt=True, ckpt_it=ckpt_it)
             p_mod["action_limit"] = None
@@ -182,7 +176,7 @@ def iterate_seeds(
                     vol_process=p_mod["vol_process"],
                     distr_noise=p_mod["distr_noise"],
                     seed=s,  # seed you are iterating over
-                    seed_param=p_mod["seedparam"],
+                    seed_param=p_mod["seed_param"],
                     sigmaf=p_mod["sigmaf"],
                     f0=p_mod["f0"],
                     f_param=p_mod["f_param"],
@@ -586,6 +580,7 @@ def runMultiTestOOSbySeed(p):
         for chunk_var in chunks(filtered_dir, num_cores):
             Parallel(n_jobs=num_cores)(
                 delayed(iterate_seeds)(
+                    p,
                     data_dir,
                     length,
                     extract_iterations,
@@ -602,6 +597,7 @@ def runMultiTestOOSbySeed(p):
         num_cores = len(filtered_dir)
         Parallel(n_jobs=num_cores)(
             delayed(iterate_seeds)(
+                p,
                 data_dir,
                 length,
                 extract_iterations,

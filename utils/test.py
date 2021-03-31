@@ -771,7 +771,7 @@ def Out_sample_Misspec_test(
 
     for i in tqdm(iterable=range(cycle_len), desc="Testing DQNetwork"):
         if executeDRL:
-            if tag == "DQN":
+            if "DQN" in tag:
                 qvalues = TrainNet(
                     np.atleast_2d(CurrState.astype("float32")), training=False
                 )
@@ -791,7 +791,7 @@ def Out_sample_Misspec_test(
                     CurrState, shares_traded, i
                 )
                 test_env.store_results(Result, i)
-            elif tag == "DDPG":
+            elif "DDPG" in tag:
                 tg = "DDPG"
                 shares_traded = TrainNet(
                     np.atleast_2d(CurrState.astype("float32")), training=False
@@ -829,6 +829,7 @@ def Out_sample_Misspec_test(
             pnlstd_avg,
             pdist,
         ) = (
+            [],
             [],
             [],
             [],

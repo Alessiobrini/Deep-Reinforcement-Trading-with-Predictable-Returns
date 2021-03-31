@@ -74,12 +74,12 @@ discount_rate: 0.0 # discount rate for time value of money (not gamma in DQN)
 Startholding: 0.0 # initial portfolio holding
 ############################### LAUNCH SIMULATIONS ##############################
 episodes : null
-start_train : 300 # steps after which the training starts
+start_train : 100 # steps after which the training starts
 training : 'online' # online or offline
-seed_ret : 11 #[45,23] # seed for the return simulation
+seed_ret : [45,23] # seed for the return simulation
 seed_init :  # seed for weights initialization. Leave empty if you want it to be equal to seed_ret 
-N_train : 2000  # training iteration (each step consists of one action-value update)
-len_series : 2000 # length of simulated series, if null the legth is N_train
+N_train : 1000  # training iteration (each step consists of one action-value update)
+len_series : 1000 # length of simulated series, if null the legth is N_train
 plot_inputs : 0 # boolean for plotting generated ret and factors
 executeDRL: 1 # boolean to decide if run DRL agent
 executeRL: 0 # boolean to decide if run RL agent
@@ -97,7 +97,7 @@ use_GPU : True
 # FOLDER PARAMETERS
 outputDir: 'outputs' # main directory for the experiment
 outputClass: 'DQN' # first subdirectory
-outputModel: '20210330_GPGAUSS_test12' # second subdirectory
+outputModel: '20210330_GPGAUSS_testèpar1' # second subdirectory
 num_rnd_search : 8  # number of cores to use when experiments are parallelized
 varying_pars: ['seed_ret']  # choose parameters to vary while performing several different experiment
 varying_type : 'chunk' # type of parallelization. 'chunk' will parallelize experiments
