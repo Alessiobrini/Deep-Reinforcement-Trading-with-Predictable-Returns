@@ -502,4 +502,4 @@ def runPPOMultiTestOOSbySeed(p):
 
 
 if __name__ == "__main__":
-    runMultiTestOOSbySeed(p)
+    runPPOMultiTestOOSbySeed(p)

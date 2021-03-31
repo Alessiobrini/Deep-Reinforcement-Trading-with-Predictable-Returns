@@ -31,8 +31,7 @@ from runners.runPPOMultiTestOOSParbySeed import runPPOMultiTestOOSbySeed
 
 
 def RunMultiParallelExp(var_par: list, Param: dict, func: object):
-    """Main function to parallelize which loads the parameters for the synthetic experiments
-    and run both training and testing routines
+    """Parallelize the runner passed as function
 
     Parameters
     ----------
@@ -41,6 +40,9 @@ def RunMultiParallelExp(var_par: list, Param: dict, func: object):
 
     Param: dict
         The dictionary containing the parameters
+
+    func: object
+        Runner to parallelize
     """
     
     for i in range(len(var_par)):
@@ -49,8 +51,26 @@ def RunMultiParallelExp(var_par: list, Param: dict, func: object):
     func(Param)
 
 @gin.configurable()
-def main_runner(configs_path, algo, experiment, parallel):
+def main_runner(configs_path: str, algo: str, experiment: str, parallel: bool):
+    """Main function to run both a single experiment or a
+    set of parallelized experiment
 
+    Parameters
+    ----------
+    configs_path: str
+        Path where the config files are stored
+
+    algo: str
+        Acronym of the algorithm to run. Read the comments in the gin config to see
+        the available algorithms
+
+    experiment: str
+        Name of the type of synthetic experiment to perform. Read the comments in the gin config to see
+        the available algorithms
+
+    parallel: bool
+        Choose to parallelize or not the selected experiments
+    """
     func = None
     # get runner to do the experiments
     if algo == "DQN":
@@ -90,6 +110,7 @@ def main_runner(configs_path, algo, experiment, parallel):
     # launch runner (either parallelized or not)
     if parallel:
 
+        # select all the combinations of hyperparameters
         if (Param["varying_type"] == "combination") or (Param["varying_type"] == "chunk"):
             variables = [xs for xs in itertools.product(*[Param[v] for v in Param["varying_pars"]])]
 
@@ -110,6 +131,7 @@ def main_runner(configs_path, algo, experiment, parallel):
 
         num_cores = len(variables)
 
+        # run the combinations in parallel
         if Param["varying_type"] == "random_search":
             Parallel(n_jobs=num_cores)(
                 delayed(RunMultiParallelExp)(var_par, Param) for var_par in variables
@@ -135,7 +157,7 @@ def main_runner(configs_path, algo, experiment, parallel):
         func(Param)
 
 
-    # run OOS tests
+    # transfer path of the current experiment among yaml files
     f=open(os.path.join(configs_path, 'paramMultiTestOOS.yaml'))
     paramtest=yaml.safe_load(f)
 
@@ -146,6 +168,8 @@ def main_runner(configs_path, algo, experiment, parallel):
     paramtest["outputModel"]=x["outputModel"]
     paramtest["length"]= format_tousands(x["N_train"])
 
+    # run OOS tests 
+    # TODO integrate PPO out-of-sample in the original testing function
     if algo != 'PPO':
         runMultiTestOOSbySeed(p=paramtest)
     else:
