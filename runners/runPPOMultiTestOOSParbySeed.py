@@ -138,7 +138,7 @@ def iterate_seeds(
                     vol_process=p_mod["vol_process"],
                     distr_noise=p_mod["distr_noise"],
                     seed=s,  # seed you are iterating over
-                    seed_param=p_mod["seedparam"],
+                    seed_param=p_mod["seed_param"],
                     sigmaf=p_mod["sigmaf"],
                     f0=p_mod["f0"],
                     f_param=p_mod["f_param"],

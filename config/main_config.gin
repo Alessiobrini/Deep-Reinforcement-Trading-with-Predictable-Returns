@@ -1,7 +1,7 @@
 # Macros:
 # ==============================================================================
 ALGO = 'PPO' # 'PPO', 'DQN' or 'DDPG'  
-EXPERIMENT = 'GP' # GP or Misspec
+EXPERIMENT = 'Misspec' # GP or Misspec
 PARALLEL = True
 
 

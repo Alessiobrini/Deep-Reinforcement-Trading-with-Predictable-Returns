@@ -1,6 +1,6 @@
 # PPO PARAMS
 ############################## RL RELATED ##############################
-universal : True # universal will simulate a new return path for each episode
+universal : False # universal will simulate a new return path for each episode
 policy_type : 'continuous' #discrete or continuous
 pol_std : 0.0 # policy std dev for stochasticity
 recurrent_env : False # set up recurrent environment
@@ -60,23 +60,23 @@ sigmaf : [0.2] # list of factor volatilities
 uncorrelated : True # generate correlated or uncorrelated factors
 degrees : 6 # degrees of freedom for Student's T
 ############################### LAUNCH SIMULATIONS ##############################
-episodes : 500
-len_series : 10000 # length of simulated series, if null the legth is N_train
+episodes : 10
+len_series : 100 # length of simulated series, if null the legth is N_train
 ppo_epochs: 3
-seed : 11 #[759, 637,  41,  94, 410, 401, 565, 945, 293, 967] # seed for the return simulation
+seed : [759, 637] # seed for the return simulation
 seed_param :  # seed for GARCH type simulation to sample random values for paramters
 plot_inputs : 0 # boolean for plotting generated ret and factors
 executeDRL: 1 # boolean to decide if run DRL agent
 executeGP: 1 # boolean to decide if run GP solution
 save_results: 0 # boolean to decide if save dataframe of results
-save_ckpt_model: 15 # number of checkpoints to save during training
+save_ckpt_model: 5 # number of checkpoints to save during training
 #########################################################################################################
 # FOLDER PARAMETERS
 outputDir: 'outputs' # main directory for the experiment
 outputClass: 'test' # first subdirectory
-outputModel: '20210319_PPOtest_misspec3' # second subdirectory
+outputModel: '20210319_PPOtest_misspecpar5' # second subdirectory
 num_rnd_search : 5  # number of cores to use when experiments are parallelized
-varying_pars:  #['seed_ret'] # choose parameters to vary while performing several different experiment
+varying_pars:  ['seed'] # choose parameters to vary while performing several different experiment
 varying_type : 'chunk' # type of parallelization. 'chunk' will parallelize experiments
                        # in chunks of size 'num_rnd_search'. 'random_search' draw randomly some
                        # parameter combination depeding on all 'varying_pars' combinations.
