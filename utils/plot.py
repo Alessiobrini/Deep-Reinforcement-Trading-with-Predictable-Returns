@@ -235,10 +235,6 @@ def load_Actor_Critic(
     if ckpt:
         if not ckpt_folder == "ckpt_pt":
             if DDPG_type == "DDPG":
-                # Q_model = CriticNetwork(p['seed_init'], num_states, p['hidden_units_Q'], num_actions,
-                #                                p['batch_norm_input'], p['batch_norm_hidden'], p['activation'], p['kernel_initializer'],
-                #                                p['output_init'], p['delayed_actions'],
-                #                                modelname='Qmodel')
                 p_model = ActorNetwork(
                     p["seed_init"],
                     num_states,
@@ -251,21 +247,13 @@ def load_Actor_Critic(
                     p["output_init"],
                     modelname="pmodel",
                 )
-                # Q_model.load_weights(os.path.join(data_dir, 'ckpt','Q_model_{}_it_weights'.format(ckpt_it)))
+
                 p_model.load_weights(
                     os.path.join(
                         data_dir, "ckpt", "p_model_{}_it_weights".format(ckpt_it)
                     )
                 )
             elif DDPG_type == "TD3":
-                # Q1_model = CriticNetwork(p['seed_init'], num_states, p['hidden_units_Q'], num_actions,
-                #                                p['batch_norm_input'], p['batch_norm_hidden'], p['activation'], p['kernel_initializer'],
-                #                                p['output_init'], p['delayed_actions'],
-                #                                modelname='Q1model')
-                # Q2_model = CriticNetwork(p['seed_init'], num_states, p['hidden_units_Q'], num_actions,
-                #                                p['batch_norm_input'], p['batch_norm_hidden'], p['activation'], p['kernel_initializer'],
-                #                                p['output_init'], p['delayed_actions'],
-                #                                modelname='Q2model')
                 p_model = ActorNetwork(
                     p["seed_init"],
                     num_states,
@@ -278,15 +266,25 @@ def load_Actor_Critic(
                     p["output_init"],
                     modelname="pmodel",
                 )
-                # Q1_model.load_weights(os.path.join(data_dir, 'ckpt','Q1_model_{}_it_weights'.format(ckpt_it)))
-                # Q2_model.load_weights(os.path.join(data_dir, 'ckpt','Q2_model_{}_it_weights'.format(ckpt_it)))
+
                 p_model.load_weights(
                     os.path.join(
                         data_dir, "ckpt", "p_model_{}_it_weights".format(ckpt_it)
                     )
                 )
         else:
-            # Q_model.load_weights(os.path.join(data_dir, 'ckpt_pt','Q_model_{}_it_pretrained_weights'.format(ckpt_it)))
+            p_model = ActorNetwork(
+                p["seed_init"],
+                num_states,
+                p["hidden_units_p"],
+                num_actions,
+                p["batch_norm_input"],
+                p["batch_norm_hidden"],
+                p["activation_p"],
+                p["kernel_initializer"],
+                p["output_init"],
+                modelname="pmodel",
+                )
             p_model.load_weights(
                 os.path.join(
                     data_dir,
@@ -296,10 +294,6 @@ def load_Actor_Critic(
             )
     else:
         if DDPG_type == "DDPG":
-            # Q_model = CriticNetwork(p['seed_init'], num_states, p['hidden_units_Q'], num_actions,
-            #                                p['batch_norm_input'], p['batch_norm_hidden'], p['activation'], p['kernel_initializer'],
-            #                                p['output_init'], p['delayed_actions'],
-            #                                modelname='Qmodel')
             p_model = ActorNetwork(
                 p["seed_init"],
                 num_states,
@@ -312,17 +306,8 @@ def load_Actor_Critic(
                 p["output_init"],
                 modelname="pmodel",
             )
-            # Q_model.load_weights(os.path.join(data_dir, 'Q_model_final_weights'))
             p_model.load_weights(os.path.join(data_dir, "p_model_final_weights"))
         elif DDPG_type == "TD3":
-            # Q1_model = CriticNetwork(p['seed_init'], num_states, p['hidden_units_Q'], num_actions,
-            #                                p['batch_norm_input'], p['batch_norm_hidden'], p['activation'], p['kernel_initializer'],
-            #                                p['output_init'], p['delayed_actions'],
-            #                                modelname='Q1model')
-            # Q2_model = CriticNetwork(p['seed_init'], num_states, p['hidden_units_Q'], num_actions,
-            #                                p['batch_norm_input'], p['batch_norm_hidden'], p['activation'], p['kernel_initializer'],
-            #                                p['output_init'], p['delayed_actions'],
-            #                                modelname='Q2model')
             p_model = ActorNetwork(
                 p["seed_init"],
                 num_states,
@@ -335,8 +320,7 @@ def load_Actor_Critic(
                 p["output_init"],
                 modelname="pmodel",
             )
-            # Q1_model.load_weights(os.path.join(data_dir, 'Q1_model_final_weights'))
-            # Q2_model.load_weights(os.path.join(data_dir, 'Q2_model_final_weights'))
+
             p_model.load_weights(os.path.join(data_dir, "p_model_final_weights"))
 
     return p_model
@@ -344,57 +328,6 @@ def load_Actor_Critic(
     #     return Q_model, p_model
     # elif DDPG_type == 'TD3':
     #     return Q1_model, Q2_model, p_model
-
-# PLOT UTILS
-def prime_factors(n):
-    i = 2
-    factors = []
-    while i * i <= n:
-        if n % i:
-            i += 1
-        else:
-            n //= i
-            factors.append(i)
-    if n > 1:
-        factors.append(n)
-    return factors
-
-
-
-def set_size(width, fraction=1, subplots=(1, 1)):
-    """Set figure dimensions to avoid scaling in LaTeX.
-
-    Parameters
-    ----------
-    width: float
-            Document textwidth or columnwidth in pts
-    fraction: float, optional
-            Fraction of the width which you wish the figure to occupy
-
-    Returns
-    -------
-    fig_dim: tuple
-            Dimensions of figure in inches
-    """
-    # Width of figure (in pts)
-    fig_width_pt = width * fraction
-
-    # Convert from pt to inches
-    inches_per_pt = 1 / 72.27
-
-    # Golden ratio to set aesthetic figure height
-    # https://disq.us/p/2940ij3
-    golden_ratio = (5 ** 0.5 - 1) / 2
-
-    # Figure width in inches
-    fig_width_in = fig_width_pt * inches_per_pt
-    # Figure height in inches
-    # fig_height_in = fig_width_in * golden_ratio
-    fig_height_in = fig_width_in * golden_ratio * (subplots[0] / subplots[1])
-
-    fig_dim = (fig_width_in, fig_height_in)
-
-    return fig_dim
 
 
 def plot_multitest_overlap_OOS(

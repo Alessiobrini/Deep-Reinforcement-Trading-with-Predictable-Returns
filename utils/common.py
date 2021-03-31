@@ -70,7 +70,7 @@ def format_tousands(num: int) -> str:
     return str_num
 
 
-def readConfigYaml(filepath):
+def readConfigYaml(filepath) -> dict:
     """Takes a specified path for the config file and open it. This allows
     to pass all the inputs by modifying the correspondent config file.
 
@@ -195,7 +195,7 @@ def GeneratePathFolder(
 
     return savedpath
 
-def set_size(width, fraction=1, subplots=(1, 1)):
+def set_size(width, fraction=1, subplots=(1, 1)) -> tuple:
     """Set figure dimensions to avoid scaling in LaTeX.
 
     Parameters
@@ -231,7 +231,14 @@ def set_size(width, fraction=1, subplots=(1, 1)):
     return fig_dim
 
 
-def prime_factors(n):
+def prime_factors(n: int) -> list:
+    """Compute the decomposition of an integer number into prime factors.
+
+    Parameters
+    ----------
+    n: int
+        Integer number to decompose into its prime factors
+    """
     i = 2
     factors = []
     while i * i <= n:
@@ -245,7 +252,7 @@ def prime_factors(n):
     return factors
 
 
-def chunks(lst: list, n: int):
+def chunks(lst: list, n: int) -> list:
     """Yield successive n-sized chunks from lst.
     
     Parameters
@@ -265,6 +272,15 @@ def chunks(lst: list, n: int):
 
 
 def save(config, path):
+    """Takes the config and a specified path where to save it. This allows
+    to save the config file in the folde rof the experiment to enhance reproducibility.
 
+    Parameters
+    ----------
+    config: dict
+        The dictionary to store
+    path: str
+
+    """
     with open(os.path.join(path, "paramMultiTestOOS.yaml"), "w") as file:
         file.write(yaml.dump(config))

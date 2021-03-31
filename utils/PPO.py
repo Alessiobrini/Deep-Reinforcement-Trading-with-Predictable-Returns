@@ -17,15 +17,13 @@ import pdb
 import sys
 
 
-
 # To set an initialization similar to TF2
 # https://discuss.pytorch.org/t/how-i-can-set-an-initialization-for-conv-kernels-similarly-to-keras/30473
 # lr scheduling
 # https://www.kaggle.com/isbhargav/guide-to-pytorch-learning-rate-scheduling
 ################################ Class to create a Deep Q Network model ################################
 class PPOActorCritic(nn.Module):
-    # def __init__(self, num_inputs, num_outputs, hidden_size, std=0.0):
-        
+
     def __init__(
         self,
         seed: int,

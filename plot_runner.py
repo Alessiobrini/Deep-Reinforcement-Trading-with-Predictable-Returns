@@ -1,10 +1,10 @@
 # -*- coding: utf-8 -*-
 import os, logging, sys, pdb
-from utils.common import readConfigYaml, generate_logger, format_tousands
+from utils.common import readConfigYaml, generate_logger, format_tousands, set_size
 import numpy as np
 import pandas as pd
 from typing import Optional, Union
-from utils.plot import load_DQNmodel, plot_multitest_paper, set_size
+from utils.plot import load_DQNmodel, plot_multitest_paper
 import matplotlib.pyplot as plt
 from matplotlib import cm
 from matplotlib import gridspec
@@ -12,7 +12,7 @@ import tensorflow as tf
 from utils.simulation import ReturnSampler, GARCHSampler, create_lstm_tensor
 from utils.env import MarketEnv, RecurrentMarketEnv, ReturnSpace, HoldingSpace, ActionSpace
 from utils.tools import CalculateLaggedSharpeRatio, RunModels
-from utils.plot import Out_sample_test, Out_sample_Misspec_test
+from utils.test import Out_sample_test, Out_sample_Misspec_test
 from tqdm import tqdm
 import seaborn as sns
 import matplotlib
@@ -634,7 +634,7 @@ if __name__ == "__main__":
             p, data_dir, True, 300000
         )  # , ckpt=True, ckpt_it=ck_it)
 
-        res = Out_sample_misspec_test(
+        res = Out_sample_Misspec_test(
             p["N_test"],
             None,
             p["factor_lb"],
@@ -692,7 +692,7 @@ if __name__ == "__main__":
             p, data_dir, True, 300000
         )  # , ckpt=True, ckpt_it=ck_it)
 
-        res = Out_sample_misspec_test(
+        res = Out_sample_Misspec_test(
             p["N_test"],
             None,
             p["factor_lb"],
@@ -750,7 +750,7 @@ if __name__ == "__main__":
             p, data_dir, True, 300000
         )  # , ckpt=True, ckpt_it=ck_it)
 
-        res = Out_sample_misspec_test(
+        res = Out_sample_Misspec_test(
             p["N_test"],
             None,
             p["factor_lb"],
