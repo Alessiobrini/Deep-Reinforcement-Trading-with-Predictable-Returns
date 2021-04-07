@@ -109,6 +109,43 @@ class ActionSpace(Space):
             return self.values.size
 
 
+class ResActionSpace(Space):
+    """
+    Class used to discretize the space of action. It inherits from the Space class
+    of gym package
+    ...
+
+    Attributes
+    ----------
+    values : np.ndarray
+        numpy array containing all the possible values for the actions
+
+    Methods
+    -------
+    contains(x: float or int)-> bool
+        check if an integer action is contained in the discretized space
+        and return a boolean
+    """
+
+    def __init__(self, n_actions:int, zero_action: bool = True):
+
+        self.values = np.round(np.linspace(0.0, 1.0, n_actions),2)
+        if not zero_action:
+            self.values = self.values[self.values != 0.0]
+        super().__init__(self.values.shape, self.values.dtype)
+
+    def contains(self, x: int) -> bool:
+        return x in self.values
+
+    def get_n_actions(self, policy_type: str):
+        # TODO note that this implementation is valid only for a single action.
+        # If we want to do more than one action we should change it
+        if policy_type == "continuous":
+            return self.values.ndim
+        elif policy_type == "discrete":
+            return self.values.size
+
+
 class CreateQTable:
     """
     Class which represents the Q-table to approximate the action-value function
@@ -438,6 +475,39 @@ class MarketEnv(gym.Env):
             shares_traded = unscale_action(self.action_limit, shares_traded)
 
         nextHolding = currState[1] + shares_traded
+        nextState = np.array([nextRet, nextHolding], dtype=np.float32)
+
+        Result = self._getreward(currState, nextState, tag)
+        # reward scaling
+        # if tag == "DDPG":
+        #     Result["Reward_{}".format(tag)] = Result["Reward_{}".format(tag)]*0.0001
+
+        return nextState, Result, nextFactors
+
+    def MV_res_step(
+        self,
+        currState: Union[Tuple or np.ndarray],
+        shares_traded: int,
+        iteration: int,
+        tag: str = "DQN",
+    ) -> Tuple[np.ndarray, dict, np.ndarray]:
+
+
+        CurrHolding = currState[1]
+        CurrFactors = self.factors[iteration]
+        # Traded quantity as for the Markovitz framework  (Mean-Variance framework)
+        OptNextHolding = (1 / (self.kappa * (self.sigma) ** 2)) * np.sum(
+            self.f_param * CurrFactors
+        )
+        # Compute optimal markovitz action
+        MV_action = OptNextHolding - CurrHolding
+
+        nextFactors = self.factors[iteration + 1]
+        nextRet = self.returns[iteration + 1]
+        # if tag == "DDPG":
+        #     shares_traded = unscale_action(self.action_limit, shares_traded)
+        # TODO RESTART FROM HERE
+        nextHolding = currState[1] + MV_action * (1-shares_traded) 
         nextState = np.array([nextRet, nextHolding], dtype=np.float32)
 
         Result = self._getreward(currState, nextState, tag)

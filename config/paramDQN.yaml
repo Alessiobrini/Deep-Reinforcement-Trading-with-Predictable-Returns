@@ -25,12 +25,14 @@ max_exp_pct : 1.0 # size of buffer experience as a percentage of the tota iterat
 copy_step : 1 # steps for target network update in DQN
 update_target : 'soft' # 'hard' or 'soft'
 tau : 0.001 # size of soft update
+action_type: 'MV' # GP or MV for selecting action boundaries
 qts : [0.001,0.999] # quantile to select action boundaries
-KLM :  [null, null, 100000] # list with actions that each trade can take: from 
+MV_res : True # Decide which actions to take (trading quantity or MVresiduals)
+KLM :  [9, 9, 100000] # list with actions that each trade can take: from 
                             #-K to +K lot sizes minimum size of tradable (equities/contracts) 
                             # and discretization of holding for TabQ (-M,M) holding
 zero_action : True # include the zero action (hold) in the action space
-min_n_actions : True # set up minimum number of actions (3) or more
+min_n_actions : False # set up minimum number of actions (3) or more
 side_only : False # set the action space so that only the side of the bet is captured by the algorithm
 discretization :  # float in (0,1] to determine a level of discretization for the action space when side_only=True. Leave empty for no discretization
 temp : null #[10.0, 50.0, 100.0, 200.0] # temperature parameter for boltzmann equation
@@ -63,7 +65,7 @@ clipvalue : 1.0 # limit to clip the value
 clipglob_steps: 50000 # steps for global clipping of the norm
 ############################## DATA SIMULATIONS PARAMETERS ##############################
 t_stud : False # Student's T noise in the simulation
-HalfLife : [450] # list of Halflives of mean reversion
+HalfLife : [350] # list of Halflives of mean reversion
 f0 : [0] # list initial values for simulating factors
 f_param : [0.00535] # list of factor loadings
 sigma  : 0.01 # return volatility
@@ -76,10 +78,10 @@ Startholding: 0.0 # initial portfolio holding
 episodes : null
 start_train : 100 # steps after which the training starts
 training : 'online' # online or offline
-seed_ret : [45,23] # seed for the return simulation
+seed_ret : [21, 35, 49, 39] # seed for the return simulation
 seed_init :  # seed for weights initialization. Leave empty if you want it to be equal to seed_ret 
-N_train : 1000  # training iteration (each step consists of one action-value update)
-len_series : 1000 # length of simulated series, if null the legth is N_train
+N_train : 40000  # training iteration (each step consists of one action-value update)
+len_series : 40000 # length of simulated series, if null the legth is N_train
 plot_inputs : 0 # boolean for plotting generated ret and factors
 executeDRL: 1 # boolean to decide if run DRL agent
 executeRL: 0 # boolean to decide if run RL agent
@@ -91,14 +93,14 @@ plot_hist: 0 # boolean to decide if plot weight histogram distribution (reduce s
 plot_steps_hist : 20000 # steps for plotting histograms on tensorboard
 plot_steps: 1000 # steps for all the other plots on tensorboard
 save_model: 1 # save trained tf model
-save_ckpt_model: 5 # number of checkpoints to save during training
+save_ckpt_model: 50 # number of checkpoints to save during training
 use_GPU : True
 #########################################################################################################
 # FOLDER PARAMETERS
 outputDir: 'outputs' # main directory for the experiment
 outputClass: 'DQN' # first subdirectory
-outputModel: '20210330_GPGAUSS_testèpar1' # second subdirectory
-num_rnd_search : 8  # number of cores to use when experiments are parallelized
+outputModel: '20210330_GPGAUSS_testMVresidual4' # second subdirectory
+num_rnd_search : 4  # number of cores to use when experiments are parallelized
 varying_pars: ['seed_ret']  # choose parameters to vary while performing several different experiment
 varying_type : 'chunk' # type of parallelization. 'chunk' will parallelize experiments
                        # in chunks of size 'num_rnd_search'. 'random_search' draw randomly some

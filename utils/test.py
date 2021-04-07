@@ -12,6 +12,7 @@ from utils.env import (
     ReturnSpace,
     HoldingSpace,
     ActionSpace,
+    ResActionSpace,
 )
 from utils.simulation import create_lstm_tensor
 from utils.tools import CalculateLaggedSharpeRatio, RunModels
@@ -54,6 +55,7 @@ def Out_sample_test(
     rng: int = None,
     seed_test: int = None,
     action_limit=None,
+    MV_res: bool = False,
     uncorrelated=False,
     t_stud: bool = False,
     variables: list = None,
@@ -223,9 +225,12 @@ def Out_sample_test(
         )
 
     if "DQN" in tag:
-        action_space = ActionSpace(
-            KLM, zero_action=zero_action, side_only=side_only
-        )  # TODO hard coded zero action
+        if MV_res:
+            action_space = ResActionSpace(KLM[0], zero_action)
+        else:
+            action_space = ActionSpace(
+                KLM, zero_action=zero_action, side_only=side_only
+            )  
     if executeDRL:
         CurrState, _ = test_env.reset()
     if executeRL:
@@ -255,10 +260,12 @@ def Out_sample_test(
                         discretization=discretization,
                         temp=temp,
                     )
-
-                NextState, Result, NextFactors = test_env.step(
-                    CurrState, shares_traded, i
-                )
+                if MV_res:
+                    NextState, Result, _ = test_env.MV_res_step(CurrState, shares_traded, i)
+                else:
+                    NextState, Result, NextFactors = test_env.step(
+                        CurrState, shares_traded, i
+                    )
                 test_env.store_results(Result, i)
             elif "DDPG" in tag:
                 tg = "DDPG"

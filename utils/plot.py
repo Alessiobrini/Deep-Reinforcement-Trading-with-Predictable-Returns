@@ -19,6 +19,7 @@ from utils.env import (
     ReturnSpace,
     HoldingSpace,
     ActionSpace,
+    ResActionSpace,
 )
 from utils.tools import CalculateLaggedSharpeRatio, RunModels
 import collections
@@ -69,11 +70,14 @@ def load_DQNmodel(
 
     """
     num_inp = 2  # TODO insert number of factors as parameter
-    if not p["zero_action"]:
-        actions = np.arange(-p["KLM"][0], p["KLM"][0] + 1, p["KLM"][1])
-        actions = actions[actions != 0]
+    if p['MV_res']:
+        actions = ResActionSpace(p['KLM'][0], p["zero_action"]).values
     else:
-        actions = np.arange(-p["KLM"][0], p["KLM"][0] + 1, p["KLM"][1])
+        if not p["zero_action"]:
+            actions = np.arange(-p["KLM"][0], p["KLM"][0] + 1, p["KLM"][1])
+            actions = actions[actions != 0]
+        else:
+            actions = np.arange(-p["KLM"][0], p["KLM"][0] + 1, p["KLM"][1])
     num_actions = len(actions)
 
     model = DeepNetworkModel(

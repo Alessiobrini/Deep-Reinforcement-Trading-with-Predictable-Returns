@@ -307,6 +307,7 @@ def iterate_seeds(
                     rng=rng,
                     seed_test=s,
                     action_limit=p_mod["action_limit"],  # only useful for DDPG
+                    MV_res= p_mod['MV_res'],
                     uncorrelated=p_mod["uncorrelated"],
                     t_stud=p_mod["t_stud"],
                     variables=variables,

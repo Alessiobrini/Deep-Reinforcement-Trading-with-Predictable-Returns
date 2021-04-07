@@ -32,6 +32,7 @@ from utils.env import (
     MarketEnv,
     RecurrentMarketEnv,
     ActionSpace,
+    ResActionSpace,
     ReturnSpace,
     HoldingSpace,
     CreateQTable,
@@ -102,7 +103,9 @@ def RunDQNTraders(Param):
     exp_decay_rate = Param["exp_decay_rate"]
     hidden_memory_units = Param["hidden_memory_units"]
     unfolding = Param["unfolding"]
+    action_type= Param['action_type']
     qts = Param["qts"]
+    MV_res = Param['MV_res']
     KLM = Param["KLM"]
     zero_action = Param["zero_action"]
     min_n_actions = Param["min_n_actions"]
@@ -253,28 +256,32 @@ def RunDQNTraders(Param):
 
     # 4. INSTANTIATE MARKET ENVIRONMENT --------------------------------------------------------------
 
-    action_quantiles, ret_quantile, holding_quantile = get_action_boundaries(
-        HalfLife,
-        Startholding,
-        sigma,
-        CostMultiplier,
-        kappa,
-        N_train,
-        discount_rate,
-        f_param,
-        f_speed,
-        returns,
-        factors,
-        qts=qts,
-        min_n_actions=min_n_actions,
-    )
+    if MV_res:
+        action_space = ResActionSpace(KLM[0], zero_action)
+    else:
+        action_quantiles, ret_quantile, holding_quantile = get_action_boundaries(
+            HalfLife,
+            Startholding,
+            sigma,
+            CostMultiplier,
+            kappa,
+            N_train,
+            discount_rate,
+            f_param,
+            f_speed,
+            returns,
+            factors,
+            qts=qts,
+            min_n_actions=min_n_actions,
+            action_type=action_type,
+        )
 
-    KLM[:2] = action_quantiles
-    KLM[2] = holding_quantile
-    RT[0] = ret_quantile
-    Param["RT"] = RT
-    Param["KLM"] = KLM
-    action_space = ActionSpace(KLM, zero_action, side_only=side_only)
+        KLM[:2] = action_quantiles
+        KLM[2] = holding_quantile
+        RT[0] = ret_quantile
+        Param["RT"] = RT
+        Param["KLM"] = KLM
+        action_space = ActionSpace(KLM, zero_action, side_only=side_only)
 
     if recurrent_env:
         env = RecurrentMarketEnv(
@@ -461,7 +468,10 @@ def RunDQNTraders(Param):
                 #       'action {}'.format(unscaled_shares_traded),
                 #       'q {}'.format(qvalues))
 
-                NextState, Result, _ = env.step(CurrState, unscaled_shares_traded, i)
+                if MV_res:
+                    NextState, Result, _ = env.MV_res_step(CurrState, unscaled_shares_traded, i)
+                else:
+                    NextState, Result, _ = env.step(CurrState, unscaled_shares_traded, i)
                 env.store_results(Result, i)
 
                 exp = {

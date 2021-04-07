@@ -5,6 +5,7 @@ Created on Thu Nov 26 14:38:05 2020
 @author: aless
 """
 import pdb
+import sys
 from tqdm import tqdm
 import numpy as np
 import tensorflow as tf
@@ -31,6 +32,7 @@ def get_action_boundaries(
     qts: list = [0.01, 0.99],
     min_n_actions: bool = True,
     experiment_type: str = "synth",
+    action_type: str='GP',
 ):
 
     """
@@ -85,6 +87,9 @@ def get_action_boundaries(
         (just a long,buy and hold action) of if there are more actions available
         TODO implement more than 5 actions possible here
 
+    action_type: str
+        GP for Garleanu Pedersen solution or MV for classical Markovitz solution
+
     Returns
     ----------
     dfRetLag: pd.DataFrame
@@ -106,18 +111,33 @@ def get_action_boundaries(
         factors,
     )
 
-    CurrOptState = env.opt_reset()
-    OptRate, DiscFactorLoads = env.opt_trading_rate_disc_loads()
+    if action_type == 'GP':
+        CurrOptState = env.opt_reset()
+        OptRate, DiscFactorLoads = env.opt_trading_rate_disc_loads()
 
-    cycle_len = len(returns) - 1
-    for i in tqdm(iterable=range(cycle_len), desc="Selecting Action boundaries"):
-        NextOptState, OptResult = env.opt_step(
-            CurrOptState, OptRate, DiscFactorLoads, i
-        )
-        env.store_results(OptResult, i)
-        CurrOptState = NextOptState
+        cycle_len = len(returns) - 1
+        for i in tqdm(iterable=range(cycle_len), desc="Selecting Action boundaries"):
+            NextOptState, OptResult = env.opt_step(
+                CurrOptState, OptRate, DiscFactorLoads, i
+            )
+            env.store_results(OptResult, i)
+            CurrOptState = NextOptState
 
-    action_quantiles = env.res_df["OptNextAction"].quantile(qts).values
+        action_quantiles = env.res_df["OptNextAction"].quantile(qts).values
+    elif action_type == 'MV':
+        CurrMVState = env.opt_reset()
+
+        cycle_len = len(returns) - 1
+        for i in tqdm(iterable=range(cycle_len), desc="Selecting Action boundaries"):
+            NextMVState, MVResult = env.mv_step(CurrMVState, i)
+            env.store_results(MVResult, i) 
+            CurrMVState = NextMVState
+
+        action_quantiles = env.res_df["MVNextAction"].quantile(qts).values
+
+    else:
+        print('Choose proper action type. Please, read the doc.')
+        sys.exit()
 
     if experiment_type == "real":
         qt = np.max(np.abs(action_quantiles))
@@ -138,7 +158,11 @@ def get_action_boundaries(
 
     ret_range = float(max(np.abs(returns.min()), returns.max()))
 
-    holding_quantiles = env.res_df["OptNextHolding"].quantile(qts).values
+    if action_type == 'GP':
+        holding_quantiles = env.res_df["OptNextHolding"].quantile(qts).values
+    elif action_type == 'MV':
+        holding_quantiles = env.res_df["MVNextHolding"].quantile(qts).values
+
     if np.abs(holding_quantiles[0]) - np.abs(holding_quantiles[1]) < 1000:
         holding_ranges = int(np.abs(np.round(holding_quantiles[0], -2)))
     else:
