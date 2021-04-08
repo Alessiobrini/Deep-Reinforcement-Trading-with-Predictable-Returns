@@ -170,6 +170,7 @@ def iterate_seeds(
                     unfolding=p_mod["unfolding"],
                     QTable=TrainedQ,  # Put the loaded table if you want to OOS test also tab RL
                     action_limit=p_mod["action_limit"],  # only useful for DDPG
+                    MV_res= p_mod['MV_res'],
                     datatype=p_mod["datatype"],
                     mean_process=p_mod["mean_process"],
                     lags_mean_process=p_mod["lags_mean_process"],

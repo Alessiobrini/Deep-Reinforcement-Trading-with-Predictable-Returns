@@ -24,12 +24,14 @@ max_exp_pct : 1.0 # size of buffer experience as a percentage of the tota iterat
 copy_step : 1 # steps for target network update in DQN
 update_target : 'soft' # 'hard' or 'soft'
 tau : 0.001 # size of soft update
+action_type: 'MV' # GP or MV for selecting action boundaries
 qts : [0.001,0.999] # quantile to select action boundaries
+MV_res : [False,True] # Decide which actions to take (trading quantity or MVresiduals)
 KLM :  [null, null, 100000] # list with actions that each trade can take: from 
                             #-K to +K lot sizes minimum size of tradable (equities/contracts) 
                             # and discretization of holding for TabQ (-M,M) holding
 zero_action : True # include the zero action (hold) in the action space
-min_n_actions : True # set up minimum number of actions (3) or more
+min_n_actions : False # set up minimum number of actions (3) or more
 side_only : False # set the action space so that only the side of the bet is captured by the algorithm
 discretization : null # float in (0,1] to determine a level of discretization for the action space when side_only=True. Leave empty for no discretization
 temp : 200.0 # temperature parameter for boltzmann equation

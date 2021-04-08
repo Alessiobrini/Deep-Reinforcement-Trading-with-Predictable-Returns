@@ -417,6 +417,7 @@ def Out_sample_Misspec_test(
     unfolding: int = 1,
     QTable: Optional[pd.DataFrame] = None,
     action_limit=None,
+    MV_res: bool = False,
     datatype: str = "real",
     mean_process: str = "Constant",
     lags_mean_process: Union[int or None] = None,
@@ -760,7 +761,12 @@ def Out_sample_Misspec_test(
             dates=dates,
         )
     if "DQN" in tag:
-        action_space = ActionSpace(KLM, zero_action=zero_action, side_only=side_only)
+        if MV_res:
+            action_space = ResActionSpace(KLM[0], zero_action)
+        else:
+            action_space = ActionSpace(
+                KLM, zero_action=zero_action, side_only=side_only
+            )  
     if executeDRL:
         CurrState, _ = test_env.reset()
     if executeRL:
@@ -794,9 +800,12 @@ def Out_sample_Misspec_test(
                         discretization=discretization,
                         temp=temp,
                     )
-                NextState, Result, NextFactors = test_env.step(
-                    CurrState, shares_traded, i
-                )
+                if MV_res:
+                    NextState, Result, _ = test_env.MV_res_step(CurrState, shares_traded, i)
+                else:
+                    NextState, Result, NextFactors = test_env.step(
+                        CurrState, shares_traded, i
+                    )
                 test_env.store_results(Result, i)
             elif "DDPG" in tag:
                 tg = "DDPG"
