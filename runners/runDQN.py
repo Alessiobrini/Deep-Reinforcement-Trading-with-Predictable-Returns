@@ -179,9 +179,7 @@ def RunDQNTraders(Param):
     # 1. SIMULATE SYNTHETIC DATA --------------------------------------------------------------
 
     if training == "online":
-        assert (
-            N_train == len_series
-        ), "Online training requires N_train equal to len_series"
+        len_series = N_train
     elif training == "offline":
         N_train = len_series * episodes
     else:
@@ -568,7 +566,10 @@ def RunDQNTraders(Param):
                         discretization=discretization,
                         temp=temp,
                     )
-                NextState, Result, _ = env.step(CurrState, unscaled_shares_traded, i)
+                if MV_res:
+                    NextState, Result, _ = env.MV_res_step(CurrState, unscaled_shares_traded, i)
+                else:
+                    NextState, Result, _ = env.step(CurrState, unscaled_shares_traded, i)
                 env.store_results(Result, i)
 
                 exp = {
