@@ -617,5 +617,3 @@ def runMultiTestOOSbySeed(p):
     logging.info("Script has finished in {} minutes".format((end - start) / 60))
 
 
-if __name__ == "__main__":
-    runMultiTestOOSbySeed(p)

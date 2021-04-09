@@ -648,5 +648,3 @@ def runMultiTestOOS(p):
     end = time.time()
     logging.info("Script has finished in {} minutes".format((end - start) / 60))
 
-if __name__ == "__main__":
-    runMultiTestOOS(p)
