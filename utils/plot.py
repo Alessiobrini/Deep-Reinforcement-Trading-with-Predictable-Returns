@@ -550,10 +550,11 @@ def eps(N, epsilon, eps_decay, min_eps):
 
 
 def plot_abs_pnl_OOS(
-    ax1, df, data_dir, N_test, variable, colors=["b", "darkblue"], params=None
+    ax1, df, df_opt, data_dir, N_test, variable, colors=["b", "darkblue"], params=None, i=0
 ):
 
     df_mean = df.mean(axis=0)
+    df_opt = df_opt.mean(axis=0)
 
     idxs = [int(i) for i in df.iloc[0, :].index]
 
@@ -568,6 +569,14 @@ def plot_abs_pnl_OOS(
             variable.split("_")[0], variable.split("_")[3], data_dir.split("/")[-2]
         ),
     )
+    
+    ax1.plot(
+        idxs,
+        df_opt.values,
+        color='red',
+        linewidth=3,
+        label="GP" if i == 0 else "",
+    )
 
     ax1.set_title("{}".format(data_dir.split("/")[-2]))
     ax1.set_ylabel("{}".format(variable.split("_")[0]))
@@ -575,9 +584,9 @@ def plot_abs_pnl_OOS(
 
     ax1.legend()
     # scientific_formatter = FuncFormatter(scientific)
-    ax1.xaxis.set_major_formatter(ScalarFormatter())
-    ax1.yaxis.set_major_formatter(ScalarFormatter())
-    ax1.set_ylim(-20000000, 20000000)
+    # ax1.xaxis.set_major_formatter(ScalarFormatter())
+    # ax1.yaxis.set_major_formatter(ScalarFormatter())
+    # ax1.set_ylim(-20000000, 20000000)
 
 
 def plot_multitest_real_OOS(

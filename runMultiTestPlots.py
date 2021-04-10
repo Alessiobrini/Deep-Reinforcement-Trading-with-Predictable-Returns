@@ -48,8 +48,9 @@ def runMultiTestPlots(p):
     N_test = p["N_test"]
     outputClass = p["outputClass"]
     outputModel = p["outputModel"]
-    length = p["length"]
     tag = p["algo"]
+    variable_type = p['variable_type']
+    
 
     colors = []
     random.seed(7156)
@@ -61,42 +62,39 @@ def runMultiTestPlots(p):
         colors.append(color)
 
     for t in tag:
-        
-        
-        if 'real' in outputClass:
-            # take one folder at random
-            rnd_folder = os.listdir(os.path.join('outputs', outputClass,outputModel[0], length))[0]
-            rnd_path = os.path.join('outputs', outputClass,outputModel[0], length, rnd_folder)      
-            for i in os.listdir(rnd_path):
-                if os.path.isfile(os.path.join(rnd_path,i)) and 'NetPnl' in i:
-                    regex = re.compile(r'\d+')
-                    N_test = int(regex.search(i).group(0))
+        if variable_type =='pct':
+            var_plot = [
+                "NetPnl_OOS_{}_{}.parquet.gzip".format(format_tousands(N_test), t),
+                "Reward_OOS_{}_{}.parquet.gzip".format(format_tousands(N_test), t),
+                "SR_OOS_{}_{}.parquet.gzip".format(format_tousands(N_test), t),
+                "PnLstd_OOS_{}_{}.parquet.gzip".format(format_tousands(N_test), t),
+                # "Pdist_OOS_{}_GP.parquet.gzip".format(format_tousands(N_test)),
+            ]
+        else:
             
-        var_plot = [
-            "NetPnl_OOS_{}_{}.parquet.gzip".format(format_tousands(N_test), t),
-            "Reward_OOS_{}_{}.parquet.gzip".format(format_tousands(N_test), t),
-            "SR_OOS_{}_{}.parquet.gzip".format(format_tousands(N_test), t),
-            "PnLstd_OOS_{}_{}.parquet.gzip".format(format_tousands(N_test), t),
-            "Pdist_OOS_{}_GP.parquet.gzip".format(format_tousands(N_test)),
-        ]
+            var_plot = [
+                # "AbsHold_OOS_{}_{}.parquet.gzip".format(format_tousands(N_test), t),
+                # 'AbsSR_OOS_{}_{}.parquet.gzip'.format(format_tousands(N_test), t),
+                'AbsNetPnl_OOS_{}_{}.parquet.gzip'.format(format_tousands(N_test), t),
+                # 'AbsRew_OOS_{}_{}.parquet.gzip'.format(format_tousands(N_test), t)
+    
+            ]
+            
+        for it,v in enumerate(var_plot):
 
-        # var_plot = [
-        #     "AbsHold_OOS_{}_{}.parquet.gzip".format(format_tousands(N_test), t),
-        #     "AbsHold_OOS_{}_GP.parquet.gzip".format(format_tousands(N_test)),
-        # ]
-
-        # var_plot = ['AbsSR_OOS_{}_DQN.parquet.gzip'.format(format_tousands(N_test)),
-        #             'AbsSR_OOS_{}_GP.parquet.gzip'.format(format_tousands(N_test))]
-
-        # var_plot = ['AbsSR_OOS_{}_DQN.parquet.gzip'.format(format_tousands(N_test))]
-        # var_plot = ['AbsNetPnl_OOS_{}_GP.parquet.gzip'.format(format_tousands(N_test))]
-        
-        for v in var_plot:
             # read main folder
             fig = plt.figure(figsize=set_size(width=1000.0))
             # fig.subplots_adjust(wspace=0.2, hspace=0.6)
             ax = fig.add_subplot()
             for k, out_mode in enumerate(outputModel):
+                
+                modelpath = "outputs/{}/{}".format(outputClass, out_mode)
+                
+                # get the latest created folder "length"
+                all_subdirs = [os.path.join(modelpath,d) for d in os.listdir(modelpath) if os.path.isdir(os.path.join(modelpath,d))]
+                latest_subdir = max(all_subdirs, key=os.path.getmtime)
+                length = os.path.split(latest_subdir)[-1]
+                
                 data_dir = "outputs/{}/{}/{}".format(outputClass, out_mode, length)
 
                 # Recover and plot generated multi test OOS ----------------------------------------------------------------
@@ -121,71 +119,36 @@ def runMultiTestPlots(p):
 
                 dataframe = pd.concat(dfs)
                 dataframe.index = range(len(dfs))
-                
                 # pdb.set_trace()
                 
-                # first part
-                # df_tocorrect = dataframe.iloc[:,:10]
-                # M = len(df_tocorrect.index)
-                # N = len(df_tocorrect.columns)
-
                 
-                # if 'Pnl' in v:
-                #     ran = pd.DataFrame(np.random.randint(55,74, size=(M,N)), columns=df_tocorrect.columns, 
-                #                        index=df_tocorrect.index)
-                #     df_tocorrect[df_tocorrect>150] = ran
-                #     df_tocorrect[df_tocorrect<0] = ran
-                # else:
-                #     ran = pd.DataFrame(np.random.randint(55,90, size=(M,N)), columns=df_tocorrect.columns,
-                #                        index=df_tocorrect.index)
-                #     df_tocorrect[df_tocorrect>150] = ran
-                #     df_tocorrect[df_tocorrect<40] = ran
+                if "Abs" in v:
                     
-                # dataframe.iloc[:,:10] = df_tocorrect.values
-                
-                # # second part
-                # df_tocorrect = dataframe.iloc[:,10:]
-                # M = len(df_tocorrect.index)
-                # N = len(df_tocorrect.columns)
-
-                
-                # if 'Pnl' in v:
-                #     ran = pd.DataFrame(np.random.randint(78,110, size=(M,N)), columns=df_tocorrect.columns, 
-                #                        index=df_tocorrect.index)
-                #     df_tocorrect[df_tocorrect>150] = ran
-                #     df_tocorrect[df_tocorrect<55] = ran
-                # else:
-                #     ran = pd.DataFrame(np.random.randint(89,103, size=(M,N)), columns=df_tocorrect.columns,
-                #                        index=df_tocorrect.index)
-                #     df_tocorrect[df_tocorrect>150] = ran
-                #     df_tocorrect[df_tocorrect<40] = ran
+                    dfs_opt = []
+                    for exp in filtered_dir:
+                        exp_path = os.path.join(data_dir, exp)
+                        df_opt = pd.read_parquet(os.path.join(exp_path, v.replace(t,'GP')))
+                        dfs_opt.append(df_opt)
+                    dataframe_opt = pd.concat(dfs_opt)
+                    dataframe_opt.index = range(len(dfs_opt))
                     
-                # dataframe.iloc[:,10:] = df_tocorrect.values
-                # # pdb.set_trace()
-
-
-
-                if "AbsRew" in v:
                     plot_abs_pnl_OOS(
                         ax,
                         dataframe,
+                        dataframe_opt,
                         data_dir,
                         N_test,
                         v,
                         colors=colors[k],
                         params=p_mod,
+                        i=it
                     )
+
+                    value = dataframe_opt.iloc[1,4]
+                    std =250000
+                    ax.set_ylim(value-std,value+std)
+                    # pdb.set_trace()
                     
-                elif 'real' in outputClass:
-                    plot_multitest_real_OOS(
-                        ax,
-                        dataframe,
-                        data_dir,
-                        N_test,
-                        v,
-                        colors=colors[k],
-                        params=p_mod,
-                    )
                 else:
                     plot_multitest_overlap_OOS(
                         ax,

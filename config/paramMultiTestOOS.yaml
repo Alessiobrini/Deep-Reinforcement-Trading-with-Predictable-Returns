@@ -13,8 +13,37 @@ parbyseed : True # Choose if parallelize by seeds.
 # FOLDER PARAMETERS
 outputDir: 'outputs'
 outputClass: 'DQN'
-outputModel: ['20210330_GPGAUSS_testMVresidual4'] #,'20210328_PPO_misspec_final']
-length : '40k' # string representing the length of experiment folder to plot
+outputModel:   ['20210410_GPSTUD_3f_datatype_garch_MV_res_False', 
+  '20210410_GPSTUD_3f_datatype_garch_MV_res_True']
+
+
+# ['20210409_GPGAUSS_2f_ret_HalfLife_115_350_CostMultiplier_0.001', 
+#  '20210409_GPGAUSS_2f_ret_HalfLife_115_350_CostMultiplier_0.01', 
+#  '20210409_GPGAUSS_2f_ret_HalfLife_200_1260_CostMultiplier_0.001', 
+#  '20210409_GPGAUSS_2f_ret_HalfLife_200_1260_CostMultiplier_0.01', 
+#  '20210409_GPGAUSS_2f_ret_HalfLife_50_250_CostMultiplier_0.001', 
+#  '20210409_GPGAUSS_2f_ret_HalfLife_50_250_CostMultiplier_0.01'] 
+
+
+# ['20210410_GPSTUD_3f_datatype_t_stud_MV_res_False', 
+#    '20210410_GPSTUD_3f_datatype_t_stud_MV_res_True']
+
+
+
+
+
+# ['20210408_GPGAUSS_3f_CostMultiplier_0.01_MV_res_False', 
+#   '20210408_GPGAUSS_3f_CostMultiplier_0.01_MV_res_True'] 
+#   '20210408_GPGAUSS_3f_CostMultiplier_0.01_MV_res_False', 
+#   '20210408_GPGAUSS_3f_CostMultiplier_0.01_MV_res_True', 
+#   '20210408_GPGAUSS_3f_CostMultiplier_0.1_MV_res_False', 
+#   '20210408_GPGAUSS_3f_CostMultiplier_0.1_MV_res_True', 
+#   '20210408_GPGAUSS_3f_CostMultiplier_0.5_MV_res_False', 
+#   '20210408_GPGAUSS_3f_CostMultiplier_0.5_MV_res_True']
+
+
+# ['20210330_GPGAUSS_testMVresidual1'] 
+# length : '100k' # string representing the length of experiment folder to plot
 algo :  ['DQN'] # list of algorithm to plot their results. 'DQN' and 'Q' as possible values
 plot_type: 'pnlsrgauss' 
 # Possible choices for this last parameter are:
