@@ -2,6 +2,7 @@
 data/
 outputs/
 .vscode/
+split_exps_dirs.py
 
 
 
