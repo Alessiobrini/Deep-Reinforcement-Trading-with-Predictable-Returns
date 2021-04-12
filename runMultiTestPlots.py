@@ -21,7 +21,6 @@ from utils.plot import (
     load_DQNmodel,
     plot_multitest_overlap_OOS,
     plot_abs_pnl_OOS,
-    plot_multitest_real_OOS,
 )
  
 import matplotlib.pyplot as plt
@@ -49,8 +48,7 @@ def runMultiTestPlots(p):
     outputClass = p["outputClass"]
     outputModel = p["outputModel"]
     tag = p["algo"]
-    variable_type = p['variable_type']
-    
+
 
     colors = []
     random.seed(7156)
@@ -62,23 +60,19 @@ def runMultiTestPlots(p):
         colors.append(color)
 
     for t in tag:
-        if variable_type =='pct':
-            var_plot = [
-                "NetPnl_OOS_{}_{}.parquet.gzip".format(format_tousands(N_test), t),
-                "Reward_OOS_{}_{}.parquet.gzip".format(format_tousands(N_test), t),
-                "SR_OOS_{}_{}.parquet.gzip".format(format_tousands(N_test), t),
-                "PnLstd_OOS_{}_{}.parquet.gzip".format(format_tousands(N_test), t),
-                # "Pdist_OOS_{}_GP.parquet.gzip".format(format_tousands(N_test)),
-            ]
-        else:
-            
-            var_plot = [
-                # "AbsHold_OOS_{}_{}.parquet.gzip".format(format_tousands(N_test), t),
-                # 'AbsSR_OOS_{}_{}.parquet.gzip'.format(format_tousands(N_test), t),
-                'AbsNetPnl_OOS_{}_{}.parquet.gzip'.format(format_tousands(N_test), t),
-                # 'AbsRew_OOS_{}_{}.parquet.gzip'.format(format_tousands(N_test), t)
-    
-            ]
+
+        var_plot = [
+            "NetPnl_OOS_{}_{}.parquet.gzip".format(format_tousands(N_test), t),
+            "Reward_OOS_{}_{}.parquet.gzip".format(format_tousands(N_test), t),
+            "SR_OOS_{}_{}.parquet.gzip".format(format_tousands(N_test), t),
+            "PnLstd_OOS_{}_{}.parquet.gzip".format(format_tousands(N_test), t),
+            # "Pdist_OOS_{}_GP.parquet.gzip".format(format_tousands(N_test)),
+            'AbsNetPnl_OOS_{}_{}.parquet.gzip'.format(format_tousands(N_test), t),
+            # 'AbsRew_OOS_{}_{}.parquet.gzip'.format(format_tousands(N_test), t)
+            # "AbsHold_OOS_{}_{}.parquet.gzip".format(format_tousands(N_test), t),
+            # 'AbsSR_OOS_{}_{}.parquet.gzip'.format(format_tousands(N_test), t),
+        ]
+
             
         for it,v in enumerate(var_plot):
 

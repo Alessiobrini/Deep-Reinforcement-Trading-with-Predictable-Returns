@@ -389,19 +389,13 @@ def plot_multitest_overlap_OOS(
         ).ravel(),
         2,
     )
-    # if pgarch.size!=0:
-    #     lab  = 'sp_{}_om_{}_alpha_{},beta_{}_sum_{}'.format(params['seedparam'],pgarch[0],pgarch[1],pgarch[2],np.round(sum(pgarch[1:]),2))
-    #     ax1.plot(idxs,df_mean.values,color=colors,linewidth=3, label='Avg {} {} {}'.format('DQN',variable.split('_')[0],
-    #                                                                                           lab))
 
-    # else:
     ax1.plot(
         idxs,
         df_mean.values,
         color=colors,
         linewidth=3,
-        label="Avg {} {} {}".format(
-            "DQN", variable.split("_")[0], data_dir.split("/")[-2]
+        label='_'.join(data_dir.split('/')[-2].split('_')[2:]
         ),
     )
 
@@ -410,8 +404,8 @@ def plot_multitest_overlap_OOS(
         ax1.fill_between(
             idxs, (df_mean.values - ci), (df_mean.values + ci), color=colors, alpha=0.5
         )
+        
     # add benchmark series to plot the hline
-
     if "datatype" not in params.keys():
         params["datatype"] = "gp"
     if pgarch.size == 0 and "garch" not in params["datatype"]:
@@ -445,12 +439,9 @@ def plot_multitest_overlap_OOS(
             )
             if params["datatype"] == "t_stud":
                 ax1.set_ylim(-1500000, 1500000)
-                # ax1.set_ylim(0.0,1.0)
             elif params["datatype"] == "garch":
-                # ax1.set_ylim(-100000,100000)
                 ax1.set_ylim(-1000000, 1000000)
             elif params["datatype"] == "garch_mr":
-                # ax1.set_ylim(-100000,100000)
                 ax1.set_ylim(-5000000, 5000000)
 
         else:
@@ -463,9 +454,8 @@ def plot_multitest_overlap_OOS(
                 color="red",
             )
             ax1.set_ylim(0, 150)
-            # ax1.set_ylim(-500,500)
 
-    ax1.set_title("{}".format(data_dir.split("/")[-2]))
+    ax1.set_title("{}: {} simulation".format(variable.split("_")[3].split('.')[0],data_dir.split('_')[1]))
     ax1.set_ylabel("% Reference {}".format(variable.split("_")[0]))
     ax1.set_xlabel("in-sample training iterations")
 
@@ -565,8 +555,8 @@ def plot_abs_pnl_OOS(
         df_mean.values,
         color=colors,
         linewidth=3,
-        label="{} {} {}".format(
-            variable.split("_")[0], variable.split("_")[3], data_dir.split("/")[-2]
+        label="{}".format(
+             '_'.join(data_dir.split('/')[-2].split('_')[2:])
         ),
     )
     
@@ -578,152 +568,12 @@ def plot_abs_pnl_OOS(
         label="GP" if i == 0 else "",
     )
 
-    ax1.set_title("{}".format(data_dir.split("/")[-2]))
+    ax1.set_title("{}: {} simulation".format(variable.split("_")[3].split('.')[0],data_dir.split('_')[1]))
     ax1.set_ylabel("{}".format(variable.split("_")[0]))
     ax1.set_xlabel("in-sample training iterations")
 
     ax1.legend()
-    # scientific_formatter = FuncFormatter(scientific)
-    # ax1.xaxis.set_major_formatter(ScalarFormatter())
-    # ax1.yaxis.set_major_formatter(ScalarFormatter())
     # ax1.set_ylim(-20000000, 20000000)
-
-
-def plot_multitest_real_OOS(
-    ax1,
-    df,
-    data_dir,
-    N_test,
-    variable,
-    colors=["b", "darkblue"],
-    conf_interval=False,
-    diff_colors=False,
-    params=None,
-    plot_lr=False,
-    plot_experience=False,
-    plot_buffer=False,
-):
-
-    df_mean = df.mean(axis=0)
-    idxs = [int(i) * params["len_series"] for i in df.iloc[0, :].index]
-
-    # https://matplotlib.org/examples/color/colormaps_reference.html
-    colormap = cm.get_cmap("plasma", len(df.index))
-    for j, i in enumerate(df.index):
-        if diff_colors:
-            ax1.scatter(
-                x=idxs,
-                y=df.iloc[i, :],
-                alpha=0.6,
-                color=colormap.colors[j],
-                marker="o",
-                s=7.5,
-            )
-        else:
-            ax1.scatter(
-                x=idxs, y=df.iloc[i, :], alpha=0.6, color=colors, marker="o", s=7.5
-            )
-
-    ax1.plot(
-        idxs,
-        df_mean.values,
-        color=colors,
-        linewidth=3,
-        label="Avg {} {} {}".format(
-            "DQN", variable.split("_")[0], data_dir.split("/")[-2]
-        ),
-    )
-
-    if conf_interval:
-        ci = 2 * np.std(df_mean.values)
-        ax1.fill_between(
-            idxs, (df_mean.values - ci), (df_mean.values + ci), color=colors, alpha=0.5
-        )
-    # add benchmark series to plot the hline
-
-    # pdb.set_trace()
-    if variable.split("_")[0] != "SR" and variable.split("_")[0] != "PnLstd":
-        df.loc["Benchmark"] = 0.0
-        ax1.plot(
-            idxs,
-            df.loc["Benchmark"].values,
-            linestyle="--",
-            linewidth=4,
-            color="red",
-        )
-
-        # ax1.set_ylim(-2500, 2500)
-
-    else:
-
-        df.loc["Benchmark"] = 100.0
-        ax1.plot(
-            idxs,
-            df.loc["Benchmark"].values,
-            linestyle="--",
-            linewidth=4,
-            color="red",
-        )
-        ax1.set_ylim(0, 350)
-
-    ax1.set_title("{}".format(data_dir.split("/")[-2]))
-    ax1.set_ylabel("% Reference {}".format(variable.split("_")[0]))
-    ax1.set_xlabel("in-sample training iterations")
-
-    ax1.legend()
-    # scientific_formatter = FuncFormatter(scientific)
-    ax1.xaxis.set_major_formatter(ScalarFormatter())
-    ax1.yaxis.set_major_formatter(ScalarFormatter())
-
-    if plot_lr:
-        N = idxs[-1]
-        rates = pd.DataFrame()
-        initial_learning_rate = params["learning_rate"]
-        decay_rate = params["exp_decay_rate"]
-        decay_steps = params["exp_decay_pct"] * N
-        l = lr_exp_decay(N, initial_learning_rate, decay_rate, decay_steps)
-        rates[decay_steps / N] = l
-
-        rates = rates / initial_learning_rate * 100
-        idxs[-1] = idxs[-1] - 1
-
-        if "exp_decay_pct" in data_dir or "exp_decay_rate" in data_dir:
-            ax1.plot(
-                idxs, rates.iloc[idxs], lw=2, linestyle="-", color=colors, alpha=0.8
-            )
-        else:
-            ax1.plot(
-                idxs, rates.iloc[idxs], lw=2, linestyle="-", color="blue", alpha=0.8
-            )  # , label='lr_{}'.format(data_dir.split('/')[-2]))#
-
-    if plot_experience:
-        N = idxs[-1]
-        epsilon = 1.0
-        min_eps_pct = params["min_eps_pct"]
-        min_eps = params["min_eps"]
-        steps_to_min_eps = int(N * min_eps_pct)
-        eps_decay = (epsilon - min_eps) / steps_to_min_eps
-        e = eps(N, epsilon, eps_decay, min_eps)
-        e = e / epsilon * 100
-        idxs[-1] = idxs[-1] - 1
-
-        if "min_eps_pct" in data_dir:
-            ax1.plot(idxs, e[idxs], lw=2, linestyle="--", color=colors, alpha=0.8)
-        else:
-            ax1.plot(idxs, e[idxs], lw=2, linestyle="--", color="blue", alpha=0.8)
-
-    if plot_buffer:
-        N = idxs[-1]
-        max_exp_pct = params["max_exp_pct"]
-
-        if "max_exp_pct" in data_dir:
-            ax1.axvline(
-                x=max_exp_pct * N, lw=2, linestyle="-.", color=colors, alpha=0.8
-            )
-        else:
-            ax1.axvline(
-                x=max_exp_pct * N, lw=2, linestyle="-.", color="blue", alpha=0.8
-            )
 
     # fig.savefig(os.path.join(data_dir,'{}.pdf'.format(variable)), dpi=300)
 
