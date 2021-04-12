@@ -106,6 +106,7 @@ def RunDQNTraders(Param):
     action_type= Param['action_type']
     qts = Param["qts"]
     MV_res = Param['MV_res']
+    inp_type = Param['inp_type']
     KLM = Param["KLM"]
     zero_action = Param["zero_action"]
     min_n_actions = Param["min_n_actions"]
@@ -325,7 +326,7 @@ def RunDQNTraders(Param):
     logging.info("Successfully initialized the market environment...")
 
     # 4. CREATE INITIAL STATE AND NETWORKS ----------------------------------------------------------
-    input_shape = env.get_state_dim()
+    input_shape = env.get_state_dim(inp_type=inp_type)
     # create train and target network
     TrainQNet = DQN(
         seed_init,
@@ -432,7 +433,7 @@ def RunDQNTraders(Param):
 
     # 5. TRAIN ALGORITHM ----------------------------------------------------------
     if training == "online":
-        CurrState, _ = env.reset()
+        CurrState, _ = env.reset(inp_type=inp_type)
         if executeRL:
             env.returns_space = returns_space
             env.holding_space = holding_space
@@ -467,9 +468,9 @@ def RunDQNTraders(Param):
                 #       'q {}'.format(qvalues))
 
                 if MV_res:
-                    NextState, Result, _ = env.MV_res_step(CurrState, unscaled_shares_traded, i)
+                    NextState, Result, _ = env.MV_res_step(CurrState, unscaled_shares_traded, i, inp_type=inp_type)
                 else:
-                    NextState, Result, _ = env.step(CurrState, unscaled_shares_traded, i)
+                    NextState, Result, _ = env.step(CurrState, unscaled_shares_traded, i, inp_type=inp_type)
                 env.store_results(Result, i)
 
                 exp = {

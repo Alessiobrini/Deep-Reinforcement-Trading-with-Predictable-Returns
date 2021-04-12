@@ -27,6 +27,7 @@ tau : 0.001 # size of soft update
 action_type: 'MV' # GP or MV for selecting action boundaries
 qts : [0.001,0.999] # quantile to select action boundaries
 MV_res : [False,True] # Decide which actions to take (trading quantity or MVresiduals)
+inp_type: 'f' #ret or f
 KLM :  [null, null, 100000] # list with actions that each trade can take: from 
                             #-K to +K lot sizes minimum size of tradable (equities/contracts) 
                             # and discretization of holding for TabQ (-M,M) holding

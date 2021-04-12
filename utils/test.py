@@ -56,6 +56,7 @@ def Out_sample_test(
     seed_test: int = None,
     action_limit=None,
     MV_res: bool = False,
+    inp_type:str ='ret',
     uncorrelated=False,
     t_stud: bool = False,
     variables: list = None,
@@ -232,7 +233,7 @@ def Out_sample_test(
                 KLM, zero_action=zero_action, side_only=side_only
             )  
     if executeDRL:
-        CurrState, _ = test_env.reset()
+        CurrState, _ = test_env.reset(inp_type=inp_type)
     if executeRL:
         test_env.returns_space = ReturnSpace(RT)
         test_env.holding_space = HoldingSpace(KLM)
@@ -261,10 +262,10 @@ def Out_sample_test(
                         temp=temp,
                     )
                 if MV_res:
-                    NextState, Result, _ = test_env.MV_res_step(CurrState, shares_traded, i)
+                    NextState, Result, _ = test_env.MV_res_step(CurrState, shares_traded, i, inp_type=inp_type)
                 else:
                     NextState, Result, NextFactors = test_env.step(
-                        CurrState, shares_traded, i
+                        CurrState, shares_traded, i,inp_type=inp_type
                     )
                 test_env.store_results(Result, i)
             elif "DDPG" in tag:
@@ -418,6 +419,7 @@ def Out_sample_Misspec_test(
     QTable: Optional[pd.DataFrame] = None,
     action_limit=None,
     MV_res: bool = False,
+    inp_type:str ='ret',
     datatype: str = "real",
     mean_process: str = "Constant",
     lags_mean_process: Union[int or None] = None,
@@ -768,7 +770,7 @@ def Out_sample_Misspec_test(
                 KLM, zero_action=zero_action, side_only=side_only
             )  
     if executeDRL:
-        CurrState, _ = test_env.reset()
+        CurrState, _ = test_env.reset(inp_type=inp_type)
     if executeRL:
         test_env.returns_space = ReturnSpace(RT)
         test_env.holding_space = HoldingSpace(KLM)
@@ -801,10 +803,10 @@ def Out_sample_Misspec_test(
                         temp=temp,
                     )
                 if MV_res:
-                    NextState, Result, _ = test_env.MV_res_step(CurrState, shares_traded, i)
+                    NextState, Result, _ = test_env.MV_res_step(CurrState, shares_traded, i, inp_type=inp_type)
                 else:
                     NextState, Result, NextFactors = test_env.step(
-                        CurrState, shares_traded, i
+                        CurrState, shares_traded, i, inp_type=inp_type
                     )
                 test_env.store_results(Result, i)
             elif "DDPG" in tag:

@@ -452,20 +452,26 @@ class MarketEnv(gym.Env):
         res_df = res_df.astype(np.float32)
         self.res_df = res_df
 
-    def get_state_dim(self):
-        state, _ = self.reset()
+    def get_state_dim(self, inp_type:str):
+        state, _ = self.reset(inp_type=inp_type)
         return state.shape
 
-    def reset(self) -> Tuple[np.ndarray, np.ndarray]:
-        currState = np.array([self.returns[0], self.Startholding])
-        currFactor = self.factors[0]
-        return currState, currFactor
+    def reset(self, inp_type:str) -> Tuple[np.ndarray, np.ndarray]:
+        if inp_type == 'ret':
+            currState = np.array([self.returns[0], self.Startholding])
+            currFactor = self.factors[0]
+            return currState, currFactor
+        elif inp_type=='f':
+            currState = np.append(self.factors[0],self.Startholding)
+            currRet = self.returns[0]
+            return currState, currRet
 
     def step(
         self,
         currState: Union[Tuple or np.ndarray],
         shares_traded: int,
         iteration: int,
+        inp_type:str,
         tag: str = "DQN",
     ) -> Tuple[np.ndarray, dict, np.ndarray]:
 
@@ -474,10 +480,13 @@ class MarketEnv(gym.Env):
         if tag == "DDPG":
             shares_traded = unscale_action(self.action_limit, shares_traded)
 
-        nextHolding = currState[1] + shares_traded
-        nextState = np.array([nextRet, nextHolding], dtype=np.float32)
-
-        Result = self._getreward(currState, nextState, tag)
+        nextHolding = currState[-1] + shares_traded
+        if inp_type == 'ret':
+            nextState = np.array([nextRet, nextHolding], dtype=np.float32)
+        elif inp_type == 'f':
+            nextState = np.append(nextFactors,nextHolding)
+        
+        Result = self._getreward(currState, nextState, iteration, tag)
         # reward scaling
         # if tag == "DDPG":
         #     Result["Reward_{}".format(tag)] = Result["Reward_{}".format(tag)]*0.0001
@@ -489,11 +498,12 @@ class MarketEnv(gym.Env):
         currState: Union[Tuple or np.ndarray],
         shares_traded: int,
         iteration: int,
+        inp_type:str,
         tag: str = "DQN",
     ) -> Tuple[np.ndarray, dict, np.ndarray]:
 
 
-        CurrHolding = currState[1]
+        CurrHolding = currState[-1]
         CurrFactors = self.factors[iteration]
         # Traded quantity as for the Markovitz framework  (Mean-Variance framework)
         OptNextHolding = (1 / (self.kappa * (self.sigma) ** 2)) * np.sum(
@@ -506,11 +516,13 @@ class MarketEnv(gym.Env):
         nextRet = self.returns[iteration + 1]
         # if tag == "DDPG":
         #     shares_traded = unscale_action(self.action_limit, shares_traded)
-        # TODO RESTART FROM HERE
-        nextHolding = currState[1] + MV_action * (1-shares_traded) 
-        nextState = np.array([nextRet, nextHolding], dtype=np.float32)
+        nextHolding = currState[-1] + MV_action * (1-shares_traded) 
+        if inp_type == 'ret':
+            nextState = np.array([nextRet, nextHolding], dtype=np.float32)
+        elif inp_type == 'f':
+            nextState = np.append(nextFactors,nextHolding)
 
-        Result = self._getreward(currState, nextState, tag)
+        Result = self._getreward(currState, nextState, iteration, tag)
         # reward scaling
         # if tag == "DDPG":
         #     Result["Reward_{}".format(tag)] = Result["Reward_{}".format(tag)]*0.0001
@@ -539,7 +551,7 @@ class MarketEnv(gym.Env):
             discretecurrState[1] + shares_traded
         )
         discretenextState = np.array([discretenextRet, discretenextHolding])
-        Result = self._getreward(discretecurrState, discretenextState, "Q")
+        Result = self._getreward(discretecurrState, discretenextState, iteration, "Q")
         return discretenextState, Result
 
     def opt_reset(self) -> np.ndarray:
@@ -688,15 +700,16 @@ class MarketEnv(gym.Env):
         self,
         currState: Tuple[Union[float or int], Union[float or int]],
         nextState: Tuple[Union[float or int], Union[float or int]],
+        iteration:int,
         tag: str,
     ) -> dict:
 
         # Remember that a state is a tuple (price, holding)
         # currRet = currState[0]
 
-        nextRet = nextState[0]
-        currHolding = currState[1]
-        nextHolding = nextState[1]
+        nextRet = self.returns[iteration + 1]
+        currHolding = currState[-1]
+        nextHolding = nextState[-1]
 
         shares_traded = nextHolding - currHolding
         GrossPNL = nextHolding * nextRet

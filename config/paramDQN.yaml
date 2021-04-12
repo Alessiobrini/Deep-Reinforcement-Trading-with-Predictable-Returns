@@ -28,6 +28,7 @@ tau : 0.001 # size of soft update
 action_type: 'MV' # GP or MV for selecting action boundaries
 qts : [0.001,0.999] # quantile to select action boundaries
 MV_res : True # Decide which actions to take (trading quantity or MVresiduals)
+inp_type: 'f' #ret or f
 KLM :  [9, 9, 100000] # list with actions that each trade can take: from 
                             #-K to +K lot sizes minimum size of tradable (equities/contracts) 
                             # and discretization of holding for TabQ (-M,M) holding
@@ -65,11 +66,11 @@ clipvalue : 1.0 # limit to clip the value
 clipglob_steps: 50000 # steps for global clipping of the norm
 ############################## DATA SIMULATIONS PARAMETERS ##############################
 t_stud : False # Student's T noise in the simulation
-HalfLife : [350] # list of Halflives of mean reversion
-f0 : [0] # list initial values for simulating factors
-f_param : [0.00535] # list of factor loadings
+HalfLife : [115, 350, 1260] # list of Halflives of mean reversion
+f0 : [0,0,0] # list initial values for simulating factors
+f_param : [0.00435,0.00535,0.00635] # list of factor loadings
 sigma  : 0.01 # return volatility
-sigmaf : [0.2] # list of factor volatilities
+sigmaf : [0.2, 0.1, 0.5] # list of factor volatilities
 uncorrelated : True # generate correlated or uncorrelated factors
 CostMultiplier: 0.001 # Cost multiplier to make the cost proportional to the risk
 discount_rate: 0.0 # discount rate for time value of money (not gamma in DQN)
@@ -78,10 +79,10 @@ Startholding: 0.0 # initial portfolio holding
 episodes : null
 start_train : 100 # steps after which the training starts
 training : 'online' # online or offline
-seed_ret : [21, 35, 49, 39] # seed for the return simulation
+seed_ret : [ 1, 59] #,  2, 10, 46, 57, 34] # seed for the return simulation
 seed_init :  # seed for weights initialization. Leave empty if you want it to be equal to seed_ret 
-N_train : 40000  # training iteration (each step consists of one action-value update)
-len_series : 40000 # length of simulated series, if null the legth is N_train
+N_train : 50000  # training iteration (each step consists of one action-value update)
+len_series :  # length of simulated series, if null the legth is N_train
 plot_inputs : 0 # boolean for plotting generated ret and factors
 executeDRL: 1 # boolean to decide if run DRL agent
 executeRL: 0 # boolean to decide if run RL agent
@@ -99,8 +100,8 @@ use_GPU : True
 # FOLDER PARAMETERS
 outputDir: 'outputs' # main directory for the experiment
 outputClass: 'DQN' # first subdirectory
-outputModel: '20210330_GPGAUSS_testMVresidual4' # second subdirectory
-num_rnd_search : 4  # number of cores to use when experiments are parallelized
+outputModel: '20210410_GPGAUSS_2f' # second subdirectory
+num_rnd_search : 30  # number of cores to use when experiments are parallelized
 varying_pars: ['seed_ret']  # choose parameters to vary while performing several different experiment
 varying_type : 'chunk' # type of parallelization. 'chunk' will parallelize experiments
                        # in chunks of size 'num_rnd_search'. 'random_search' draw randomly some
