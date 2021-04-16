@@ -6,6 +6,7 @@ Created on Thu Nov 26 14:38:05 2020
 """
 import pdb
 import sys
+import gin
 from tqdm import tqdm
 import numpy as np
 import tensorflow as tf
@@ -16,7 +17,7 @@ from utils.env import MarketEnv
 from utils.math_tools import boltzmann, unscale_action
 from scipy.stats import norm
 
-
+@gin.configurable()
 def get_action_boundaries(
     HalfLife: Union[int or list or np.ndarray],
     Startholding: Union[int or float],
@@ -30,8 +31,6 @@ def get_action_boundaries(
     returns: Union[list or np.ndarray],
     factors: Union[list or np.ndarray],
     qts: list = [0.01, 0.99],
-    min_n_actions: bool = True,
-    experiment_type: str = "synth",
     action_type: str='GP',
 ):
 
@@ -92,8 +91,6 @@ def get_action_boundaries(
 
     Returns
     ----------
-    dfRetLag: pd.DataFrame
-        Output dataframe which contains the original series and the lagged series
 
     """
 
@@ -139,22 +136,10 @@ def get_action_boundaries(
         print('Choose proper action type. Please, read the doc.')
         sys.exit()
 
-    if experiment_type == "real":
-        qt = np.max(np.abs(action_quantiles))
-        length = len(str(int(np.round(qt))))
-        action = int(np.abs(np.round(qt, -length + 2)))
-    else:
-        qt = np.min(np.abs(action_quantiles))
-        length = len(str(int(np.round(qt))))
-        action = int(np.abs(np.round(qt, -length + 1)))
 
-    if min_n_actions:
-        action_ranges = [action, action]
-    else:
-        action_ranges = [
-            action,
-            int(action / 2),
-        ]  # TODO modify for allowing variables range of actions
+    qt = np.min(np.abs(action_quantiles))
+    length = len(str(int(np.round(qt))))
+    action_range = int(np.abs(np.round(qt, -length + 1)))
 
     ret_range = float(max(np.abs(returns.min()), returns.max()))
 
@@ -168,7 +153,7 @@ def get_action_boundaries(
     else:
         holding_ranges = int(np.round(np.min(np.abs(holding_quantiles)), -2))
 
-    return action_ranges, ret_range, holding_ranges
+    return action_range, ret_range, holding_ranges
 
 
 def CalculateLaggedSharpeRatio(

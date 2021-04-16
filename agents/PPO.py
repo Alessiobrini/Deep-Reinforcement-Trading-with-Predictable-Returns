@@ -1,10 +1,3 @@
-# -*- coding: utf-8 -*-
-"""
-Created on Tue Mar  2 11:07:57 2021
-
-@author: alessiobrini
-"""
-
 import torch
 import torch.nn as nn
 import torch.nn.functional as F
@@ -15,6 +8,7 @@ import numpy as np
 from typing import Optional, Union
 import pdb
 import sys
+import gin
 
 
 # To set an initialization similar to TF2
@@ -186,6 +180,7 @@ class PPOActorCritic(nn.Module):
 
 
 # ############################### DQN ALGORITHM ################################
+@gin.configurable()
 class PPO:
     def __init__(
         self,

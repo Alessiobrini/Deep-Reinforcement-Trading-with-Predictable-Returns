@@ -7,7 +7,9 @@ Created on Mon Feb  8 17:33:01 2021
 
 import logging, sys
 from typing import Union
+from pathlib import Path
 import os
+import gin
 
 # yaml is bugged and not able to read float written in scientific notation
 # for info look at https://stackoverflow.com/questions/30458977/yaml-loads-5e-6-as-string-and-not-a-number
@@ -125,8 +127,8 @@ def GeneratePathFolder(
     outputClass: str,
     outputModel: str,
     varying_pars: Union[str or None],
+    varying_type: str,
     N_train: int,
-    Param: dict,
 ) -> Union[str, bytes, os.PathLike]:
 
     """
@@ -146,12 +148,6 @@ def GeneratePathFolder(
     varying_pars: Union[str or None]
         Name of varying hyperparameters when performing parallel experiments
 
-    N_train: int
-        Length of the experiment
-
-    Param: dict
-        Dictionary of parameters
-
     Returns
     -------
     savedpath: str
@@ -161,6 +157,7 @@ def GeneratePathFolder(
 
     # Create directory for outputs
     if varying_pars:
+        
         savedpath = os.path.join(
             os.getcwd(),
             outputDir,
@@ -169,29 +166,29 @@ def GeneratePathFolder(
             format_tousands(N_train),
             "_".join(
                 [
-                    str(v) + "_" + "_".join([str(val) for val in Param[v]])
-                    if isinstance(Param[v], list)
-                    else str(v) + "_" + str(Param[v])
-                    for v in Param["varying_pars"]
+                    str(v.split(".")[-1].replace('%', '').lower())
+                    + "_"
+                    + "_".join([str(val) for val in gin.query_parameter(v)])
+                    if isinstance(gin.query_parameter(v), list)
+                    else str(v.split(".")[-1].replace('%', '').lower()) + "_" + str(gin.query_parameter(v))
+                    for v in varying_pars
                 ]
             ),
         )
 
-    #'_'.join([str((v,str(Param[v]))) for v in varying_pars]))
-
     else:
-        savedpath = os.path.join(
-            os.getcwd(), outputDir, outputClass, outputModel, format_tousands(N_train)
-        )
+        savedpath = os.path.join(os.getcwd(), outputDir, outputClass, outputModel, format_tousands(N_train))
 
-    # use makedirs to create a tree of subdirectory
-    if not os.path.exists(savedpath):
-        os.makedirs(savedpath)
-    else:
-        if Param["varying_type"] == "random_search":
-            pass
+        # use makedirs to create a tree of subdirectory
+        if not os.path.exists(savedpath):
+            os.makedirs(savedpath)
         else:
-            sys.exit("Folder already exists. This experiment has already been run.")
+            pass
+            if varying_type == "random_search":
+                pass
+            else:
+                # sys.exit("Folder already exists. This experiment has already been run.")
+                pass
 
     return savedpath
 
@@ -285,3 +282,7 @@ def save(config, path):
     """
     with open(os.path.join(path, "paramMultiTestOOS.yaml"), "w") as file:
         file.write(yaml.dump(config))
+
+def save_gin(destination: Path):
+    with open(destination, "w") as f:
+        f.write(gin.operative_config_str())

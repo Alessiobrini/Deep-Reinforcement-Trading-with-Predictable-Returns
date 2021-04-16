@@ -13,6 +13,8 @@ import matplotlib.pyplot as plt
 import pandas as pd
 import seaborn
 import seaborn as sns
+import gin
+from utils.tools import CalculateLaggedSharpeRatio, RunModels
 
 seaborn.set_style("darkgrid")
 plt.rcParams["figure.figsize"] = (20.0, 10.0)
@@ -30,20 +32,85 @@ from arch.univariate import (
 )
 from arch.univariate import Normal, StudentsT, SkewStudent, GeneralizedError
 
+@gin.configurable()
+class DataHandler():
+    def __init__(self,datatype: str, 
+                N_train:int,
+                rng: object, 
+                factor_lb: Union[list or None] = None):
 
-def ReturnSampler(
+        self.datatype = datatype
+        self.N_train = N_train
+        self.rng = rng
+        self.factor_lb = factor_lb 
+
+    def generate_returns(self):
+
+        if self.datatype != 'garch':
+            # REMARK if you do t_studmfit and you want to compare the training over the same
+            # series wrt t_stud, you need to simulate a series of lenght N_train + factor_lb[-1]
+            # This is currently not implemented here
+            self.returns, self.factors, self.f_speed = return_sampler_GP(N_train=self.N_train,
+                                                               rng=self.rng)
+
+
+        elif self.datatype == "garch":
+            self.returns, self.params = return_sampler_garch(N_train=self.N_train)
+
+
+        else:
+            print("Datatype to simulate is not correct")
+            sys.exit()
+
+    def estimate_parameters(self):
+
+        if self. datatype == 't_stud_mfit':
+            # look at the remark above: use .loc[factor_lb[-1] :] if you want the same series of t_stud
+            # this method doesn't require to fit the true parameters
+            df = pd.DataFrame(
+                data=np.concatenate([self.returns.reshape(-1, 1), self.factors], axis=1)
+            )
+
+            y, X = df[df.columns[0]], df[df.columns[1:]]
+            
+            params_meanrev, fitted_ous = RunModels(y, X, mr_only=True)
+
+        else:
+            df = CalculateLaggedSharpeRatio(
+                self.returns, self.factor_lb, nameTag=self.datatype, seriestype="return"
+            )
+
+            y, X = df[df.columns[0]], df[df.columns[1:]]
+
+            params_retmodel, params_meanrev, fitted_retmodel, fitted_ous = RunModels(y, X)
+
+            sigma_fit = df.iloc[:, 0].std()
+            gin.bind_parameter('%SIGMA',sigma_fit)
+
+            f_param_fit = params_retmodel["params"]
+            gin.bind_parameter('%F_PARAM',f_param_fit)
+
+            sigmaf_fit = X.std().values
+            gin.bind_parameter('%SIGMAF',sigmaf_fit)
+
+        self.f_speed = np.abs(np.array([*params_meanrev.values()]).ravel())
+        gin.bind_parameter('%HALFLIFE',np.around(np.log(2) / self.f_speed_fit, 2))
+
+        self.returns = df.iloc[:, 0].values
+        self.factors = df.iloc[:, 1:].values
+        
+
+
+@gin.configurable()
+def return_sampler_GP(
     N_train: int,
     sigmaf: Union[float or list or np.ndarray],
-    f0: Union[float or list or np.ndarray],
     f_param: Union[float or list or np.ndarray],
     sigma: Union[float or list or np.ndarray],
-    plot_inputs: int,
     HalfLife: Union[int or list or np.ndarray],
     rng: np.random.mtrand.RandomState = None,
     offset: int = 2,
-    adftest: bool = False,
     uncorrelated: bool = False,
-    seed_test: int = None,
     t_stud: bool = False,
     degrees: int = 8,
     vol: str = "omosk",
@@ -62,18 +129,12 @@ def ReturnSampler(
     sigmaf : Union[float or list or np.ndarray]
         Volatilities of the mean reverting factors
 
-    f0 : Union[float or list or np.ndarray]
-        Initial points for simulating factors. Usually set at 0
-
     f_param: Union[float or list or np.ndarray]
         Factor loadings of the mean reverting factors
 
     sigma: Union[float or list or np.ndarray]
         volatility of the asset return (additional noise other than the intrinsic noise
                                         in the factors)
-
-    plot_inputs: bool
-        Boolean to regulate if plot of simulated returns and factor is needed
 
     HalfLife: Union[int or list or np.ndarray]
         HalfLife of mean reversion to simulate factors with different speeds
@@ -84,15 +145,8 @@ def ReturnSampler(
     offset: int = 2
         Amount of additional observation to simulate
 
-    adftest: bool = False
-        Boolean to regulate if Augment Dickey-Fuller (ADF) test on simulated
-        returns is needed
-
     uncorrelated: bool = False
         Boolean to regulate if the simulated factor are correlated or not
-
-    seed_test: int = None
-        Seed for out-of-sample test simulation
 
     t_stud : bool = False
         Bool to regulate if Student\'s t noises are needed
@@ -111,9 +165,6 @@ def ReturnSampler(
     f_speed: Union[list or np.ndarray]
         Speed of mean reversion computed form HalfLife argument
     """
-    # Set seed to make the out-of-sample experiment reproducible
-    if seed_test is not None:
-        rng = np.random.RandomState(seed_test * 2)
 
     # use samplesize +2 because when iterating the algorithm is necessary to
     # have one observation more (the last space representation) and because
@@ -128,6 +179,8 @@ def ReturnSampler(
     # https://www.jmp.com/en_us/statistics-knowledge-portal/t-test/t-distribution.html#:~:text=The%20shape%20of%20the%20t,%E2%80%9D%20than%20the%20z%2Ddistribution.
 
     lambdas = np.around(np.log(2) / HalfLife, 4)
+
+    f0 = np.zeros(shape=(len(lambdas),))
 
     if vol == "omosk":
         if t_stud:
@@ -194,6 +247,9 @@ def ReturnSampler(
             f1 = np.multiply((1 - lambdas), f0) + eps[i]
             f.append(f1)
             f0 = f1
+    else:
+        print('Choose proper volatility setting')
+        sys.exit()
 
     factors = np.vstack(f)
     if vol == "omosk":
@@ -214,54 +270,16 @@ def ReturnSampler(
         u = volmodel.simulate(garch_p, N_train + offset, rng.randn)[0]
 
         realret = np.sum(f_param * factors, axis=1) + sigma * u
-
+    else:
+        print('Choose proper volatility setting')
+        sys.exit()
     f_speed = lambdas
-    # now we add noise to the equation of return by default, while in the previous
-    # implementation we were using a boolean
-    # single noise
-
-    # plots for factor, returns and prices
-    if plot_inputs:
-        print(str(len(np.atleast_2d(f_speed))), "factor(s) simulated")
-        print("################################################################")
-        print("max realret " + str(max(realret)))
-        print("min realret " + str(min(realret)))
-        print("################################################################")
-        fig1 = plt.figure()
-        fig2 = plt.figure()
-
-        ax1 = fig1.add_subplot(111)
-        ax2 = fig2.add_subplot(111)
-
-        ax1.plot(factors)
-        ax1.legend(["5D", "1Y", "5Y"])
-        ax1.set_title("Factors")
-        ax2.plot(realret)
-        plt.legend(["CapReturns", "Returns"])
-        ax2.set_title("Returns")
-
-        fig1.show()
-        fig2.show()
-    if adftest:
-        test = adfuller(realret)
-        # print('Test ADF for generated return series')
-        # print("Test Statistic: " + str(test[0]))
-        # print("P-value: " + str(test[1]))
-        # print("Used lag: " + str(test[2]))
-        # print("Number of observations: " + str(test[3]))
-        # print("Critical Values: " + str(test[4]))
-        # print("AIC: " + str(test[5]))
-        return realret.astype(np.float32), factors.astype(np.float32), f_speed, test
 
     return realret.astype(np.float32), factors.astype(np.float32), f_speed
 
-
-# https://stats.stackexchange.com/questions/61824/how-to-interpret-garch-parameters
-# https://arch.readthedocs.io/en/latest/univariate/introduction.html
-# https://arch.readthedocs.io/en/latest/univariate/volatility.html
-# https://github.com/bashtage/arch/blob/master/arch/univariate/volatility.py
-def GARCHSampler(
-    length: int,
+@gin.configurable()
+def return_sampler_garch(
+    N_train: int,
     mean_process: str = "Constant",
     lags_mean_process: int = None,
     vol_process: str = "GARCH",
@@ -270,13 +288,16 @@ def GARCHSampler(
     seed_param: int = None,
     p_arg: list = None,
 ) -> Tuple[np.ndarray, pd.Series]:
-
+    # https://stats.stackexchange.com/questions/61824/how-to-interpret-garch-parameters
+    # https://arch.readthedocs.io/en/latest/univariate/introduction.html
+    # https://arch.readthedocs.io/en/latest/univariate/volatility.html
+    # https://github.com/bashtage/arch/blob/master/arch/univariate/volatility.py
     """
     Generates financial returns driven by mean-reverting factors.
 
     Parameters
     ----------
-    length: int
+    N_train: int
         Length of the experiment
 
     mean_process: str
@@ -318,6 +339,8 @@ def GARCHSampler(
     """
     names = []
     vals = []
+
+    if seed_param is None : seed_param = seed
 
     rng = np.random.RandomState(seed_param)
 
@@ -483,204 +506,8 @@ def GARCHSampler(
     p = pd.Series(data=vals, index=names)
     if p_arg:
         p = p_arg
-    simulations = model.simulate(p, length) / 100
+    simulations = model.simulate(p, N_train) / 100
 
     return simulations["data"].values, p
 
 
-def create_lstm_tensor(X: np.ndarray, look_back: int = 5):
-    """
-    Create tensors from 2D arrays to input them in a Recurrent type neural network
-
-    Parameters
-    ----------
-    X: np.ndarray
-        2D array to cast as tensor
-
-    look_back: int
-        Lookback window to create correlated tensors
-
-    Returns
-    -------
-    np.array(dataX): np.ndarray
-        Resulting tensors of returns
-    """
-    dataX = []
-    for i in tqdm(
-        iterable=range(len(X) - look_back + 1), desc="Creating tensors for LSTM"
-    ):
-        a = X[i : (i + look_back), :]
-        dataX.append(a)
-    return np.array(dataX)
-
-
-if __name__ == "__main__":
-
-    N = 5000
-    sigmaf = [0.2, 0.1, 0.5]  # [0.59239224, 0.06442296, 0.02609584]
-    f0 = [0.0, 0.0, 0.0]
-    f_param = np.array(
-        [0.00635, 0.00535, 0.00435]
-    )  # [8.51579723e-05, -0.000846756903, -0.00186581236] #
-    sigma = 0.01
-    plot_inputs = False
-    HalfLife = [2.5, 15.0, 25.0]  # [   2.79,  270.85, 1885.28]
-    seed_ret = 443
-    offset = 2
-    uncorrelated = True
-    t_stud = False
-
-    rng = np.random.RandomState(seed_ret)
-    ret_norm, _, _ = ReturnSampler(
-        N,
-        sigmaf,
-        f0,
-        f_param,
-        sigma,
-        plot_inputs,
-        HalfLife,
-        rng,
-        offset=offset,
-        adftest=False,
-        uncorrelated=uncorrelated,
-        t_stud=t_stud,
-    )
-
-    # t_stud = True
-    rng = np.random.RandomState(seed_ret)
-    ret_stud, _, _ = ReturnSampler(
-        N,
-        sigmaf,
-        f0,
-        f_param,
-        sigma,
-        plot_inputs,
-        HalfLife,
-        rng,
-        offset=offset,
-        adftest=False,
-        uncorrelated=uncorrelated,
-        t_stud=t_stud,
-        vol="heterosk",
-    )
-
-    # ret_garch = GARCHSampler(N,
-    #             mean_process= 'Constant',
-    #             lags_mean_process=1,
-    #             vol_process='GARCH',
-    #             distr_noise='normal',
-    #             seed= 13,
-    #             seed_param= 24)
-
-    fig1 = plt.figure()
-    ax1 = fig1.add_subplot()
-    sns.histplot(ret_norm, label="norm", color="b", ax=ax1)
-    sns.histplot(ret_stud, label="garch_mr", color="y", alpha=0.6, ax=ax1)
-    plt.legend()
-
-    fig2 = plt.figure()
-    ax2 = fig2.add_subplot()
-    ax2.plot(ret_norm, label="norm", color="b")
-    ax2.plot(ret_stud, label="garch_mr", color="y")
-    # ax2.plot(ret_garch[0], label="garch", color="g", alpha=0.4)
-    plt.legend()
-
-    # from scipy.stats import kurtosis, skew
-
-    # knorm = kurtosis(ret_norm)
-    # snorm = skew(ret_norm)
-    # kstud = kurtosis(ret_stud)
-    # sstud = skew(ret_stud)
-    # print(knorm, kstud)
-    # print(snorm, sstud)
-
-    # N = 10000
-    # mean_process= 'AR' #'AR'
-    # lags_mean_process=1
-    # vol_process='GARCH'
-    # distr_noise1='normal'
-    # seed = 25632
-    # # seed_param = 755
-    # for s in np.random.choice(1000,10,replace=False):
-    #     ret_norm, p =  GARCHSampler(N,
-    #                                     mean_process= mean_process,
-    #                                     lags_mean_process=lags_mean_process,
-    #                                     vol_process=vol_process,
-    #                                     distr_noise=distr_noise1,
-    #                                     seed= seed,
-    #                                     seed_param= s)
-
-    #     # distr_noise2='skewstud'
-    #     # ret_stud, _ =  GARCHSampler(N,
-    #     #                                 mean_process= mean_process,
-    #     #                                 lags_mean_process=lags_mean_process,
-    #     #                                 vol_process=vol_process,
-    #     #                                 distr_noise=distr_noise2,
-    #     #                                 seed= 1,
-    #     #                                 seed_param= seed_param)
-
-    #     print(p)
-    #     print(sum(p[-2:]))
-
-    # plt.hist(ret_norm, label='norm')
-    # plt.legend(['norm','stud'])
-    # fig1 = plt.figure()
-    # ax1 = fig1.add_subplot()
-    # sns.histplot(ret_norm, label=distr_noise1, color='b', ax=ax1)
-    # sns.histplot(ret_stud, label=distr_noise2, color='y', alpha=0.6, ax=ax1)
-    # plt.legend()
-
-    # fig2 = plt.figure()
-    # ax2 = fig2.add_subplot()
-    # ax2.plot(ret_norm, label=distr_noise1, color='b')
-    # ax2.plot(ret_stud, label=distr_noise2, color='y', alpha=0.6)
-    # plt.legend()
-
-    # for s in np.random.choice(1000,10,replace=False):
-    #     rng = np.random.RandomState(s)
-    #     om = rng.uniform(0.03,0.1)
-    #     alph = rng.uniform(0.05,0.1)
-    #     b = rng.uniform(0.86,0.92)
-    #     garch_p = np.array([om,alph,b])#/(np.array([om,alph,b]).sum())
-    #     print(garch_p)
-    #     garch_p = np.array([om,alph,b])/(np.array([om,alph,b]).sum())
-    #     print(garch_p)
-    #     print('==================================================================')
-
-    # l = [(1.0-i-k,i, k) for i in np.linspace(0.05,0.1,10) for k in np.linspace(0.86,0.92,5)]
-    # print(len(l))
-    # suml = [sum(el) for el in l]
-    # print(sum(suml))
-
-#     rng_main = np.random.RandomState(3)
-# for s in rng_main.choice(1000,10,replace=False):
-#     rng = np.random.RandomState(s)
-#     # om = rng.uniform(0.03,0.1)
-#     # alph = rng.uniform(0.05,0.1)
-#     # b = rng.uniform(0.86,0.92)
-#     # garch_p = np.array([om,alph,b])#/(np.array([om,alph,b]).sum())
-#     # print(garch_p)
-#     # print(sum(garch_p))
-#     # garch_p = np.array([om,alph,b])/(np.array([om,alph,b]).sum())
-#     # print(garch_p)
-#     # print(sum(garch_p))
-#     # a = np.array([om,alph,b])
-#     # garch_p = (a - a.min())/(a.max()-a.min())
-#     # print(garch_p)
-#     # print(sum(garch_p))
-#     # alpha = alph - om
-#     # b = 1 - alpha
-#     # garch_p = np.array([om,alph,b])#/(np.array([om,alph,b]).sum())
-#     # print(garch_p)
-#     # print(sum(garch_p))
-#     # print('==================================================================')
-#     p_space = np.round([[1.0-i-k,i, k] for i in np.linspace(0.05,0.1,10) for k in np.linspace(0.88,0.92,10)],4)
-#     idx = rng.randint(len(p_space))
-#     garch_p = p_space[idx]
-#     print(garch_p)
-#     print(sum(garch_p))
-#     print(s)
-#     print('==================================================================')
-
-# another useful method
-# [(a, b-a, 1000-b) for a, b in itertools.combinations(range(1000), 2)]

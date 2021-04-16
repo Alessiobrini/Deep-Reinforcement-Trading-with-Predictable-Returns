@@ -50,14 +50,14 @@ def runMultiTestPlots(p):
     tag = p["algo"]
 
 
-    colors = []
-    random.seed(7156)
-    for _ in range(len(outputModel)):
-        r = random.random()
-        b = random.random()
-        g = random.random()
-        color = (r, g, b)
-        colors.append(color)
+    colors = ['blue','red','green','black']
+    # random.seed(2212) #7156
+    # for _ in range(len(outputModel)):
+    #     r = random.random()
+    #     b = random.random()
+    #     g = random.random()
+    #     color = (r, g, b)
+    #     colors.append(color)
 
     for t in tag:
 
@@ -69,7 +69,7 @@ def runMultiTestPlots(p):
             # "Pdist_OOS_{}_GP.parquet.gzip".format(format_tousands(N_test)),
             'AbsNetPnl_OOS_{}_{}.parquet.gzip'.format(format_tousands(N_test), t),
             # 'AbsRew_OOS_{}_{}.parquet.gzip'.format(format_tousands(N_test), t)
-            # "AbsHold_OOS_{}_{}.parquet.gzip".format(format_tousands(N_test), t),
+            "AbsHold_OOS_{}_{}.parquet.gzip".format(format_tousands(N_test), t),
             # 'AbsSR_OOS_{}_{}.parquet.gzip'.format(format_tousands(N_test), t),
         ]
 

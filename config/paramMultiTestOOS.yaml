@@ -1,7 +1,7 @@
 # MULTI TEST OOS PARAMS
 ############################### LAUNCH SIMULATIONS ##############################
 N_test: 500 # Length of OOS test
-n_seeds : 10 # Number of OOS test to perform for each agent at each checkpoint
+n_seeds : 3 # Number of OOS test to perform for each agent at each checkpoint
 random_state : 4532345  # Seed for experiment reproducibility OOS. Used to draw "n_seeds" for OOS testing
 use_GPU : True
 varying_type : 'chunk'
@@ -13,25 +13,132 @@ parbyseed : True # Choose if parallelize by seeds.
 # FOLDER PARAMETERS
 outputDir: 'outputs'
 outputClass: 'DQN'
-outputModel:   ['20210410_GPSTUD_3f_datatype_garch_MV_res_False', 
-  '20210410_GPSTUD_3f_datatype_garch_MV_res_True']
+outputModel:   ['20210410_GPGAUSS_2f_MV_res_False_inp_type_f_HalfLife_200_1260',
+  '20210410_GPGAUSS_2f_MV_res_True_inp_type_f_HalfLife_200_1260', 
+  '20210410_GPGAUSS_2f_MV_res_False_inp_type_ret_HalfLife_200_1260',
+  '20210410_GPGAUSS_2f_MV_res_True_inp_type_ret_HalfLife_200_1260',]
 
 
+
+# ['20210411_GPSTUD_2f_datatype_t_stud_MV_res_False_inp_type_f', 
+#   '20210411_GPSTUD_2f_datatype_t_stud_MV_res_False_inp_type_ret',
+#   '20210411_GPSTUD_2f_datatype_t_stud_MV_res_True_inp_type_f', 
+#   '20210411_GPSTUD_2f_datatype_t_stud_MV_res_True_inp_type_ret',] 200k
+
+
+# ['20210411_GPSTUD_3f_datatype_t_stud_MV_res_False', 
+#   '20210411_GPSTUD_3f_datatype_t_stud_MV_res_True'] 100k
+
+
+# ['20210410_GPGAUSS_2f_MV_res_False_inp_type_f_HalfLife_200_1260',
+#   '20210410_GPGAUSS_2f_MV_res_True_inp_type_f_HalfLife_200_1260', 
+#   '20210410_GPGAUSS_2f_MV_res_False_inp_type_ret_HalfLife_200_1260',
+#   '20210410_GPGAUSS_2f_MV_res_True_inp_type_ret_HalfLife_200_1260',] 140k
+
+
+# ['20210410_GPGAUSS_2f_f_input_MV_res_False_HalfLife_115_350', 
+#   '20210410_GPGAUSS_2f_f_input_MV_res_False_HalfLife_50_250', 
+#   '20210410_GPGAUSS_2f_f_input_MV_res_True_HalfLife_115_350', 
+#   '20210410_GPGAUSS_2f_f_input_MV_res_True_HalfLife_50_250'] 80k
+
+
+# ['20210412_GPGAUSS_2ff_MV_res_False_HalfLife_22_125_CostMultiplier_0.01_kappa_0.01',
+#             '20210412_GPGAUSS_2ff_MV_res_True_HalfLife_22_125_CostMultiplier_0.01_kappa_0.01'] 80k
+
+
+# ['20210412_GPGAUSS_2f_MV_res_False_inp_type_f_HalfLife_22_125', 
+# '20210412_GPGAUSS_2f_MV_res_True_inp_type_f_HalfLife_22_125', 
+# '20210412_GPGAUSS_2f_MV_res_False_inp_type_ret_HalfLife_22_125', 
+# '20210412_GPGAUSS_2f_MV_res_True_inp_type_ret_HalfLife_22_125'] 80k
+ 
+ 
+# GPSTUD
+############################################################################
+  # ['20210411_GPSTUD_3f_datatype_t_stud_MV_res_False', 
+  # '20210411_GPSTUD_3f_datatype_t_stud_MV_res_True']
+ 
+# ['20210411_GPSTUD_2f_datatype_t_stud_MV_res_False_inp_type_f', 
+#   '20210411_GPSTUD_2f_datatype_t_stud_MV_res_False_inp_type_ret', 
+#  '20210411_GPSTUD_2f_datatype_t_stud_MV_res_True_inp_type_f', 
+#  '20210411_GPSTUD_2f_datatype_t_stud_MV_res_True_inp_type_ret', 
+  # '20210411_GPSTUD_2f_datatype_t_stud_mfit_MV_res_False_inp_type_f', 
+  # '20210411_GPSTUD_2f_datatype_t_stud_mfit_MV_res_False_inp_type_ret', 
+  # '20210411_GPSTUD_2f_datatype_t_stud_mfit_MV_res_True_inp_type_f', 
+  # '20210411_GPSTUD_2f_datatype_t_stud_mfit_MV_res_True_inp_type_ret']
+############################################################################
+############################################################################
+# GPGAUSS
+############################################################################
+
+# ['20210412_GPGAUSS_2f_MV_res_False_inp_type_f_HalfLife_22_125', 
+#  '20210412_GPGAUSS_2f_MV_res_False_inp_type_f_HalfLife_30_60', 
+#  '20210412_GPGAUSS_2f_MV_res_False_inp_type_f_HalfLife_5_22', 
+#  '20210412_GPGAUSS_2f_MV_res_False_inp_type_ret_HalfLife_22_125', 
+#  '20210412_GPGAUSS_2f_MV_res_False_inp_type_ret_HalfLife_30_60', 
+#  '20210412_GPGAUSS_2f_MV_res_False_inp_type_ret_HalfLife_5_22', 
+#  '20210412_GPGAUSS_2f_MV_res_True_inp_type_f_HalfLife_22_125', 
+#  '20210412_GPGAUSS_2f_MV_res_True_inp_type_f_HalfLife_30_60', 
+#  '20210412_GPGAUSS_2f_MV_res_True_inp_type_f_HalfLife_5_22', 
+#  '20210412_GPGAUSS_2f_MV_res_True_inp_type_ret_HalfLife_22_125', 
+#  '20210412_GPGAUSS_2f_MV_res_True_inp_type_ret_HalfLife_30_60', 
+#  '20210412_GPGAUSS_2f_MV_res_True_inp_type_ret_HalfLife_5_22']
+
+# ['20210412_GPGAUSS_2ff_MV_res_False_HalfLife_22_125_CostMultiplier_0.01_kappa_0.0001', 
+#   '20210412_GPGAUSS_2ff_MV_res_False_HalfLife_22_125_CostMultiplier_0.01_kappa_0.01', 
+#   '20210412_GPGAUSS_2ff_MV_res_False_HalfLife_22_125_CostMultiplier_0.1_kappa_0.0001', 
+#   '20210412_GPGAUSS_2ff_MV_res_False_HalfLife_22_125_CostMultiplier_0.1_kappa_0.01', 
+#  '20210412_GPGAUSS_2ff_MV_res_False_HalfLife_30_60_CostMultiplier_0.01_kappa_0.0001', 
+#  '20210412_GPGAUSS_2ff_MV_res_False_HalfLife_30_60_CostMultiplier_0.01_kappa_0.01', 
+#  '20210412_GPGAUSS_2ff_MV_res_False_HalfLife_30_60_CostMultiplier_0.1_kappa_0.0001', 
+#  '20210412_GPGAUSS_2ff_MV_res_False_HalfLife_30_60_CostMultiplier_0.1_kappa_0.01', 
+#  '20210412_GPGAUSS_2ff_MV_res_False_HalfLife_5_22_CostMultiplier_0.01_kappa_0.0001', 
+#  '20210412_GPGAUSS_2ff_MV_res_False_HalfLife_5_22_CostMultiplier_0.01_kappa_0.01', 
+#  '20210412_GPGAUSS_2ff_MV_res_False_HalfLife_5_22_CostMultiplier_0.1_kappa_0.0001', 
+#  '20210412_GPGAUSS_2ff_MV_res_False_HalfLife_5_22_CostMultiplier_0.1_kappa_0.01', 
+#  '20210412_GPGAUSS_2ff_MV_res_True_HalfLife_22_125_CostMultiplier_0.01_kappa_0.0001', 
+#  '20210412_GPGAUSS_2ff_MV_res_True_HalfLife_22_125_CostMultiplier_0.01_kappa_0.01', 
+#  '20210412_GPGAUSS_2ff_MV_res_True_HalfLife_22_125_CostMultiplier_0.1_kappa_0.0001', 
+#  '20210412_GPGAUSS_2ff_MV_res_True_HalfLife_22_125_CostMultiplier_0.1_kappa_0.01', 
+#  '20210412_GPGAUSS_2ff_MV_res_True_HalfLife_30_60_CostMultiplier_0.01_kappa_0.0001', 
+#  '20210412_GPGAUSS_2ff_MV_res_True_HalfLife_30_60_CostMultiplier_0.01_kappa_0.01', 
+#  '20210412_GPGAUSS_2ff_MV_res_True_HalfLife_30_60_CostMultiplier_0.1_kappa_0.0001', 
+#  '20210412_GPGAUSS_2ff_MV_res_True_HalfLife_30_60_CostMultiplier_0.1_kappa_0.01', 
+#  '20210412_GPGAUSS_2ff_MV_res_True_HalfLife_5_22_CostMultiplier_0.01_kappa_0.0001', 
+#  '20210412_GPGAUSS_2ff_MV_res_True_HalfLife_5_22_CostMultiplier_0.01_kappa_0.01', 
+#  '20210412_GPGAUSS_2ff_MV_res_True_HalfLife_5_22_CostMultiplier_0.1_kappa_0.0001', 
+#  '20210412_GPGAUSS_2ff_MV_res_True_HalfLife_5_22_CostMultiplier_0.1_kappa_0.01']
+
+# ['20210410_GPGAUSS_2f_f_input_MV_res_False_HalfLife_115_350', 
+#   '20210410_GPGAUSS_2f_f_input_MV_res_False_HalfLife_50_250', 
+#   '20210410_GPGAUSS_2f_f_input_MV_res_True_HalfLife_115_350', 
+#   '20210410_GPGAUSS_2f_f_input_MV_res_True_HalfLife_50_250']
+
+# ['20210410_GPGAUSS_2f_MV_res_False_inp_type_f_HalfLife_200_1260',
+#   '20210410_GPGAUSS_2f_MV_res_True_inp_type_f_HalfLife_200_1260', 
+#   '20210410_GPGAUSS_2f_MV_res_False_inp_type_ret_HalfLife_200_1260',
+#   '20210410_GPGAUSS_2f_MV_res_True_inp_type_ret_HalfLife_200_1260',]
+
+
+# ['20210410_GPGAUSS_2f_MV_res_False_inp_type_f_HalfLife_115_350', 
+# '20210410_GPGAUSS_2f_MV_res_False_inp_type_f_HalfLife_200_1260', 
+# '20210410_GPGAUSS_2f_MV_res_False_inp_type_f_HalfLife_50_250', 
+# '20210410_GPGAUSS_2f_MV_res_False_inp_type_ret_HalfLife_115_350', 
+# '20210410_GPGAUSS_2f_MV_res_False_inp_type_ret_HalfLife_200_1260', 
+# '20210410_GPGAUSS_2f_MV_res_False_inp_type_ret_HalfLife_50_250', 
+# '20210410_GPGAUSS_2f_MV_res_True_inp_type_f_HalfLife_115_350', 
+# '20210410_GPGAUSS_2f_MV_res_True_inp_type_f_HalfLife_200_1260', 
+# '20210410_GPGAUSS_2f_MV_res_True_inp_type_f_HalfLife_50_250', 
+# '20210410_GPGAUSS_2f_MV_res_True_inp_type_ret_HalfLife_115_350', 
+# '20210410_GPGAUSS_2f_MV_res_True_inp_type_ret_HalfLife_200_1260', 
+# '20210410_GPGAUSS_2f_MV_res_True_inp_type_ret_HalfLife_50_250']
+############################################################################
 # ['20210409_GPGAUSS_2f_ret_HalfLife_115_350_CostMultiplier_0.001', 
 #  '20210409_GPGAUSS_2f_ret_HalfLife_115_350_CostMultiplier_0.01', 
 #  '20210409_GPGAUSS_2f_ret_HalfLife_200_1260_CostMultiplier_0.001', 
 #  '20210409_GPGAUSS_2f_ret_HalfLife_200_1260_CostMultiplier_0.01', 
 #  '20210409_GPGAUSS_2f_ret_HalfLife_50_250_CostMultiplier_0.001', 
 #  '20210409_GPGAUSS_2f_ret_HalfLife_50_250_CostMultiplier_0.01'] 
-
-
-# ['20210410_GPSTUD_3f_datatype_t_stud_MV_res_False', 
-#    '20210410_GPSTUD_3f_datatype_t_stud_MV_res_True']
-
-
-
-
-
+############################################################################
 # ['20210408_GPGAUSS_3f_CostMultiplier_0.01_MV_res_False', 
 #   '20210408_GPGAUSS_3f_CostMultiplier_0.01_MV_res_True'] 
 #   '20210408_GPGAUSS_3f_CostMultiplier_0.01_MV_res_False', 
@@ -40,10 +147,9 @@ outputModel:   ['20210410_GPSTUD_3f_datatype_garch_MV_res_False',
 #   '20210408_GPGAUSS_3f_CostMultiplier_0.1_MV_res_True', 
 #   '20210408_GPGAUSS_3f_CostMultiplier_0.5_MV_res_False', 
 #   '20210408_GPGAUSS_3f_CostMultiplier_0.5_MV_res_True']
+############################################################################
+# ['20210330_GPGAUSS_testMVresidual1'] first example of GPGAUSS
 
-
-# ['20210330_GPGAUSS_testMVresidual1'] 
-# length : '100k' # string representing the length of experiment folder to plot
 algo :  ['DQN'] # list of algorithm to plot their results. 'DQN' and 'Q' as possible values
 plot_type: 'pnlsrgauss' 
 # Possible choices for this last parameter are:

@@ -1,13 +1,242 @@
+import utils.env
+import utils.spaces
+import utils.simulation
+
 # Macros:
 # ==============================================================================
-ALGO = 'DQN' # 'PPO', 'DQN' or 'DDPG'  
-EXPERIMENT = 'GP' # GP or Misspec
-PARALLEL = True
+# Set up
+ALGO = 'PPO' # 'PPO', 'DQN' or 'DDPG'  
 
+ENV_CLS = @MarketEnv 
+ACTION_SPACE_FN = @ResActionSpace #ResActionSpace
+
+EXPERIMENT_TYPE = 'GP' # GP or Misspec
+MV_RES = True
+
+EPISODES = 10
+N_TRAIN = 1000
+LEN_SERIES = 1000
+EPOCHS = 3
+OUTPUTDIR = 'outputs'
+OUTPUTCLASS = %ALGO
+OUTPUTMODEL = '20210416_multi_test_oos3'
+SAVE_FREQ = 1
+SEED = 11 #[34, 4325451]
+START_TRAIN = 300
+USE_GPU = True
+VARYING_PARS = None # ['%SEED']
+VARYING_TYPE = 'chunk'
+NUM_CORES = 3
+
+# spaces
+N_ACTIONS = 9 #only for res RL
+ACTION_RANGE =  [10000, 5]
+ACTION_RANGE_RES =  [0.0, 1.0, 5]
+SIDE_ONLY = False
+ZERO_ACTION = True
+
+# env and data simulation
+DATATYPE = 'gaussian'
+
+FACTOR_LB = [2, 50]
+COSTMULTIPLIER = 0.01 
+STARTHOLDING = 0.0
+DISCOUNT_RATE = 0.0
+KAPPA = 0.001 
+INP_TYPE = 'ret' # 'f' or 'ret'
+
+
+HALFLIFE = [22,250]
+SIGMA = 0.01
+SIGMAF = [0.2, 0.1]
+F_PARAM = [0.004, 0.005]
+QTS = [0.01, 0.99]
+ACTION_TYPE = 'GP' #GP Or MV
+UNCORRELATED = True
+T_STUD = False
+DEGREES = 6
+VOL = 'omosk' #'omosk' or 'eterosk'
+
+MEAN_PROCESS = 'AR'
+LAGS_MEAN_PROCESS = 1
+VOL_PROCESS = 'GARCH'
+DISTR_NOISE = 'normal'
+ 
 
 
 # Parameters for main_runner:
 # ==============================================================================
 main_runner.algo = %ALGO
-main_runner.experiment = %EXPERIMENT
-main_runner.parallel = %PARALLEL 
+
+
+# Parameters for DQN_runner:
+# ==============================================================================
+DQN_runner.env_cls = %ENV_CLS
+DQN_runner.action_space_fn = %ACTION_SPACE_FN
+DQN_runner.MV_res = %MV_RES
+DQN_runner.experiment_type = %EXPERIMENT_TYPE
+DQN_runner.episodes = %EPISODES
+DQN_runner.start_train = %START_TRAIN
+DQN_runner.outputClass = %OUTPUTCLASS
+DQN_runner.outputDir = %OUTPUTDIR
+DQN_runner.outputModel = %OUTPUTMODEL
+DQN_runner.save_freq = %SAVE_FREQ
+DQN_runner.seed = %SEED
+DQN_runner.use_GPU = %USE_GPU
+DQN_runner.varying_pars = %VARYING_PARS
+DQN_runner.varying_type = %VARYING_TYPE
+DQN_runner.num_cores = %NUM_CORES
+DQN_runner.N_train = %N_TRAIN
+DQN_runner.len_series = %LEN_SERIES
+
+
+# Parameters for DQN:
+# ==============================================================================
+DQN.DQN_type = 'DDQN'
+DQN.PER_a = 0.6
+DQN.PER_a_growth = False
+DQN.PER_b = 0.4
+DQN.PER_b_growth = True
+DQN.PER_e = 0.01
+DQN.activation = 'elu'
+DQN.batch_norm_hidden = False
+DQN.batch_norm_input = True
+DQN.batch_size = 256
+DQN.beta_1 = 0.5
+DQN.beta_2 = 0.75
+DQN.copy_step = 1.0
+DQN.eps_opt = 0.1
+DQN.epsilon = 1
+DQN.exp_decay_rate = 0.6
+DQN.exp_decay_pct = 0.3
+DQN.final_PER_a = 1.0
+DQN.final_PER_b = 1.0
+DQN.gamma = 0.55
+DQN.hidden_memory_units = None
+DQN.hidden_units = [256, 128]
+DQN.kernel_initializer = 'he_uniform'
+DQN.lr = 0.005
+DQN.lr_schedule = 'exponential'
+DQN.max_exp_pct = 1.0
+DQN.min_eps = 0.05
+DQN.min_eps_pct = 1.0
+DQN.optimizer_name = 'adam'
+DQN.sample_type = 'TDerror'
+DQN.seed = %SEED
+DQN.selected_loss = 'huber'
+DQN.start_train = %START_TRAIN
+DQN.tau = 0.001
+DQN.update_target = 'soft'
+DQN.use_PER = False
+
+
+
+# Parameters for PPO_runner:
+# ==============================================================================
+PPO_runner.env_cls = %ENV_CLS
+PPO_runner.action_space_fn = %ACTION_SPACE_FN
+PPO_runner.MV_res = %MV_RES
+PPO_runner.experiment_type = %EXPERIMENT_TYPE
+PPO_runner.episodes = %EPISODES
+PPO_runner.start_train = %START_TRAIN
+PPO_runner.outputClass = %OUTPUTCLASS
+PPO_runner.outputDir = %OUTPUTDIR
+PPO_runner.outputModel = %OUTPUTMODEL
+PPO_runner.save_freq = %SAVE_FREQ
+PPO_runner.seed = %SEED
+PPO_runner.use_GPU = %USE_GPU
+PPO_runner.varying_pars = %VARYING_PARS
+PPO_runner.varying_type = %VARYING_TYPE
+PPO_runner.num_cores = %NUM_CORES
+PPO_runner.len_series = %LEN_SERIES
+PPO_runner.epochs = %EPOCHS
+
+# Parameters for PPO:
+# ==============================================================================
+PPO.seed = %SEED
+PPO.gamma = 0.99 
+PPO.tau = 0.95
+PPO.clip_param = 0.2
+PPO.vf_c = 0.5
+PPO.ent_c = 0.001
+PPO.hidden_units_value = [256,128]
+PPO.hidden_units_actor = [128,64]
+PPO.batch_size = 250
+PPO.lr = 0.0003
+PPO.activation = 'tanh'
+PPO.batch_norm_input = True
+PPO.batch_norm_value_out = False 
+PPO.policy_type = 'continuous' #discrete or continuous
+PPO.pol_std = 0.0
+PPO.optimizer_name = 'adam'
+PPO.beta_1 = 0.9
+PPO.beta_2 = 0.999
+PPO.eps_opt = 1e-08
+PPO.lr_schedule = None
+PPO.exp_decay_rate = 0.6
+
+
+
+# Parameters for ActionSpace:
+# ==============================================================================
+ActionSpace.action_range = %ACTION_RANGE
+ActionSpace.side_only = %SIDE_ONLY
+ActionSpace.zero_action = %ZERO_ACTION
+
+# Parameters for ResActionSpace:
+# ==============================================================================
+ResActionSpace.action_range = %ACTION_RANGE_RES
+ResActionSpace.zero_action = %ZERO_ACTION
+ResActionSpace.side_only = %SIDE_ONLY
+
+# Parameters for get_action_boundaries:
+# ==============================================================================
+get_action_boundaries.HalfLife = %HALFLIFE
+get_action_boundaries.Startholding = %STARTHOLDING
+get_action_boundaries.sigma = %SIGMA
+get_action_boundaries.CostMultiplier = %COSTMULTIPLIER 
+get_action_boundaries.kappa = %KAPPA
+get_action_boundaries.discount_rate = %DISCOUNT_RATE 
+get_action_boundaries.f_param = %F_PARAM
+get_action_boundaries.qts = %QTS
+get_action_boundaries.action_type = %ACTION_TYPE
+
+# Parameters for MarketEnv:
+# ==============================================================================
+MarketEnv.CostMultiplier = %COSTMULTIPLIER
+MarketEnv.Startholding = %STARTHOLDING
+MarketEnv.discount_rate = %DISCOUNT_RATE
+MarketEnv.kappa = %KAPPA
+MarketEnv.sigma = %SIGMA
+MarketEnv.HalfLife = %HALFLIFE
+MarketEnv.kappa = %KAPPA
+MarketEnv.f_param = %F_PARAM
+MarketEnv.inp_type = %INP_TYPE
+
+
+# Parameters for DataHandler and its related functions:
+# ==============================================================================
+DataHandler.datatype = %DATATYPE
+
+return_sampler_GP.sigmaf = %SIGMAF
+return_sampler_GP.f_param = %F_PARAM
+return_sampler_GP.sigma = %SIGMA
+return_sampler_GP.HalfLife = %HALFLIFE
+return_sampler_GP.uncorrelated = %UNCORRELATED
+return_sampler_GP.t_stud = %T_STUD
+return_sampler_GP.degrees = %DEGREES
+return_sampler_GP.vol = %VOL
+
+
+return_sampler_garch.mean_process = %MEAN_PROCESS
+return_sampler_garch.lags_mean_process = %LAGS_MEAN_PROCESS
+return_sampler_garch.vol_process = %VOL_PROCESS
+return_sampler_garch.distr_noise = %DISTR_NOISE
+return_sampler_garch.seed = %SEED
+
+# Parameters for Out_sample_vs_gp:
+# ==============================================================================
+Out_sample_vs_gp.n_seeds = 2 
+Out_sample_vs_gp.N_test = 500
+Out_sample_vs_gp.rnd_state =  3245
+

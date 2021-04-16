@@ -5,22 +5,21 @@ Created on Mon Dec  7 10:32:11 2020
 @author: aless
 """
 import numpy as np
-from utils.DQN import DeepNetworkModel
-from utils.DDPG import CriticNetwork, ActorNetwork
+from agents.DQN import DeepNetworkModel
+from agents.DDPG import CriticNetwork, ActorNetwork
 import os, sys, pdb
 import pandas as pd
 from tqdm import tqdm
 from typing import Union, Optional
 from utils.simulation import ReturnSampler, GARCHSampler, create_lstm_tensor
 from sklearn.preprocessing import StandardScaler, MinMaxScaler
-from utils.env import (
-    MarketEnv,
-    RecurrentMarketEnv,
+from utils.spaces import (
     ReturnSpace,
     HoldingSpace,
     ActionSpace,
     ResActionSpace,
 )
+from utils.env import MarketEnv
 from utils.tools import CalculateLaggedSharpeRatio, RunModels
 import collections
 from natsort import natsorted
@@ -31,7 +30,7 @@ from matplotlib import cm
 from utils.common import format_tousands
 from utils.tools import get_bet_size
 import torch
-from utils.PPO import PPOActorCritic
+from agents.PPO import PPOActorCritic
 
 # LOAD UTILS
 def load_DQNmodel(
