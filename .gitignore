@@ -3,7 +3,12 @@ data/
 outputs/
 .vscode/
 split_exps_dirs.py
-
+paramDDPG.yaml
+paramPPO.yaml
+paramDQN.yaml
+paramMisspecDQN.yaml
+paramMisspecPPO.yaml
+paramMultiTestOOS.yaml
 
 
 # Byte-compiled / optimized / DLL files
