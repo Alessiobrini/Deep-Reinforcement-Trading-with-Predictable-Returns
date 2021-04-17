@@ -5,62 +5,67 @@ import utils.simulation
 # Macros:
 # ==============================================================================
 # Set up
-ALGO = 'PPO' # 'PPO', 'DQN' or 'DDPG'  
+ALGO = 'DQN' # 'PPO', 'DQN' or 'DDPG'  
 
 ENV_CLS = @MarketEnv 
-ACTION_SPACE_FN = @ResActionSpace #ResActionSpace
+
 
 EXPERIMENT_TYPE = 'GP' # GP or Misspec
-MV_RES = True
+MV_RES = [ False, True]  # Decide which actions to take (trading quantity or MVresiduals)
 
-EPISODES = 10
-N_TRAIN = 1000
-LEN_SERIES = 1000
+EPISODES = None # episode to run the algorithm. Put None if you want to train DQN online
+N_TRAIN = 500000 
+LEN_SERIES = None # length of simulated series, if null the legth is N_train
 EPOCHS = 3
-OUTPUTDIR = 'outputs'
-OUTPUTCLASS = %ALGO
-OUTPUTMODEL = '20210416_multi_test_oos3'
-SAVE_FREQ = 1
-SEED = 11 #[34, 4325451]
-START_TRAIN = 300
+OUTPUTDIR = 'outputs' # main directory for the experiment
+OUTPUTCLASS = %ALGO # first subdirectory
+OUTPUTMODEL = '20210417_GPGAUSS' # second subdirectory
+SAVE_FREQ = 50 # number of checkpoints to save during training
+SEED = [34, 64, 98] # seed for reproducibility
+START_TRAIN = 300 # steps after which the training starts
 USE_GPU = True
-VARYING_PARS = None # ['%SEED']
+VARYING_PARS = ['%MV_RES','%INP_TYPE','%SEED']
 VARYING_TYPE = 'chunk'
-NUM_CORES = 3
+NUM_CORES = 6
 
 # spaces
-N_ACTIONS = 9 #only for res RL
-ACTION_RANGE =  [10000, 5]
-ACTION_RANGE_RES =  [0.0, 1.0, 5]
-SIDE_ONLY = False
-ZERO_ACTION = True
+ACTION_RANGE =  [None, 5] # action range for standard RL [boundary,number of actions]
+ACTION_RANGE_RES =  [0.0, 1.0, 5] # action range for residual RL [LB,UB,number of actions]
+SIDE_ONLY = False # set the action space so that only the side of the bet is captured by the algorithm
+ZERO_ACTION = True # include the zero action (hold) in the action space
+
+#discretization :  # float in (0,1] to determine a level of discretization for the action space when side_only=True. Leave empty for no discretization
+#temp : null #[10.0, 50.0, 100.0, 200.0] # temperature parameter for boltzmann equation
+#bcm : False # allow behavioral cloning module
+#bcm_scale :  #[0.001,0.0001]
+
 
 # env and data simulation
-DATATYPE = 'gaussian'
+DATATYPE = 'gaussian' # type of data to simulate # 'garch','t_stud','t_stud_mfit', 'garch_mr'
 
-FACTOR_LB = [2, 50]
-COSTMULTIPLIER = 0.01 
-STARTHOLDING = 0.0
-DISCOUNT_RATE = 0.0
-KAPPA = 0.001 
-INP_TYPE = 'ret' # 'f' or 'ret'
+FACTOR_LB = [2, 50] # list of lags for fitting autoregressive vairables of the return series
+COSTMULTIPLIER = 0.01 # Cost multiplier to make the cost proportional to the risk
+STARTHOLDING = 0.0 # initial portfolio holding
+DISCOUNT_RATE = 0.0 # discount rate for time value of money (not gamma in DQN)
+KAPPA = 0.001 # risk aversion
+INP_TYPE = ['f','ret'] # 'f' or 'ret'
 
 
-HALFLIFE = [22,250]
-SIGMA = 0.01
-SIGMAF = [0.2, 0.1]
-F_PARAM = [0.004, 0.005]
-QTS = [0.01, 0.99]
-ACTION_TYPE = 'GP' #GP Or MV
-UNCORRELATED = True
-T_STUD = False
-DEGREES = 6
-VOL = 'omosk' #'omosk' or 'eterosk'
+HALFLIFE = [22,125] # list of Halflives of mean reversion
+SIGMA = 0.01 # return volatility
+SIGMAF = [0.2, 0.1] # list of factor volatilities
+F_PARAM = [0.00535,0.00635] # list of factor loadings
+QTS = [0.001,0.999] # quantile to select action boundaries
+ACTION_TYPE = 'GP' # GP or MV for selecting action boundaries
+UNCORRELATED = True # generate correlated or uncorrelated factors
+T_STUD = False # Student's T noise in the simulation for GP factors
+DEGREES = 6 # degrees of freedom for Student's T
+VOL = 'omosk' #'omosk' or 'eterosk' to simulate GP-like return with stoch vol
 
-MEAN_PROCESS = 'AR'
-LAGS_MEAN_PROCESS = 1
-VOL_PROCESS = 'GARCH'
-DISTR_NOISE = 'normal'
+MEAN_PROCESS = 'AR' # choice for mean process ['AR', 'Constant']
+LAGS_MEAN_PROCESS = 1 # lag or list of lags for the autoregressive component in the mean return
+VOL_PROCESS = 'GARCH' # choice for volatility process ['GARCH', 'TGARCH', 'EGARCH', 'Constant']
+DISTR_NOISE = 'normal' # choice for noise distribution ['normal', 'studt', 'skewstud', 'ged']
  
 
 
@@ -72,7 +77,6 @@ main_runner.algo = %ALGO
 # Parameters for DQN_runner:
 # ==============================================================================
 DQN_runner.env_cls = %ENV_CLS
-DQN_runner.action_space_fn = %ACTION_SPACE_FN
 DQN_runner.MV_res = %MV_RES
 DQN_runner.experiment_type = %EXPERIMENT_TYPE
 DQN_runner.episodes = %EPISODES
@@ -92,49 +96,48 @@ DQN_runner.len_series = %LEN_SERIES
 
 # Parameters for DQN:
 # ==============================================================================
-DQN.DQN_type = 'DDQN'
-DQN.PER_a = 0.6
+DQN.DQN_type = 'DDQN' # 'DQN' or 'DDQN'
+DQN.PER_a = 0.6 # Hyperparameter that we use to make a tradeoff between taking only exp with high priority and sampling randomly
 DQN.PER_a_growth = False
-DQN.PER_b = 0.4
+DQN.PER_b = 0.4 # importance-sampling, from initial value increasing to 1
 DQN.PER_b_growth = True
-DQN.PER_e = 0.01
-DQN.activation = 'elu'
-DQN.batch_norm_hidden = False
-DQN.batch_norm_input = True
-DQN.batch_size = 256
-DQN.beta_1 = 0.5
-DQN.beta_2 = 0.75
-DQN.copy_step = 1.0
-DQN.eps_opt = 0.1
-DQN.epsilon = 1
-DQN.exp_decay_rate = 0.6
-DQN.exp_decay_pct = 0.3
-DQN.final_PER_a = 1.0
-DQN.final_PER_b = 1.0
-DQN.gamma = 0.55
-DQN.hidden_memory_units = None
-DQN.hidden_units = [256, 128]
-DQN.kernel_initializer = 'he_uniform'
-DQN.lr = 0.005
-DQN.lr_schedule = 'exponential'
-DQN.max_exp_pct = 1.0
-DQN.min_eps = 0.05
-DQN.min_eps_pct = 1.0
+DQN.PER_e = 0.01 # Hyperparameter that we use to avoid some experiences to have 0 probability of being taken
+DQN.activation = 'elu' # 'elu', 'relu6', 'leaky_relu' or every other activation as aliased in TF2
+DQN.batch_norm_hidden = False # batch norm at hidden layer level
+DQN.batch_norm_input = True # batch norm at input layer level
+DQN.batch_size = 256 # size of the batch for the update
+DQN.beta_1 = 0.5 # first parameter for adaptive optimizers
+DQN.beta_2 = 0.75 # second parameter for adaptive optimizers
+DQN.copy_step = 1.0 # steps for target network update in DQN: 'hard' or 'soft'
+DQN.eps_opt = 0.1 # corrective parameter for adaptive optimizers
+DQN.epsilon = 1 # Initial exploration probability
+DQN.exp_decay_rate = 0.6 # decay rate
+DQN.exp_decay_pct = 0.3 # decay steps as percentage of the total iterations
+DQN.final_PER_a = 1.0 # final value of b after the annealing
+DQN.final_PER_b = 1.0 # final value of b after the annealing
+DQN.gamma = 0.55 # discounting factor for the Q target
+DQN.hidden_memory_units = None # presence of hidden layer in the architecture (to implement)
+DQN.hidden_units = [256, 128] # list of hidden layers size
+DQN.kernel_initializer = 'he_uniform' # every kind of activation as aliased in TF2
+DQN.lr = 0.005 # initial learning rate
+DQN.lr_schedule = '' # 'exponential', 'piecewise', 'inverse_time' or 'polynomial'
+DQN.max_exp_pct = 1.0 # size of buffer experience as a percentage of the total iteration
+DQN.min_eps = 0.5 # minimum value for epsilon
+DQN.min_eps_pct = 1.0 # number of steps to reach the minimum epsilon as a percentage of the total
 DQN.optimizer_name = 'adam'
-DQN.sample_type = 'TDerror'
+DQN.sample_type = 'TDerror' # Type of prioritization 'TDerror', 'diffTDerror' or 'reward'
 DQN.seed = %SEED
-DQN.selected_loss = 'huber'
+DQN.selected_loss = 'huber' # 'mse' or 'huber'
 DQN.start_train = %START_TRAIN
-DQN.tau = 0.001
-DQN.update_target = 'soft'
-DQN.use_PER = False
+DQN.tau = 0.001 # size of soft update
+DQN.update_target = 'soft' # type of update 'hard' or 'soft'
+DQN.use_PER = False # use PER in training
 
 
 
 # Parameters for PPO_runner:
 # ==============================================================================
 PPO_runner.env_cls = %ENV_CLS
-PPO_runner.action_space_fn = %ACTION_SPACE_FN
 PPO_runner.MV_res = %MV_RES
 PPO_runner.experiment_type = %EXPERIMENT_TYPE
 PPO_runner.episodes = %EPISODES
@@ -154,26 +157,26 @@ PPO_runner.epochs = %EPOCHS
 # Parameters for PPO:
 # ==============================================================================
 PPO.seed = %SEED
-PPO.gamma = 0.99 
-PPO.tau = 0.95
-PPO.clip_param = 0.2
-PPO.vf_c = 0.5
-PPO.ent_c = 0.001
+PPO.gamma = 0.99 # discounting factor for the Q target
+PPO.tau = 0.95 # lambda in the original GAE paper
+PPO.clip_param = 0.2 # clipping of objective function
+PPO.vf_c = 0.5 # coefficient for the value error
+PPO.ent_c = 0.001 # coefficient for entropy
 PPO.hidden_units_value = [256,128]
 PPO.hidden_units_actor = [128,64]
 PPO.batch_size = 250
-PPO.lr = 0.0003
+PPO.lr = 0.0003 # initial learning rate
 PPO.activation = 'tanh'
-PPO.batch_norm_input = True
-PPO.batch_norm_value_out = False 
+PPO.batch_norm_input = True # batch norm at input layer level
+PPO.batch_norm_value_out = False # normalize value function output
 PPO.policy_type = 'continuous' #discrete or continuous
-PPO.pol_std = 0.0
+PPO.pol_std = 0.0 # policy std dev for stochasticity
 PPO.optimizer_name = 'adam'
-PPO.beta_1 = 0.9
-PPO.beta_2 = 0.999
-PPO.eps_opt = 1e-08
-PPO.lr_schedule = None
-PPO.exp_decay_rate = 0.6
+PPO.beta_1 = 0.9 # first parameter for adaptive optimizers
+PPO.beta_2 = 0.999 # second parameter for adaptive optimizers
+PPO.eps_opt = 1e-08 # corrective parameter for adaptive optimizers
+PPO.lr_schedule = None # 'exponential', 'piecewise', 'inverse_time' or 'polynomial'
+PPO.exp_decay_rate = 0.6 # decay rate
 
 
 
@@ -236,7 +239,7 @@ return_sampler_garch.seed = %SEED
 
 # Parameters for Out_sample_vs_gp:
 # ==============================================================================
-Out_sample_vs_gp.n_seeds = 2 
+Out_sample_vs_gp.n_seeds = 5
 Out_sample_vs_gp.N_test = 500
 Out_sample_vs_gp.rnd_state =  3245
 

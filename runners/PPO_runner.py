@@ -36,7 +36,6 @@ class PPO_runner(MixinCore):
     def __init__(
         self,
         env_cls: object,
-        action_space_fn: object,
         MV_res: bool,
         experiment_type: str,
         seed: int,
@@ -104,7 +103,7 @@ class PPO_runner(MixinCore):
         
         self.logging.debug("Instantiating action space")
         if self.MV_res:
-            self.action_space = self.action_space_fn()
+            self.action_space = ResActionSpace()
         else:
             action_range, ret_quantile, holding_quantile = get_action_boundaries(
                 N_train=self.N_train,
@@ -114,7 +113,7 @@ class PPO_runner(MixinCore):
             )
 
             gin.query_parameter('%ACTION_RANGE')[0] = action_range
-            self.action_space = self.action_space_fn()
+            self.action_space = ActionSpace()
 
         self.logging.debug("Instantiating market environment")
         self.env = self.env_cls(N_train=self.N_train,
