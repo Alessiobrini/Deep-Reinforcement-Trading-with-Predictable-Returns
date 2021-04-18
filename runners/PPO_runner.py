@@ -163,7 +163,18 @@ class PPO_runner(MixinCore):
 
         self.logging.debug("Start training...")
         for e in tqdm(iterable=range(self.episodes), desc="Running episodes..."):
+            
+            if e>0:
+                if self.experiment_type == 'GP':
+                    self.data_handler.generate_returns()
+                else:
+                    self.data_handler.generate_returns()
+                    # TODO check if these method really fit and change the parameters in the gin file
+                    self.data_handler.estimate_parameters()
 
+                self.env.returns = self.data_handler.returns
+                self.env.factors = self.data_handler.factors
+        
             self.logging.debug("Training...")
 
             self.collect_rollouts()
