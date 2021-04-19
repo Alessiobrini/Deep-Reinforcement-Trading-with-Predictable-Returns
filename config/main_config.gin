@@ -5,28 +5,28 @@ import utils.simulation
 # Macros:
 # ==============================================================================
 # Set up
-ALGO = 'DQN' # 'PPO', 'DQN' or 'DDPG'  
+ALGO = 'PPO' # 'PPO', 'DQN' or 'DDPG'  
 
 ENV_CLS = @MarketEnv 
 
 
 EXPERIMENT_TYPE = 'GP' # GP or Misspec
-MV_RES = [ False, True]  # Decide which actions to take (trading quantity or MVresiduals)
+MV_RES = False #[False, True]  # Decide which actions to take (trading quantity or MVresiduals)
 
-EPISODES = None # episode to run the algorithm. Put None if you want to train DQN online
-N_TRAIN = 500000 
-LEN_SERIES = None # length of simulated series, if null the legth is N_train
+EPISODES = 150 # episode to run the algorithm. Put None if you want to train DQN online
+N_TRAIN = 1000 #[100000, 250000, 500000, 1000000] 
+LEN_SERIES = 2500 # length of simulated series, if null the legth is N_train
 EPOCHS = 3
 OUTPUTDIR = 'outputs' # main directory for the experiment
 OUTPUTCLASS = %ALGO # first subdirectory
-OUTPUTMODEL = '20210417_GPGAUSS' # second subdirectory
-SAVE_FREQ = 50 # number of checkpoints to save during training
-SEED = [34, 64, 98] # seed for reproducibility
+OUTPUTMODEL = '20210418_GPGAUSS_polstd_softplus' # second subdirectory
+SAVE_FREQ = 10 # number of checkpoints to save during training
+SEED =  [297, 932, 165,  26, 831]  # seed for reproducibility
 START_TRAIN = 300 # steps after which the training starts
 USE_GPU = True
-VARYING_PARS = ['%MV_RES','%INP_TYPE','%SEED']
+VARYING_PARS = ['%SEED']
 VARYING_TYPE = 'chunk'
-NUM_CORES = 6
+NUM_CORES = 5
 
 # spaces
 ACTION_RANGE =  [None, 5] # action range for standard RL [boundary,number of actions]
@@ -48,15 +48,15 @@ COSTMULTIPLIER = 0.01 # Cost multiplier to make the cost proportional to the ris
 STARTHOLDING = 0.0 # initial portfolio holding
 DISCOUNT_RATE = 0.0 # discount rate for time value of money (not gamma in DQN)
 KAPPA = 0.001 # risk aversion
-INP_TYPE = ['f','ret'] # 'f' or 'ret'
+INP_TYPE = 'ret' #['f','ret'] # 'f' or 'ret'
 
 
 HALFLIFE = [22,125] # list of Halflives of mean reversion
 SIGMA = 0.01 # return volatility
-SIGMAF = [0.2, 0.1] # list of factor volatilities
+SIGMAF = [0.2, 0.1] #[[0.2, 0.1],[0.1, 0.1]] # list of factor volatilities
 F_PARAM = [0.00535,0.00635] # list of factor loadings
 QTS = [0.001,0.999] # quantile to select action boundaries
-ACTION_TYPE = 'GP' # GP or MV for selecting action boundaries
+ACTION_TYPE = 'MV' # GP or MV for selecting action boundaries
 UNCORRELATED = True # generate correlated or uncorrelated factors
 T_STUD = False # Student's T noise in the simulation for GP factors
 DEGREES = 6 # degrees of freedom for Student's T
@@ -120,7 +120,7 @@ DQN.hidden_memory_units = None # presence of hidden layer in the architecture (t
 DQN.hidden_units = [256, 128] # list of hidden layers size
 DQN.kernel_initializer = 'he_uniform' # every kind of activation as aliased in TF2
 DQN.lr = 0.005 # initial learning rate
-DQN.lr_schedule = '' # 'exponential', 'piecewise', 'inverse_time' or 'polynomial'
+DQN.lr_schedule = 'exponential' # 'exponential', 'piecewise', 'inverse_time' or 'polynomial'
 DQN.max_exp_pct = 1.0 # size of buffer experience as a percentage of the total iteration
 DQN.min_eps = 0.5 # minimum value for epsilon
 DQN.min_eps_pct = 1.0 # number of steps to reach the minimum epsilon as a percentage of the total
@@ -170,7 +170,8 @@ PPO.activation = 'tanh'
 PPO.batch_norm_input = True # batch norm at input layer level
 PPO.batch_norm_value_out = False # normalize value function output
 PPO.policy_type = 'continuous' #discrete or continuous
-PPO.pol_std = 0.0 # policy std dev for stochasticity
+PPO.init_pol_std = 0.5 # initial policy std dev for stochasticity
+PPO.min_pol_std = 0.003 # minimum policy std dev for stochasticity
 PPO.optimizer_name = 'adam'
 PPO.beta_1 = 0.9 # first parameter for adaptive optimizers
 PPO.beta_2 = 0.999 # second parameter for adaptive optimizers
@@ -241,5 +242,5 @@ return_sampler_garch.seed = %SEED
 # ==============================================================================
 Out_sample_vs_gp.n_seeds = 5
 Out_sample_vs_gp.N_test = 500
-Out_sample_vs_gp.rnd_state =  3245
+Out_sample_vs_gp.rnd_state =  3425657
 
