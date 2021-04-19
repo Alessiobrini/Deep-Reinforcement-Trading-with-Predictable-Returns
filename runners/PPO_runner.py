@@ -166,9 +166,9 @@ class PPO_runner(MixinCore):
             
             if e>0:
                 if self.experiment_type == 'GP':
-                    self.data_handler.generate_returns()
+                    self.data_handler.generate_returns(disable_tqdm=True)
                 else:
-                    self.data_handler.generate_returns()
+                    self.data_handler.generate_returns(disable_tqdm=True)
                     # TODO check if these method really fit and change the parameters in the gin file
                     self.data_handler.estimate_parameters()
 
@@ -313,7 +313,6 @@ class PPO_runner(MixinCore):
             self.train_agent.compute_gae(self.next_value.detach().cpu().numpy().ravel())
 
     def update(self):
-
         for _ in range(self.epochs):  # run for more than one epochs
             for (
                 state,
