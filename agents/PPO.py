@@ -28,7 +28,8 @@ class PPOActorCritic(nn.Module):
         batch_norm_input: bool,
         batch_norm_value_out: bool,
         policy_type: str,
-        std: float = 0.0,
+        init_std: float = 0.5,
+        min_std: float = 0.003,
         modelname: str = "PPO",
     ):
 
@@ -121,7 +122,10 @@ class PPOActorCritic(nn.Module):
         # TODO insert here flag for cont/discrete
         if self.policy_type == "continuous":
 
-            self.log_std = nn.Parameter(torch.ones(1, out_dim) * std)
+            self.log_std = nn.Parameter(torch.ones(1, out_dim) * 0.0)
+            self.softplus = nn.Softplus()
+            self.init_std = init_std
+            self.min_std = min_std
 
         elif self.policy_type == "discrete":
             pass
@@ -136,9 +140,12 @@ class PPOActorCritic(nn.Module):
         if self.policy_type == "continuous":
 
             mu = self.actor(x)
-            std = self.log_std.exp().expand_as(
-                mu
-            )  # make the tensor of the same size of mu
+            # std = self.log_std.exp().expand_as(
+            #     mu
+            # )  # make the tensor of the same size of mu
+            init_const = 1/self.softplus(torch.tensor(self.init_std - self.min_std))
+            std = self.softplus(self.log_std + init_const) + self.min_std
+
             dist = Normal(mu, std)
 
         elif self.policy_type == "discrete":
@@ -159,24 +166,28 @@ class PPOActorCritic(nn.Module):
     def init_weights(self):
         # to access module and layer of an architecture
         # https://discuss.pytorch.org/t/how-to-access-to-a-layer-by-module-name/83797/2
-        for layer in self.actor[:-1]:
+        for layer in self.actor: #[:-1]:
             if isinstance(layer, nn.Linear):
                 nn.init.xavier_uniform_(layer.weight)
                 nn.init.zeros_(layer.bias)
 
         # carefully initialize last layer
-        nn.init.normal_(self.actor[-1].weight, mean=0.0, std=0.01)
-        nn.init.constant_(self.actor[-1].bias, 0.01)
+        self.actor[-1].weight = torch.nn.Parameter(self.actor[-1].weight * 0.001)
+        self.actor[-1].bias = torch.nn.Parameter(self.actor[-1].bias * 0.001)
+        # nn.init.normal_(self.actor[-1].weight, mean=0.0, std=0.01)
+        # nn.init.constant_(self.actor[-1].bias, 0.01)
 
-        for layer in self.critic[:-2]:
+        for layer in self.critic: #[:-2]:
             if isinstance(layer, nn.Linear):
                 nn.init.xavier_uniform_(layer.weight)
                 nn.init.zeros_(layer.bias)
         # carefully initialize last layer
         for layer in self.critic[-2:]:
             if isinstance(layer, nn.Linear):
-                nn.init.normal_(layer.weight, mean=0.0, std=0.01)
-                nn.init.constant_(layer.bias, 0.01)
+                # nn.init.normal_(layer.weight, mean=0.0, std=0.01)
+                # nn.init.constant_(layer.bias, 0.01)
+                layer.weight = torch.nn.Parameter(layer.weight * 0.001)
+                layer.bias = torch.nn.Parameter(layer.bias * 0.001)
 
 
 # ############################### DQN ALGORITHM ################################
@@ -201,7 +212,8 @@ class PPO:
         batch_norm_value_out: bool,
         action_space,
         policy_type: str,
-        pol_std: float,
+        init_pol_std: float,
+        min_pol_std: float,
         beta_1: float = 0.9,
         beta_2: float = 0.999,
         eps_opt: float = 1e-07,
@@ -251,7 +263,8 @@ class PPO:
             batch_norm_input,
             batch_norm_value_out,
             self.policy_type,
-            pol_std,
+            init_pol_std,
+            min_pol_std,
             modelname,
         )
 
