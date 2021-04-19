@@ -44,18 +44,19 @@ class DataHandler():
         self.rng = rng
         self.factor_lb = factor_lb 
 
-    def generate_returns(self):
+    def generate_returns(self, disable_tqdm: bool=False):
 
         if self.datatype != 'garch':
             # REMARK if you do t_studmfit and you want to compare the training over the same
             # series wrt t_stud, you need to simulate a series of lenght N_train + factor_lb[-1]
             # This is currently not implemented here
             self.returns, self.factors, self.f_speed = return_sampler_GP(N_train=self.N_train,
-                                                               rng=self.rng)
+                                                               rng=self.rng,
+                                                               disable_tqdm=disable_tqdm)
 
 
         elif self.datatype == "garch":
-            self.returns, self.params = return_sampler_garch(N_train=self.N_train)
+            self.returns, self.params = return_sampler_garch(N_train=self.N_train, disable_tqdm=disable_tqdm)
 
 
         else:
