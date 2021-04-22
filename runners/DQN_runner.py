@@ -94,10 +94,10 @@ class DQN_runner(MixinCore):
         """Wrapper for keyboard interrupt."""
         try:
             self.set_up_training()
-            if self.episodes:
-                self.training_episodic_agent()
-            else:
-                self.training_agent()
+            # if self.episodes:
+            #     self.training_episodic_agent()
+            # else:
+            self.training_agent()
         except (KeyboardInterrupt, SystemExit):
             self.logging.debug("Exit on KeyboardInterrupt or SystemExit")
             sys.exit()
