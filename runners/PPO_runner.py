@@ -51,6 +51,7 @@ class PPO_runner(MixinCore):
         varying_pars: Union[list or None] = None,
         varying_type: str = "chunk",
         num_cores: int = None,
+        universal_train: bool = False,
     ):
 
         self.logging.info("Starting model setup")
@@ -164,7 +165,7 @@ class PPO_runner(MixinCore):
         self.logging.debug("Start training...")
         for e in tqdm(iterable=range(self.episodes), desc="Running episodes..."):
             
-            if e>0:
+            if e>0 and self.universal_train:
                 if self.experiment_type == 'GP':
                     self.data_handler.generate_returns(disable_tqdm=True)
                 else:
