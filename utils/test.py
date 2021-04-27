@@ -139,12 +139,15 @@ class Out_sample_vs_gp:
                         # action = dist.sample()
                         # pdb.set_trace()
                         action = dist.mean      
+                        if self.MV_res:
+                            action = action.cpu().numpy().ravel()
+                        else:
+                            # clip the action in the space [0,1]
+                            action = nn.Tanh()(action).cpu().numpy().ravel()[0]
+                            action = unscale_action(
+                                test_agent.action_space.values[-1], action
+                            )
 
-                        # clip the action in the space [0,1]
-                        action = nn.Tanh()(action).cpu().numpy().ravel()[0]
-                        action = unscale_action(
-                            test_agent.action_space.values[-1], action
-                        )
 
                     elif test_agent.policy_type == "discrete":
                         action = test_agent.action_space.values[dist.sample()]
@@ -157,13 +160,11 @@ class Out_sample_vs_gp:
                             zero_action=test_agent.action_space.zero_action,
                             rng=self.rng,
                         )
+                    if self.MV_res:
+                        NextState, Result, _  = self.test_env.MV_res_step(CurrState.cpu(), action, i, tag="PPO")
+                    else:
+                        NextState, Result, _  = self.test_env.step(CurrState.cpu(), action, i, tag="PPO")
 
-                    NextState, Result, _ = self.test_env.step(
-                        CurrState.cpu(),
-                        action,
-                        i,
-                        tag="PPO",
-                    )
                     self.test_env.store_results(Result, i)
 
                 CurrState = NextState

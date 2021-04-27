@@ -267,12 +267,17 @@ class PPO_runner(MixinCore):
                 action = dist.sample()
                 log_prob = dist.log_prob(action)
 
-                clipped_action = nn.Tanh()(action).cpu().numpy().ravel()
-                action = action.cpu().numpy().ravel()
+                if self.MV_res:
+                    action = action.cpu().numpy().ravel()
+                    unscaled_action = action
+                else:
+            
+                    clipped_action = nn.Tanh()(action).cpu().numpy().ravel()
+                    action = action.cpu().numpy().ravel()
 
-                unscaled_action = unscale_action(
-                    self.action_space.action_range[0], clipped_action
-                )
+                    unscaled_action = unscale_action(
+                        self.action_space.action_range[0], clipped_action
+                    )
 
             elif self.train_agent.policy_type == "discrete":
 
