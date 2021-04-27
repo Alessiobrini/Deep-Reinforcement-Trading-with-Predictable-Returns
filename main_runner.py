@@ -13,6 +13,7 @@ import ruamel.yaml as yaml
 
 from runners.DQN_runner import DQN_runner
 from runners.PPO_runner import PPO_runner
+
 # from runners.DDPG_runner import DDPG_runner
 
 from utils.common import readConfigYaml
@@ -49,6 +50,7 @@ def parallel_exps(var_par, varying_par_to_change, gin_path, func):
     model_runner = func()
     model_runner.run()
 
+
 @gin.configurable()
 def main_runner(configs_path: str, algo: str):
     """Main function to run both a single experiment or a
@@ -77,7 +79,6 @@ def main_runner(configs_path: str, algo: str):
 
     elif algo == "PPO":
         func = PPO_runner
-
 
     # launch runner (either parallelized or not)
     if gin.query_parameter("%VARYING_PARS") is not None:
@@ -114,7 +115,6 @@ def main_runner(configs_path: str, algo: str):
         model_runner = func()
         model_runner.run()
 
-
     # TODO adapt OOS test part
     # if gin.query_parameter("%VARYING_PARS") is not None:
     #     # transfer path of the current experiment among yaml files
@@ -129,7 +129,7 @@ def main_runner(configs_path: str, algo: str):
     #     paramtest["algo"] = [algo]
     #     if algo!= 'PPO':
     #         paramtest["length"] = format_tousands(x["N_train"])
-    
+
     #     # run OOS tests
     #     # TODO integrate PPO out-of-sample in the original testing function
     #     if algo != "PPO":
@@ -137,11 +137,12 @@ def main_runner(configs_path: str, algo: str):
     #     else:
     #         runPPOMultiTestOOSbySeed(p=paramtest)
 
+
 if __name__ == "__main__":
     example_text = """Examples of use:
     python main_runner.py --config main_config.gin
     """
-    
+
     parser = argparse.ArgumentParser(
         description="DRL model runner.",
         epilog=example_text,

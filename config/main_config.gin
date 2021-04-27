@@ -13,23 +13,23 @@ ENV_CLS = @MarketEnv
 
 
 EXPERIMENT_TYPE = 'GP' # GP or Misspec
-MV_RES = False # [False, True]  # Decide which actions to take (trading quantity or MVresiduals)
+MV_RES = [False, True]  # Decide which actions to take (trading quantity or MVresiduals)
 UNIVERSAL_TRAIN = True
 
-EPISODES = 150  #None # episode to run the algorithm. Put None if you want to train DQN online
+EPISODES = 100  #None # episode to run the algorithm. Put None if you want to train DQN online
 N_TRAIN = None
-LEN_SERIES = 2000 #None # length of simulated series, if null the legth is N_train
+LEN_SERIES = 4000 #None # length of simulated series, if null the legth is N_train
 EPOCHS = 3
 OUTPUTDIR = 'outputs' # main directory for the experiment
 OUTPUTCLASS = %ALGO # first subdirectory
-OUTPUTMODEL = '20210427_GPGAUSS_tot_sens_relu2' # second subdirectory
+OUTPUTMODEL = '20210428_GPGAUSS_res' # second subdirectory
 SAVE_FREQ = 2  # number of checkpoints to save during training
 SEED =  [297, 932, 165,  26] #, 55, 44, 33, 22]  # seed for reproducibility
 START_TRAIN = 300 # steps after which the training starts
 USE_GPU = True
-VARYING_PARS = ['%SEED'] #['%N_TRAIN', '%HALFLIFE', '%SIGMAF', '%MV_RES', '%INP_TYPE', '%SEED']
+VARYING_PARS = ['%MV_RES', '%INP_TYPE', '%SEED'] #['%N_TRAIN', '%HALFLIFE', '%SIGMAF', '%MV_RES', '%INP_TYPE', '%SEED']
 VARYING_TYPE = 'chunk'
-NUM_CORES = 24
+NUM_CORES = 6
 
 # spaces
 ACTION_RANGE =  [None, 9] # action range for standard RL [boundary,number of actions]
@@ -51,7 +51,7 @@ COSTMULTIPLIER = 0.01 # Cost multiplier to make the cost proportional to the ris
 STARTHOLDING = 0.0 # initial portfolio holding
 DISCOUNT_RATE = 0.0 # discount rate for time value of money (not gamma in DQN)
 KAPPA = 0.001 # risk aversion
-INP_TYPE = 'ret' #['f','ret'] # 'f' or 'ret'
+INP_TYPE = ['f','ret'] # 'f' or 'ret'
 
 
 HALFLIFE = [350] #[[66,630]] # list of Halflives of mean reversion
@@ -163,7 +163,7 @@ PPO_runner.universal_train = %UNIVERSAL_TRAIN
 PPO.seed = %SEED
 PPO.gamma = 0.8 # discounting factor for the Q target
 PPO.tau = 0.9 # lambda in the original GAE paper
-PPO.clip_param = 0.4 # clipping of objective function
+PPO.clip_param = 0.2 # clipping of objective function
 PPO.vf_c = 0.5 # coefficient for the value error
 PPO.ent_c = 0.0 # coefficient for entropy
 PPO.hidden_units_value = [256,128]

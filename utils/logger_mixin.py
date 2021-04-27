@@ -64,10 +64,7 @@ class LoggerMixin:
         return obj._logger
 
     def setup_file_handler(
-        self,
-        filename: str = "temp.log",
-        force: bool = False,
-        level: bool = None,
+        self, filename: str = "temp.log", force: bool = False, level: bool = None,
     ):
         """
         Setup file handler.
@@ -79,9 +76,7 @@ class LoggerMixin:
         """
         if not hasattr(LoggerMixin, "fh") or force:
             LoggerMixin.fh = logging.FileHandler(
-                filename=filename,
-                mode="w",
-                encoding="utf-8",
+                filename=filename, mode="w", encoding="utf-8",
             )
             level = self.log_level if level is None else level
             LoggerMixin.fh.setLevel(level)

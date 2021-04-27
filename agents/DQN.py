@@ -111,9 +111,7 @@ class DeepNetworkModel(tf.keras.Model):
         self.output_layer = Dense(out_shape)
 
     def call(
-        self,
-        inputs: Union[np.ndarray or tf.Tensor],
-        training: bool = True,
+        self, inputs: Union[np.ndarray or tf.Tensor], training: bool = True,
     ) -> Union[np.ndarray or tf.Tensor]:
         """
         Instantiate Deep Q Network Class
@@ -148,8 +146,6 @@ class DeepNetworkModel(tf.keras.Model):
         # build the output layer
         z = self.output_layer(z)
         return z
-
-
 
 
 ############################### DQN ALGORITHM ################################
@@ -198,7 +194,7 @@ class DQN:
         exp_decay_pct: Optional[float] = None,
         exp_decay_rate: Optional[float] = None,
         rng=None,
-        N_train:int = 100000,
+        N_train: int = 100000,
         modelname: str = "Deep Network",
     ):
         """
@@ -399,11 +395,11 @@ class DQN:
                 PER_b_growth = (final_PER_b - PER_b) / PER_b_steps
             else:
                 PER_b_growth = 0.0
-                PER_b_steps= None
+                PER_b_steps = None
 
             if PER_a_growth:
                 PER_a_steps = PER_a_steps = N_train
-                PER_a_growth  = (final_PER_a - PER_a) / PER_a_steps
+                PER_a_growth = (final_PER_a - PER_a) / PER_a_steps
             else:
                 PER_a_growth = 0.0
                 PER_a_steps = None
@@ -519,9 +515,7 @@ class DQN:
                 self.action_space.values.tolist().index(act) for act in actions
             ]
             selected_action_values = tf.math.reduce_sum(
-                self.model(
-                    np.atleast_2d(states.astype("float32")),
-                )
+                self.model(np.atleast_2d(states.astype("float32")),)
                 * tf.one_hot(encoded_actions, self.num_actions),
                 axis=1,
             )

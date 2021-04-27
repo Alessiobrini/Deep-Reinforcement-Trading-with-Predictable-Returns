@@ -5,6 +5,7 @@ Created on Mon Dec  7 10:32:11 2020
 @author: aless
 """
 import gin
+
 gin.enter_interactive_mode()
 import numpy as np
 import tensorflow as tf
@@ -16,6 +17,7 @@ from utils.spaces import (
     ResActionSpace,
 )
 from utils.math_tools import unscale_action
+
 # from utils.env import MarketEnv
 # from utils.tools import CalculateLaggedSharpeRatio, RunModels
 import collections
@@ -29,9 +31,7 @@ from agents.PPO import PPOActorCritic
 
 # # LOAD UTILS
 def load_DQNmodel(
-    data_dir: str,
-    ckpt_it: int = None,
-    model: object = None,
+    data_dir: str, ckpt_it: int = None, model: object = None,
 ):
     """
     Load trained parameter for DQN
@@ -61,50 +61,52 @@ def load_DQNmodel(
     """
     if not model:
         query = gin.query_parameter
-        
-        if query('%INP_TYPE')=='f': 
+
+        if query("%INP_TYPE") == "f":
             num_inp = 3
         else:
             num_inp = 2
-    
-        if query('%MV_RES'):
-            actions = ResActionSpace(query('%ACTION_RANGE_RES'), query('%ZERO_ACTION')).values
+
+        if query("%MV_RES"):
+            actions = ResActionSpace(
+                query("%ACTION_RANGE_RES"), query("%ZERO_ACTION")
+            ).values
         else:
-            actions = ActionSpace(query('%ACTION_RANGE'), query('%ZERO_ACTION'), query('%SIDE_ONLY')).values
-                
+            actions = ActionSpace(
+                query("%ACTION_RANGE"), query("%ZERO_ACTION"), query("%SIDE_ONLY")
+            ).values
+
         num_actions = len(actions)
-    
+
         model = DeepNetworkModel(
-            query('%SEED'),
+            query("%SEED"),
             num_inp,
-            query('DQN.hidden_units'),
+            query("DQN.hidden_units"),
             num_actions,
-            query('DQN.batch_norm_input'),
-            query('DQN.batch_norm_hidden'),
-            query('DQN.activation'),
-            query('DQN.kernel_initializer'),
+            query("DQN.batch_norm_input"),
+            query("DQN.batch_norm_hidden"),
+            query("DQN.activation"),
+            query("DQN.kernel_initializer"),
             modelname="TrainNet",
         )
 
         model.load_weights(
             os.path.join(data_dir, "ckpt", "DQN_{}_ep_weights".format(ckpt_it))
         )
-        
+
         return model, actions
-    
+
     else:
         model.load_weights(
             os.path.join(data_dir, "ckpt", "DQN_{}_ep_weights".format(ckpt_it))
         )
-        
+
         return model
 
-    
 
-
-def load_PPOmodel(   data_dir: str,
-    ckpt_it: int = None,
-    model: object = None,):
+def load_PPOmodel(
+    data_dir: str, ckpt_it: int = None, model: object = None,
+):
     """
     Load trained parameter for DQN
 
@@ -130,36 +132,40 @@ def load_PPOmodel(   data_dir: str,
         Array of possible actions
 
     """
-    
+
     if not model:
         query = gin.query_parameter
-        
-        if query('%INP_TYPE')=='f': 
+
+        if query("%INP_TYPE") == "f":
             inp_shape = (3,)
         else:
             inp_shape = (2,)
-    
-        if query('%MV_RES'):
-            actions = ResActionSpace(query('%ACTION_RANGE_RES'), query('%ZERO_ACTION')).values
+
+        if query("%MV_RES"):
+            actions = ResActionSpace(
+                query("%ACTION_RANGE_RES"), query("%ZERO_ACTION")
+            ).values
         else:
-            actions = ActionSpace(query('%ACTION_RANGE'), query('%ZERO_ACTION'), query('%SIDE_ONLY')).values
+            actions = ActionSpace(
+                query("%ACTION_RANGE"), query("%ZERO_ACTION"), query("%SIDE_ONLY")
+            ).values
 
         num_actions = actions.ndim
-    
+
         model = PPOActorCritic(
-            query('%SEED'),
+            query("%SEED"),
             inp_shape,
-            query('PPO.activation'),
-            query('PPO.hidden_units_value'),
-            query('PPO.hidden_units_actor'),
+            query("PPO.activation"),
+            query("PPO.hidden_units_value"),
+            query("PPO.hidden_units_actor"),
             num_actions,
-            query('PPO.batch_norm_input'),
-            query('PPO.batch_norm_value_out'),
-            query('PPO.policy_type'),
-            query('PPO.init_pol_std'),
-            query('PPO.min_pol_std'),
-            query('PPO.std_transform'),
-            query('PPO.init_last_layers'),
+            query("PPO.batch_norm_input"),
+            query("PPO.batch_norm_value_out"),
+            query("PPO.policy_type"),
+            query("PPO.init_pol_std"),
+            query("PPO.min_pol_std"),
+            query("PPO.std_transform"),
+            query("PPO.init_last_layers"),
             modelname="PPO",
         )
 
@@ -168,9 +174,9 @@ def load_PPOmodel(   data_dir: str,
                 os.path.join(data_dir, "ckpt", "PPO_{}_ep_weights.pth".format(ckpt_it))
             )
         )
-        
+
         return model, actions
-        
+
     else:
         model.load_state_dict(
             torch.load(
@@ -179,7 +185,6 @@ def load_PPOmodel(   data_dir: str,
         )
 
     return model
-
 
 
 def plot_pct_metrics(
@@ -195,7 +200,7 @@ def plot_pct_metrics(
 ):
 
     gin.parse_config_file(params_path, skip_unknown=True)
-    
+
     # df_mean = df.mean(axis=0)
     df_mean = df.median(axis=0)
 
@@ -222,8 +227,7 @@ def plot_pct_metrics(
         df_mean.values,
         color=colors,
         linewidth=3,
-        label='_'.join(data_dir.split('/')[-2].split('_')[2:]
-        ),
+        label="_".join(data_dir.split("/")[-2].split("_")[2:]),
     )
 
     if conf_interval:
@@ -231,9 +235,8 @@ def plot_pct_metrics(
         ax1.fill_between(
             idxs, (df_mean.values - ci), (df_mean.values + ci), color=colors, alpha=0.5
         )
-        
 
-    if gin.query_parameter('%DATATYPE') != 'garch':
+    if gin.query_parameter("%DATATYPE") != "garch":
 
         if variable.split("_")[0] == "Pdist":
 
@@ -262,11 +265,11 @@ def plot_pct_metrics(
                 linewidth=4,
                 color="red",
             )
-            if gin.query_parameter('%DATATYPE') == "t_stud":
+            if gin.query_parameter("%DATATYPE") == "t_stud":
                 ax1.set_ylim(-1500000, 1500000)
-            elif gin.query_parameter('%DATATYPE') == "garch":
+            elif gin.query_parameter("%DATATYPE") == "garch":
                 ax1.set_ylim(-1000000, 1000000)
-            elif gin.query_parameter('%DATATYPE') == "garch_mr":
+            elif gin.query_parameter("%DATATYPE") == "garch_mr":
                 ax1.set_ylim(-5000000, 5000000)
 
         else:
@@ -280,7 +283,11 @@ def plot_pct_metrics(
             )
             ax1.set_ylim(0, 150)
 
-    ax1.set_title("{}: {} simulation".format(variable.split("_")[3].split('.')[0],data_dir.split('_')[1]))
+    ax1.set_title(
+        "{}: {} simulation".format(
+            variable.split("_")[3].split(".")[0], data_dir.split("_")[1]
+        )
+    )
     ax1.set_ylabel("% Reference {}".format(variable.split("_")[0]))
     ax1.set_xlabel("in-sample training iterations")
 
@@ -291,11 +298,9 @@ def plot_pct_metrics(
     # fig.savefig(os.path.join(data_dir,'{}.pdf'.format(variable)), dpi=300)
 
 
-
 def plot_abs_metrics(
     ax1, df, df_opt, data_dir, N_test, variable, colors=["b", "darkblue"], i=0
 ):
-
 
     # df_mean = df.mean(axis=0)
     # df_opt = df_opt.mean(axis=0)
@@ -311,20 +316,18 @@ def plot_abs_metrics(
         df_mean.values,
         color=colors,
         linewidth=3,
-        label="{}".format(
-             '_'.join(data_dir.split('/')[-2].split('_')[2:])
-        ),
-    )
-    
-    ax1.plot(
-        idxs,
-        df_opt.values,
-        color='red',
-        linewidth=3,
-        label="GP" if i == 0 else "",
+        label="{}".format("_".join(data_dir.split("/")[-2].split("_")[2:])),
     )
 
-    ax1.set_title("{}: {} simulation".format(variable.split("_")[3].split('.')[0],data_dir.split('_')[1]))
+    ax1.plot(
+        idxs, df_opt.values, color="red", linewidth=3, label="GP" if i == 0 else "",
+    )
+
+    ax1.set_title(
+        "{}: {} simulation".format(
+            variable.split("_")[3].split(".")[0], data_dir.split("_")[1]
+        )
+    )
     ax1.set_ylabel("{}".format(variable.split("_")[0]))
     ax1.set_xlabel("in-sample training iterations")
 
@@ -333,6 +336,7 @@ def plot_abs_metrics(
 
     # fig.savefig(os.path.join(data_dir,'{}.pdf'.format(variable)), dpi=300)
 
+
 def plot_vf(
     model,
     actions: list,
@@ -340,7 +344,7 @@ def plot_vf(
     ax: object = None,
     less_labels: bool = False,
     n_less_labels: int = None,
-    optimal=False
+    optimal=False,
 ):
 
     """
@@ -367,57 +371,58 @@ def plot_vf(
         Number of labels to include in the legend
 
     """
-    
-    
-    query = gin.query_parameter
-    
-    if query('%INP_TYPE') == 'ret':
-        sample_Ret = np.linspace(-0.05, 0.05, 100)
-        
-        if holding == 0:
-            holdings = np.zeros(len(sample_Ret), dtype='float')
-        else:
-            holdings = np.ones(len(sample_Ret), dtype='float') * holding
 
-        if model.modelname == 'DQN':
+    query = gin.query_parameter
+
+    if query("%INP_TYPE") == "ret":
+        sample_Ret = np.linspace(-0.05, 0.05, 100)
+
+        if holding == 0:
+            holdings = np.zeros(len(sample_Ret), dtype="float")
+        else:
+            holdings = np.ones(len(sample_Ret), dtype="float") * holding
+
+        if model.modelname == "DQN":
             states = tf.constant(
                 np.hstack((sample_Ret.reshape(-1, 1), holdings.reshape(-1, 1))),
                 dtype=tf.float32,
             )
             pred = model(states, training=False)
-        
-        elif model.modelname == 'PPO':
+
+        elif model.modelname == "PPO":
             states = torch.from_numpy(
-                np.hstack((sample_Ret.reshape(-1, 1), holdings.reshape(-1, 1)))).float()
+                np.hstack((sample_Ret.reshape(-1, 1), holdings.reshape(-1, 1)))
+            ).float()
             with torch.no_grad():
                 _, pred = model(states)
-            
 
-    elif query('%INP_TYPE') == 'f':
-        
-        n_factors = len(query('%F_PARAM'))
-        
-        f_to_concat = [np.linspace(-0.5 - i, 0.5 + i, 100).reshape(-1,1) for i,_ in enumerate(range(n_factors))]
-        
-        factors = np.concatenate(f_to_concat,axis=1, dtype='float')
-        
+    elif query("%INP_TYPE") == "f":
+
+        n_factors = len(query("%F_PARAM"))
+
+        f_to_concat = [
+            np.linspace(-0.5 - i, 0.5 + i, 100).reshape(-1, 1)
+            for i, _ in enumerate(range(n_factors))
+        ]
+
+        factors = np.concatenate(f_to_concat, axis=1, dtype="float")
+
         if holding == 0:
-            holdings = np.zeros(len(factors), dtype='float')
+            holdings = np.zeros(len(factors), dtype="float")
         else:
-            holdings = np.ones(len(factors), dtype='float') * holding
-            
+            holdings = np.ones(len(factors), dtype="float") * holding
 
-        if model.modelname == 'DQN':
+        if model.modelname == "DQN":
             states = tf.constant(
-                np.hstack((factors, holdings.reshape(-1, 1))),
-                dtype=tf.float32,
+                np.hstack((factors, holdings.reshape(-1, 1))), dtype=tf.float32,
             )
-    
+
             pred = model(states, training=False)
-        
-        elif model.modelname == 'PPO':
+
+        elif model.modelname == "PPO":
             states = torch.from_numpy(
-                np.hstack((factors, holdings.reshape(-1, 1)))).float()
+                np.hstack((factors, holdings.reshape(-1, 1)))
+            ).float()
             with torch.no_grad():
                 _, pred = model(states)
 
@@ -452,78 +457,88 @@ def plot_vf(
                 c=viridis.colors[i],
                 linewidth=1.5,
             )
-            
-    # if optimal and query('%INP_TYPE') == 'f':
-    
-    discount_rate, kappa, costmultiplier, f_param, halflife, sigma = (query('%DISCOUNT_RATE'), query('%KAPPA'),
-    query('%COSTMULTIPLIER'), query('%F_PARAM'), query('%HALFLIFE'), query('%SIGMA'))
-    
-    n_factors = len(query('%F_PARAM'))
-    
-    f_to_concat = [np.linspace(-0.5 - i, 0.5 + i, 100).reshape(-1,1) for i,_ in enumerate(range(n_factors))]
-    
-    factors = np.concatenate(f_to_concat,axis=1)
-    
-    
-    V = optimal_vf(states, discount_rate, kappa, costmultiplier, f_param, halflife, sigma)
 
-    ax.plot(factors[:,0], V, linewidth=1.5, label='GP Vf')
-            
+    # if optimal and query('%INP_TYPE') == 'f':
+
+    discount_rate, kappa, costmultiplier, f_param, halflife, sigma = (
+        query("%DISCOUNT_RATE"),
+        query("%KAPPA"),
+        query("%COSTMULTIPLIER"),
+        query("%F_PARAM"),
+        query("%HALFLIFE"),
+        query("%SIGMA"),
+    )
+
+    n_factors = len(query("%F_PARAM"))
+
+    f_to_concat = [
+        np.linspace(-0.5 - i, 0.5 + i, 100).reshape(-1, 1)
+        for i, _ in enumerate(range(n_factors))
+    ]
+
+    factors = np.concatenate(f_to_concat, axis=1)
+
+    V = optimal_vf(
+        states, discount_rate, kappa, costmultiplier, f_param, halflife, sigma
+    )
+
+    ax.plot(factors[:, 0], V, linewidth=1.5, label="GP Vf")
+
+
 def optimal_vf(states, discount_rate, kappa, costmultiplier, f_param, halflife, sigma):
-    
-    def opt_trading_rate_disc_loads(discount_rate, kappa, CostMultiplier, f_param, f_speed):
-    
+    def opt_trading_rate_disc_loads(
+        discount_rate, kappa, CostMultiplier, f_param, f_speed
+    ):
+
         # 1 percent annualized discount rate (same rate of Ritter)
         rho = 1 - np.exp(-discount_rate / 260)
-    
+
         # kappa is the risk aversion, CostMultiplier the parameter for trading cost
         num1 = kappa * (1 - rho) + CostMultiplier * rho
-        num2 = np.sqrt(
-            num1 ** 2 + 4 * kappa * CostMultiplier * (1 - rho) ** 2
-        )
+        num2 = np.sqrt(num1 ** 2 + 4 * kappa * CostMultiplier * (1 - rho) ** 2)
         den = 2 * (1 - rho)
         a = (-num1 + num2) / den
-    
+
         OptRate = a / CostMultiplier
-        DiscFactorLoads = f_param / (
-            1 + f_speed * ((OptRate * CostMultiplier) / kappa)
-        )
-    
+        DiscFactorLoads = f_param / (1 + f_speed * ((OptRate * CostMultiplier) / kappa))
+
         return OptRate, DiscFactorLoads
+
     f_speed = np.around(np.log(2) / halflife, 4)
-    OptRate, DiscFactorLoads = opt_trading_rate_disc_loads(discount_rate,
-                                                       kappa,
-                                                       costmultiplier, 
-                                                       f_param, 
-                                                       f_speed)
-    
+    OptRate, DiscFactorLoads = opt_trading_rate_disc_loads(
+        discount_rate, kappa, costmultiplier, f_param, f_speed
+    )
 
     disc_rate_bar = 1 - discount_rate
-    lambda_bar = (costmultiplier*sigma**2)/disc_rate_bar
-    costmultiplier_bar = costmultiplier/disc_rate_bar
-    
-    axx1 = (disc_rate_bar * kappa * lambda_bar * sigma**2)
-    axx2 = 0.25 * (discount_rate**2 * lambda_bar**2 + 2 * discount_rate * kappa * lambda_bar * sigma**2 + \
-                   (kappa**2 * lambda_bar * sigma**2)/lambda_bar)
-    axx3 = - 0.5 * (discount_rate*lambda_bar + kappa * sigma**2)
+    lambda_bar = (costmultiplier * sigma ** 2) / disc_rate_bar
+    costmultiplier_bar = costmultiplier / disc_rate_bar
+
+    axx1 = disc_rate_bar * kappa * lambda_bar * sigma ** 2
+    axx2 = 0.25 * (
+        discount_rate ** 2 * lambda_bar ** 2
+        + 2 * discount_rate * kappa * lambda_bar * sigma ** 2
+        + (kappa ** 2 * lambda_bar * sigma ** 2) / lambda_bar
+    )
+    axx3 = -0.5 * (discount_rate * lambda_bar + kappa * sigma ** 2)
     Axx = np.sqrt(axx1 + axx2) + axx3
-    
-    axf1 = disc_rate_bar/(1 - disc_rate_bar*(1-f_speed) * (1-Axx/lambda_bar))
-    axf2 = (1-Axx/lambda_bar)*np.array(f_param)
+
+    axf1 = disc_rate_bar / (1 - disc_rate_bar * (1 - f_speed) * (1 - Axx / lambda_bar))
+    axf2 = (1 - Axx / lambda_bar) * np.array(f_param)
     Axf = axf1 * axf2
-    
-    aff1 = disc_rate_bar/(1 - disc_rate_bar*(1-f_speed) * (1-f_speed))
-    q = (np.array(f_param) + Axf*(1-f_speed)) ** 2 / (kappa*sigma**2 + lambda_bar + Axx)
+
+    aff1 = disc_rate_bar / (1 - disc_rate_bar * (1 - f_speed) * (1 - f_speed))
+    q = (np.array(f_param) + Axf * (1 - f_speed)) ** 2 / (
+        kappa * sigma ** 2 + lambda_bar + Axx
+    )
     Aff = aff1 * q
-    
+
     # v1 = - 0.5 * states[:,-1]**2 * Axx
     # v2 = np.dot(states[:,-1]*Axf, states[:,:-1])
-    v3 = 0.5 * states[:,:-1] * Aff
-    
-    
+    v3 = 0.5 * states[:, :-1] * Aff
+
     # V = v1 + v2 + v3
-    V =  v3
-    
+    V = v3
+
     return V
 
 
@@ -549,133 +564,145 @@ def plot_BestActions(
         Axes to draw in
 
     """
-    
+
     query = gin.query_parameter
-    
-    def opt_trading_rate_disc_loads(discount_rate, kappa, CostMultiplier, f_param, f_speed):
-    
+
+    def opt_trading_rate_disc_loads(
+        discount_rate, kappa, CostMultiplier, f_param, f_speed
+    ):
+
         # 1 percent annualized discount rate (same rate of Ritter)
         rho = 1 - np.exp(-discount_rate / 260)
-    
+
         # kappa is the risk aversion, CostMultiplier the parameter for trading cost
         num1 = kappa * (1 - rho) + CostMultiplier * rho
-        num2 = np.sqrt(
-            num1 ** 2 + 4 * kappa * CostMultiplier * (1 - rho) ** 2
-        )
+        num2 = np.sqrt(num1 ** 2 + 4 * kappa * CostMultiplier * (1 - rho) ** 2)
         den = 2 * (1 - rho)
         a = (-num1 + num2) / den
-    
+
         OptRate = a / CostMultiplier
-        DiscFactorLoads = f_param / (
-            1 + f_speed * ((OptRate * CostMultiplier) / kappa)
-        )
-    
+        DiscFactorLoads = f_param / (1 + f_speed * ((OptRate * CostMultiplier) / kappa))
+
         return OptRate, DiscFactorLoads
-    
-    if query('%MV_RES'):
-        actions = ResActionSpace(query('%ACTION_RANGE_RES'), query('%ZERO_ACTION')).values
+
+    if query("%MV_RES"):
+        actions = ResActionSpace(
+            query("%ACTION_RANGE_RES"), query("%ZERO_ACTION")
+        ).values
     else:
-        actions = ActionSpace(query('%ACTION_RANGE'), query('%ZERO_ACTION'), query('%SIDE_ONLY')).values
+        actions = ActionSpace(
+            query("%ACTION_RANGE"), query("%ZERO_ACTION"), query("%SIDE_ONLY")
+        ).values
 
+    if query("%INP_TYPE") == "ret":
+        sample_Ret = np.linspace(-0.05, 0.05, 100, dtype="float")
 
-    if query('%INP_TYPE') == 'ret':
-        sample_Ret = np.linspace(-0.05, 0.05, 100, dtype='float')
-        
         if holding == 0:
-            holdings = np.zeros(len(sample_Ret), dtype='float')
+            holdings = np.zeros(len(sample_Ret), dtype="float")
         else:
-            holdings = np.ones(len(sample_Ret), dtype='float') * holding
-                    
-        if model.modelname == 'DQN':
+            holdings = np.ones(len(sample_Ret), dtype="float") * holding
+
+        if model.modelname == "DQN":
             states = tf.constant(
                 np.hstack((sample_Ret.reshape(-1, 1), holdings.reshape(-1, 1))),
                 dtype=tf.float32,
             )
             pred = model(states, training=False)
-        
+
             max_action = actions[tf.math.argmax(pred, axis=1)]
-        elif model.modelname == 'PPO':
+        elif model.modelname == "PPO":
             states = torch.from_numpy(
-                np.hstack((sample_Ret.reshape(-1, 1), holdings.reshape(-1, 1)))).float()
+                np.hstack((sample_Ret.reshape(-1, 1), holdings.reshape(-1, 1)))
+            ).float()
             with torch.no_grad():
                 dist, _ = model(states)
 
             unscaled_max_action = torch.nn.Tanh()(dist.mean)
-            scaled_max_action = unscale_action(
-                actions[-1], unscaled_max_action
-            )
+            scaled_max_action = unscale_action(actions[-1], unscaled_max_action)
 
-        
-        
-        ax.plot(sample_Ret, scaled_max_action, linewidth=1.5, label='{} Policy'.format(model.modelname))
-        
-        
-    elif query('%INP_TYPE') == 'f':
-        
-        n_factors = len(query('%F_PARAM'))
-        
-        f_to_concat = [np.linspace(-0.5 - i, 0.5 + i, 100).reshape(-1,1) for i,_ in enumerate(range(n_factors))]
-        
-        factors = np.concatenate(f_to_concat,axis=1, dtype='float')
-        
+        ax.plot(
+            sample_Ret,
+            scaled_max_action,
+            linewidth=1.5,
+            label="{} Policy".format(model.modelname),
+        )
+
+    elif query("%INP_TYPE") == "f":
+
+        n_factors = len(query("%F_PARAM"))
+
+        f_to_concat = [
+            np.linspace(-0.5 - i, 0.5 + i, 100).reshape(-1, 1)
+            for i, _ in enumerate(range(n_factors))
+        ]
+
+        factors = np.concatenate(f_to_concat, axis=1, dtype="float")
+
         if holding == 0:
-            holdings = np.zeros(len(factors), dtype='float')
+            holdings = np.zeros(len(factors), dtype="float")
         else:
-            holdings = np.ones(len(factors), dtype='float') * holding
+            holdings = np.ones(len(factors), dtype="float") * holding
 
-        if model.modelname == 'DQN':
+        if model.modelname == "DQN":
             states = tf.constant(
-                np.hstack((factors, holdings.reshape(-1, 1))),
-                dtype=tf.float32,
+                np.hstack((factors, holdings.reshape(-1, 1))), dtype=tf.float32,
             )
-            
+
             pred = model(states, training=False)
-        
+
             max_action = actions[tf.math.argmax(pred, axis=1)]
-        elif model.modelname == 'PPO':
+        elif model.modelname == "PPO":
             states = torch.from_numpy(
-                np.hstack((factors, holdings.reshape(-1, 1)))).float()
+                np.hstack((factors, holdings.reshape(-1, 1)))
+            ).float()
             with torch.no_grad():
                 dist, _ = model(states)
 
             unscaled_max_action = torch.nn.Tanh()(dist.mean)
-            scaled_max_action = unscale_action(
-                actions[-1], unscaled_max_action
-            )
+            scaled_max_action = unscale_action(actions[-1], unscaled_max_action)
 
-
-        ax.plot(factors[:,0], max_action, linewidth=1.5, label='{} Policy'.format(model.modelname))
-
+        ax.plot(
+            factors[:, 0],
+            max_action,
+            linewidth=1.5,
+            label="{} Policy".format(model.modelname),
+        )
 
     if optimal:
-        
-        discount_rate, kappa, costmultiplier, f_param, halflife, sigma = (query('%DISCOUNT_RATE'), query('%KAPPA'),
-        query('%COSTMULTIPLIER'), query('%F_PARAM'), query('%HALFLIFE'), query('%SIGMA'))
-        
-        OptRate, DiscFactorLoads = opt_trading_rate_disc_loads(discount_rate,
-                                                               kappa,
-                                                               costmultiplier, 
-                                                               f_param, 
-                                                               np.around(np.log(2) / halflife, 4))
 
-        if query('%INP_TYPE') == 'ret':
-            
+        discount_rate, kappa, costmultiplier, f_param, halflife, sigma = (
+            query("%DISCOUNT_RATE"),
+            query("%KAPPA"),
+            query("%COSTMULTIPLIER"),
+            query("%F_PARAM"),
+            query("%HALFLIFE"),
+            query("%SIGMA"),
+        )
+
+        OptRate, DiscFactorLoads = opt_trading_rate_disc_loads(
+            discount_rate,
+            kappa,
+            costmultiplier,
+            f_param,
+            np.around(np.log(2) / halflife, 4),
+        )
+
+        if query("%INP_TYPE") == "ret":
+
             OptNextHolding = (1 - OptRate) * holding + OptRate * (
-                                    1 / (kappa * (sigma) ** 2)
-                                )  * sample_Ret
-            optimal_policy = OptNextHolding - holding
-            
-            ax.plot(sample_Ret, optimal_policy, linewidth=1.5, label='GP Policy')
-        elif query('%INP_TYPE') == 'f':
-            
-            OptNextHolding = (1 - OptRate) * holding + OptRate * (
-                                    1 / (kappa * (sigma) ** 2)
-                                ) * np.sum(DiscFactorLoads * factors, axis=1)
+                1 / (kappa * (sigma) ** 2)
+            ) * sample_Ret
             optimal_policy = OptNextHolding - holding
 
-            ax.plot(factors[:,0], optimal_policy, linewidth=1.5, label='GP Policy')
-            
-            
+            ax.plot(sample_Ret, optimal_policy, linewidth=1.5, label="GP Policy")
+        elif query("%INP_TYPE") == "f":
+
+            OptNextHolding = (1 - OptRate) * holding + OptRate * (
+                1 / (kappa * (sigma) ** 2)
+            ) * np.sum(DiscFactorLoads * factors, axis=1)
+            optimal_policy = OptNextHolding - holding
+
+            ax.plot(factors[:, 0], optimal_policy, linewidth=1.5, label="GP Policy")
 
 
 def plot_portfolio(r: pd.DataFrame, tag: str, ax2: object):
@@ -697,7 +724,8 @@ def plot_portfolio(r: pd.DataFrame, tag: str, ax2: object):
 
     ax2.plot(r["NextHolding_{}".format(tag)].values[1:-1], label=tag)
     ax2.plot(r["OptNextHolding"].values[1:-1], label="benchmark", alpha=0.5)
-    
+
+
 def plot_action(r: pd.DataFrame, tag: str, ax2: object):
     """
     Ploduce plots of portfolio holding

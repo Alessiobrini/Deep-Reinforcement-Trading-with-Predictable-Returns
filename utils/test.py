@@ -25,11 +25,12 @@ import torch.nn as nn
 from utils.math_tools import unscale_action
 from utils.simulation import DataHandler
 
+
 @gin.configurable()
 class Out_sample_vs_gp:
     def __init__(
         self,
-        n_seeds: int, 
+        n_seeds: int,
         N_test: int,
         rnd_state: int,
         savedpath: str,
@@ -54,7 +55,7 @@ class Out_sample_vs_gp:
         self.experiment_type = experiment_type
         self.env_cls = env_cls
         self.MV_res = MV_res
-        
+
     def run_test(self, test_agent: object, it: int = 0, return_output: bool = False):
 
         rng = np.random.RandomState(self.rnd_state)
@@ -79,19 +80,19 @@ class Out_sample_vs_gp:
 
             data_handler = DataHandler(N_train=self.N_test, rng=self.rng_test)
 
-            if self.experiment_type == 'GP':
+            if self.experiment_type == "GP":
                 data_handler.generate_returns()
             else:
                 data_handler.generate_returns()
                 # TODO check if these method really fit and change the parameters in the gin file
                 data_handler.estimate_parameters()
 
-            self.test_env = self.env_cls(N_train=self.N_test,
-                                    f_speed=data_handler.f_speed,
-                                    returns= data_handler.returns,
-                                    factors = data_handler.factors,
-                                    )
-
+            self.test_env = self.env_cls(
+                N_train=self.N_test,
+                f_speed=data_handler.f_speed,
+                returns=data_handler.returns,
+                factors=data_handler.factors,
+            )
 
             CurrState, _ = self.test_env.reset()
 
@@ -117,7 +118,9 @@ class Out_sample_vs_gp:
                         )
 
                     if self.MV_res:
-                        NextState, Result, _ = self.test_env.MV_res_step(CurrState, action, i)
+                        NextState, Result, _ = self.test_env.MV_res_step(
+                            CurrState, action, i
+                        )
                     else:
                         NextState, Result, NextFactors = self.test_env.step(
                             CurrState, action, i,
@@ -138,7 +141,7 @@ class Out_sample_vs_gp:
                     if test_agent.policy_type == "continuous":
                         # action = dist.sample()
                         # pdb.set_trace()
-                        action = dist.mean      
+                        action = dist.mean
                         if self.MV_res:
                             action = action.cpu().numpy().ravel()
                         else:
@@ -147,7 +150,6 @@ class Out_sample_vs_gp:
                             action = unscale_action(
                                 test_agent.action_space.values[-1], action
                             )
-
 
                     elif test_agent.policy_type == "discrete":
                         action = test_agent.action_space.values[dist.sample()]
@@ -161,9 +163,13 @@ class Out_sample_vs_gp:
                             rng=self.rng,
                         )
                     if self.MV_res:
-                        NextState, Result, _  = self.test_env.MV_res_step(CurrState.cpu(), action, i, tag="PPO")
+                        NextState, Result, _ = self.test_env.MV_res_step(
+                            CurrState.cpu(), action, i, tag="PPO"
+                        )
                     else:
-                        NextState, Result, _  = self.test_env.step(CurrState.cpu(), action, i, tag="PPO")
+                        NextState, Result, _ = self.test_env.step(
+                            CurrState.cpu(), action, i, tag="PPO"
+                        )
 
                     self.test_env.store_results(Result, i)
 
@@ -183,20 +189,27 @@ class Out_sample_vs_gp:
 
             else:
 
-                
                 # select interesting variables and express as a percentage of the GP results
-                pnl_str = list(filter(lambda x: "NetPNL_{}".format(self.tag) in x, self.variables))
+                pnl_str = list(
+                    filter(lambda x: "NetPNL_{}".format(self.tag) in x, self.variables)
+                )
                 opt_pnl_str = list(filter(lambda x: "OptNetPNL" in x, self.variables))
-                rew_str = list(filter(lambda x: "Reward_{}".format(self.tag) in x, self.variables))
+                rew_str = list(
+                    filter(lambda x: "Reward_{}".format(self.tag) in x, self.variables)
+                )
                 opt_rew_str = list(filter(lambda x: "OptReward" in x, self.variables))
 
                 # pnl
                 pnl = self.test_env.res_df[pnl_str + opt_pnl_str].iloc[:-1]
                 cum_pnl = pnl.cumsum()
 
-                
-                if data_handler.datatype == "garch" or data_handler.datatype == "garch_mr":
-                    ref_pnl = np.array(cum_pnl[pnl_str]) - np.array(cum_pnl[opt_pnl_str])
+                if (
+                    data_handler.datatype == "garch"
+                    or data_handler.datatype == "garch_mr"
+                ):
+                    ref_pnl = np.array(cum_pnl[pnl_str]) - np.array(
+                        cum_pnl[opt_pnl_str]
+                    )
                 else:
                     ref_pnl = (
                         np.array(cum_pnl[pnl_str]) / np.array(cum_pnl[opt_pnl_str])
@@ -205,8 +218,13 @@ class Out_sample_vs_gp:
                 # rewards
                 rew = self.test_env.res_df[rew_str + opt_rew_str].iloc[:-1]
                 cum_rew = rew.cumsum()
-                if data_handler.datatype == "garch" or data_handler.datatype == "garch_mr":
-                    ref_rew = np.array(cum_rew[rew_str]) - np.array(cum_rew[opt_rew_str])
+                if (
+                    data_handler.datatype == "garch"
+                    or data_handler.datatype == "garch_mr"
+                ):
+                    ref_rew = np.array(cum_rew[rew_str]) - np.array(
+                        cum_rew[opt_rew_str]
+                    )
                 else:
                     ref_rew = (
                         np.array(cum_rew[rew_str]) / np.array(cum_rew[opt_rew_str])
@@ -237,7 +255,6 @@ class Out_sample_vs_gp:
 
                 perc_SR = (sr / optsr) * 100
                 pnl_std = (std / opt_std) * 100
-
 
                 avg_pnls.append(ref_pnl[-1])
                 avg_rews.append(ref_rew[-1])
@@ -326,7 +343,7 @@ class Out_sample_vs_gp:
         self.abs_series_hold_gp.loc[0, str(it)] = np.mean(abs_opthold)
 
         self.mean_series_pdist.loc[0, str(it)] = np.mean(pdist_avg)
- 
+
     def save_series(self):
 
         self.mean_series_pnl.to_parquet(
@@ -350,15 +367,19 @@ class Out_sample_vs_gp:
         self.mean_series_sr.to_parquet(
             os.path.join(
                 self.savedpath,
-                "SR_OOS_{}_{}.parquet.gzip".format(format_tousands(self.N_test), self.tag),
+                "SR_OOS_{}_{}.parquet.gzip".format(
+                    format_tousands(self.N_test), self.tag
+                ),
             ),
             compression="gzip",
         )
-        
+
         self.mean_series_pnl_std.to_parquet(
             os.path.join(
                 self.savedpath,
-                "PnLstd_OOS_{}_{}.parquet.gzip".format(format_tousands(self.N_test), self.tag),
+                "PnLstd_OOS_{}_{}.parquet.gzip".format(
+                    format_tousands(self.N_test), self.tag
+                ),
             ),
             compression="gzip",
         )
@@ -427,7 +448,7 @@ class Out_sample_vs_gp:
             ),
             compression="gzip",
         )
-        
+
         self.mean_series_pdist.to_parquet(
             os.path.join(
                 self.savedpath,

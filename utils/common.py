@@ -157,7 +157,7 @@ def GeneratePathFolder(
 
     # Create directory for outputs
     if varying_pars:
-        
+
         savedpath = os.path.join(
             os.getcwd(),
             outputDir,
@@ -166,18 +166,22 @@ def GeneratePathFolder(
             format_tousands(N_train),
             "_".join(
                 [
-                    str(v.split(".")[-1].replace('%', '').lower())
+                    str(v.split(".")[-1].replace("%", "").lower())
                     + "_"
                     + "_".join([str(val) for val in gin.query_parameter(v)])
                     if isinstance(gin.query_parameter(v), list)
-                    else str(v.split(".")[-1].replace('%', '').lower()) + "_" + str(gin.query_parameter(v))
+                    else str(v.split(".")[-1].replace("%", "").lower())
+                    + "_"
+                    + str(gin.query_parameter(v))
                     for v in varying_pars
                 ]
             ),
         )
 
     else:
-        savedpath = os.path.join(os.getcwd(), outputDir, outputClass, outputModel, format_tousands(N_train))
+        savedpath = os.path.join(
+            os.getcwd(), outputDir, outputClass, outputModel, format_tousands(N_train)
+        )
 
         # use makedirs to create a tree of subdirectory
         if not os.path.exists(savedpath):
@@ -282,6 +286,7 @@ def save(config, path):
     """
     with open(os.path.join(path, "paramMultiTestOOS.yaml"), "w") as file:
         file.write(yaml.dump(config))
+
 
 def save_gin(destination: Path):
     with open(destination, "w") as f:

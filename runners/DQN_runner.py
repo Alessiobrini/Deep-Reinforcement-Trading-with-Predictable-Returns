@@ -37,8 +37,8 @@ class DQN_runner(MixinCore):
         experiment_type: str,
         seed: int,
         episodes: int,
-        N_train:int,
-        len_series:Union[int or None],
+        N_train: int,
+        len_series: Union[int or None],
         start_train: int,
         save_freq: int,
         use_GPU: bool,
@@ -73,7 +73,9 @@ class DQN_runner(MixinCore):
         else:
             self.len_series = self.N_train
             self.save_freq_n = self.N_train // save_freq
-            self.col_names_oos = [str(int(i)) for i in np.arange(0,self.N_train+1,self.save_freq_n)][1:]
+            self.col_names_oos = [
+                str(int(i)) for i in np.arange(0, self.N_train + 1, self.save_freq_n)
+            ][1:]
 
         self.savedpath = GeneratePathFolder(
             outputDir,
@@ -81,13 +83,13 @@ class DQN_runner(MixinCore):
             outputModel,
             varying_pars,
             varying_type,
-            self.N_train
+            self.N_train,
         )
         if save_freq and not os.path.exists(os.path.join(self.savedpath, "ckpt")):
             os.makedirs(os.path.join(self.savedpath, "ckpt"))
         elif save_freq and os.path.exists(os.path.join(self.savedpath, "ckpt")):
             pass
-        
+
         logging.info("Successfully generated path to save outputs...")
 
     def run(self):
@@ -105,15 +107,15 @@ class DQN_runner(MixinCore):
     def set_up_training(self):
 
         self.logging.debug("Simulating Data")
-        
+
         self.data_handler = DataHandler(N_train=self.N_train, rng=self.rng)
-        if self.experiment_type == 'GP':
+        if self.experiment_type == "GP":
             self.data_handler.generate_returns()
         else:
             self.data_handler.generate_returns()
             # TODO check if these method really fit and change the parameters in the gin file
             self.data_handler.estimate_parameters()
-        
+
         self.logging.debug("Instantiating action space")
         if self.MV_res:
             self.action_space = ResActionSpace()
@@ -121,25 +123,29 @@ class DQN_runner(MixinCore):
             action_range, ret_quantile, holding_quantile = get_action_boundaries(
                 N_train=self.N_train,
                 f_speed=self.data_handler.f_speed,
-                returns= self.data_handler.returns,
-                factors = self.data_handler.factors,
+                returns=self.data_handler.returns,
+                factors=self.data_handler.factors,
             )
 
-            gin.query_parameter('%ACTION_RANGE')[0] = action_range
+            gin.query_parameter("%ACTION_RANGE")[0] = action_range
             self.action_space = ActionSpace()
 
         self.logging.debug("Instantiating market environment")
-        self.env = self.env_cls(N_train=self.N_train,
-                                f_speed=self.data_handler.f_speed,
-                                returns= self.data_handler.returns,
-                                factors = self.data_handler.factors,
-                                )
+        self.env = self.env_cls(
+            N_train=self.N_train,
+            f_speed=self.data_handler.f_speed,
+            returns=self.data_handler.returns,
+            factors=self.data_handler.factors,
+        )
 
         self.logging.debug("Instantiating DQN model")
         input_shape = self.env.get_state_dim()
 
         self.train_agent = DQN(
-            input_shape=input_shape, action_space=self.action_space, rng=self.rng, N_train=self.N_train
+            input_shape=input_shape,
+            action_space=self.action_space,
+            rng=self.rng,
+            N_train=self.N_train,
         )
 
         self.logging.debug("Set up length of training and instantiate test env")
@@ -149,14 +155,12 @@ class DQN_runner(MixinCore):
         self.oos_test = Out_sample_vs_gp(
             savedpath=self.savedpath,
             tag="DQN",
-            experiment_type = self.experiment_type,
-            env_cls = self.env_cls,
-            MV_res=self.MV_res
+            experiment_type=self.experiment_type,
+            env_cls=self.env_cls,
+            MV_res=self.MV_res,
         )
 
-
         self.oos_test.init_series_to_fill(iterations=self.col_names_oos)
-
 
     def training_agent(self):
         """
@@ -178,7 +182,7 @@ class DQN_runner(MixinCore):
 
         self.logging.debug("Training...")
         CurrState, _ = self.env.reset()
- 
+
         # CurrOptState = env.opt_reset()
         # OptRate, DiscFactorLoads = env.opt_trading_rate_disc_loads()
 
@@ -203,12 +207,14 @@ class DQN_runner(MixinCore):
                     rng=self.rng,
                 )
             if self.MV_res:
-                NextState, Result, _ = self.env.MV_res_step(CurrState, unscaled_action, i)
+                NextState, Result, _ = self.env.MV_res_step(
+                    CurrState, unscaled_action, i
+                )
             else:
                 NextState, Result, _ = self.env.step(CurrState, unscaled_action, i)
 
             self.env.store_results(Result, i)
-            
+
             exp = {
                 "s": CurrState,
                 "a": action,
@@ -228,9 +234,7 @@ class DQN_runner(MixinCore):
 
             if (i % self.save_freq_n == 0) and (i > self.train_agent.start_train):
                 self.train_agent.model.save_weights(
-                    os.path.join(
-                        self.savedpath, "ckpt", "DQN_{}_ep_weights".format(i)
-                    ),
+                    os.path.join(self.savedpath, "ckpt", "DQN_{}_ep_weights".format(i)),
                     save_format="tf",
                 )
 
@@ -266,7 +270,7 @@ class DQN_runner(MixinCore):
     #     Once this is done, the backtest is over and all of the artifacts
     #     are saved in `_exp/experiment_name/_backtests/`.
     #     """
-        
+
     #     self.logging.debug("Start episodic training...")
     #     for e in tqdm(iterable=range(self.episodes), desc="Running episodes..."):
 
@@ -286,9 +290,9 @@ class DQN_runner(MixinCore):
 
     #             self.logging.debug("Testing...")
     #             if len(self.test_symbols)>1:
-    #                 if e+1 == self.episodes: 
-    #                     last_episode=True 
-    #                 else: 
+    #                 if e+1 == self.episodes:
+    #                     last_episode=True
+    #                 else:
     #                     last_episode=False
     #                 self.oos_test.run_multiple_tests(episode=e + 1, last_episode=last_episode)
     #             else:
@@ -304,7 +308,6 @@ class DQN_runner(MixinCore):
     #     save_gin(os.path.join(self.savedpath, "config.gin"))
     #     logging.info("Config file saved")
 
-
     # def testing_agent(self):
 
     #     self.logging.debug("Loading Data")
@@ -312,15 +315,15 @@ class DQN_runner(MixinCore):
 
     #     self.logging.debug("Instantiating action space")
     #     self.action_space = ActionSpace()
-        
+
     #     self.test_env = self.env_cls(dataframe=df_test)
 
     #     self.logging.debug("Instantiating benchmark agent")
     #     self.benchmark_agent = self.bnch_agent_cls(
-    #         symbol=self.symbol, 
+    #         symbol=self.symbol,
     #         start_year=self.start_year,
     #         split_year=self.split_year,
-    #         end_year=self.end_year, 
+    #         end_year=self.end_year,
     #         df=df,
     #     )
     #     self.benchmark_agent._get_parameters()
@@ -338,7 +341,6 @@ class DQN_runner(MixinCore):
     #     self.train_agent.model.load_weights(
     #             os.path.join(self.savedpath, "ckpt", "DQN_{}_ep_weights".format(self.episodes))
     #         )
-        
 
     #     self.logging.debug("Instantiating Out of sample tester")
     #     self.oos_test = Out_sample_vs_gp(
@@ -355,7 +357,6 @@ class DQN_runner(MixinCore):
     #     res_df, res_bench_df = self.oos_test.run_test(self.oos_test, return_output=True)
 
     #     return res_df, res_bench_df
-
 
     # def collect_rollouts(self):
 

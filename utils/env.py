@@ -7,6 +7,7 @@ import gin
 from utils.math_tools import unscale_action
 from utils.common import format_tousands
 
+
 @gin.configurable()
 class MarketEnv(gym.Env):
     """
@@ -140,7 +141,7 @@ class MarketEnv(gym.Env):
         returns: Union[list or np.ndarray],
         factors: Union[list or np.ndarray],
         action_limit: int = None,
-        inp_type: str = 'ret',
+        inp_type: str = "ret",
         dates: pd.DatetimeIndex = None,
     ):
 
@@ -179,12 +180,12 @@ class MarketEnv(gym.Env):
         return state.shape
 
     def reset(self) -> Tuple[np.ndarray, np.ndarray]:
-        if self.inp_type == 'ret':
+        if self.inp_type == "ret":
             currState = np.array([self.returns[0], self.Startholding])
             currFactor = self.factors[0]
             return currState, currFactor
-        elif self.inp_type=='f':
-            currState = np.append(self.factors[0],self.Startholding)
+        elif self.inp_type == "f":
+            currState = np.append(self.factors[0], self.Startholding)
             currRet = self.returns[0]
             return currState, currRet
 
@@ -202,11 +203,11 @@ class MarketEnv(gym.Env):
             shares_traded = unscale_action(self.action_limit, shares_traded)
 
         nextHolding = currState[-1] + shares_traded
-        if self.inp_type == 'ret':
+        if self.inp_type == "ret":
             nextState = np.array([nextRet, nextHolding], dtype=np.float32)
-        elif self.inp_type == 'f':
-            nextState = np.append(nextFactors,nextHolding)
-        
+        elif self.inp_type == "f":
+            nextState = np.append(nextFactors, nextHolding)
+
         Result = self._getreward(currState, nextState, iteration, tag)
         # reward scaling
         # if tag == "DDPG":
@@ -222,7 +223,6 @@ class MarketEnv(gym.Env):
         tag: str = "DQN",
     ) -> Tuple[np.ndarray, dict, np.ndarray]:
 
-
         CurrHolding = currState[-1]
         CurrFactors = self.factors[iteration]
         # Traded quantity as for the Markovitz framework  (Mean-Variance framework)
@@ -236,13 +236,15 @@ class MarketEnv(gym.Env):
         nextRet = self.returns[iteration + 1]
         # if tag == "DDPG":
         #     shares_traded = unscale_action(self.action_limit, shares_traded)
-        nextHolding = currState[-1] + MV_action * (1-shares_traded) 
-        if self.inp_type == 'ret':
+        nextHolding = currState[-1] + MV_action * (1 - shares_traded)
+        if self.inp_type == "ret":
             nextState = np.array([nextRet, nextHolding], dtype=np.float32)
-        elif self.inp_type == 'f':
-            nextState = np.append(nextFactors,nextHolding)
+        elif self.inp_type == "f":
+            nextState = np.append(nextFactors, nextHolding)
 
-        Result = self._getreward(currState, nextState, iteration, tag, res_action = shares_traded)
+        Result = self._getreward(
+            currState, nextState, iteration, tag, res_action=shares_traded
+        )
         # reward scaling
         # if tag == "DDPG":
         #     Result["Reward_{}".format(tag)] = Result["Reward_{}".format(tag)]*0.0001
@@ -420,7 +422,7 @@ class MarketEnv(gym.Env):
         self,
         currState: Tuple[Union[float or int], Union[float or int]],
         nextState: Tuple[Union[float or int], Union[float or int]],
-        iteration:int,
+        iteration: int,
         tag: str,
         res_action: float = None,
     ) -> dict:

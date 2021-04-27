@@ -17,6 +17,7 @@ from utils.env import MarketEnv
 from utils.math_tools import boltzmann, unscale_action
 from scipy.stats import norm
 
+
 @gin.configurable()
 def get_action_boundaries(
     HalfLife: Union[int or list or np.ndarray],
@@ -31,7 +32,7 @@ def get_action_boundaries(
     returns: Union[list or np.ndarray],
     factors: Union[list or np.ndarray],
     qts: list = [0.01, 0.99],
-    action_type: str='GP',
+    action_type: str = "GP",
 ):
 
     """
@@ -108,7 +109,7 @@ def get_action_boundaries(
         factors,
     )
 
-    if action_type == 'GP':
+    if action_type == "GP":
         CurrOptState = env.opt_reset()
         OptRate, DiscFactorLoads = env.opt_trading_rate_disc_loads()
 
@@ -121,21 +122,20 @@ def get_action_boundaries(
             CurrOptState = NextOptState
 
         action_quantiles = env.res_df["OptNextAction"].quantile(qts).values
-    elif action_type == 'MV':
+    elif action_type == "MV":
         CurrMVState = env.opt_reset()
 
         cycle_len = len(returns) - 1
         for i in tqdm(iterable=range(cycle_len), desc="Selecting Action boundaries"):
             NextMVState, MVResult = env.mv_step(CurrMVState, i)
-            env.store_results(MVResult, i) 
+            env.store_results(MVResult, i)
             CurrMVState = NextMVState
 
         action_quantiles = env.res_df["MVNextAction"].quantile(qts).values
 
     else:
-        print('Choose proper action type. Please, read the doc.')
+        print("Choose proper action type. Please, read the doc.")
         sys.exit()
-
 
     qt = np.min(np.abs(action_quantiles))
     length = len(str(int(np.round(qt))))
@@ -143,9 +143,9 @@ def get_action_boundaries(
 
     ret_range = float(max(np.abs(returns.min()), returns.max()))
 
-    if action_type == 'GP':
+    if action_type == "GP":
         holding_quantiles = env.res_df["OptNextHolding"].quantile(qts).values
-    elif action_type == 'MV':
+    elif action_type == "MV":
         holding_quantiles = env.res_df["MVNextHolding"].quantile(qts).values
 
     if np.abs(holding_quantiles[0]) - np.abs(holding_quantiles[1]) < 1000:

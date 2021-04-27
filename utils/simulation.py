@@ -32,32 +32,36 @@ from arch.univariate import (
 )
 from arch.univariate import Normal, StudentsT, SkewStudent, GeneralizedError
 
+
 @gin.configurable()
-class DataHandler():
-    def __init__(self,datatype: str, 
-                N_train:int,
-                rng: object, 
-                factor_lb: Union[list or None] = None):
+class DataHandler:
+    def __init__(
+        self,
+        datatype: str,
+        N_train: int,
+        rng: object,
+        factor_lb: Union[list or None] = None,
+    ):
 
         self.datatype = datatype
         self.N_train = N_train
         self.rng = rng
-        self.factor_lb = factor_lb 
+        self.factor_lb = factor_lb
 
-    def generate_returns(self, disable_tqdm: bool=False):
+    def generate_returns(self, disable_tqdm: bool = False):
 
-        if self.datatype != 'garch':
+        if self.datatype != "garch":
             # REMARK if you do t_studmfit and you want to compare the training over the same
             # series wrt t_stud, you need to simulate a series of lenght N_train + factor_lb[-1]
             # This is currently not implemented here
-            self.returns, self.factors, self.f_speed = return_sampler_GP(N_train=self.N_train,
-                                                               rng=self.rng,
-                                                               disable_tqdm=disable_tqdm)
-
+            self.returns, self.factors, self.f_speed = return_sampler_GP(
+                N_train=self.N_train, rng=self.rng, disable_tqdm=disable_tqdm
+            )
 
         elif self.datatype == "garch":
-            self.returns, self.params = return_sampler_garch(N_train=self.N_train, disable_tqdm=disable_tqdm)
-
+            self.returns, self.params = return_sampler_garch(
+                N_train=self.N_train, disable_tqdm=disable_tqdm
+            )
 
         else:
             print("Datatype to simulate is not correct")
@@ -65,7 +69,7 @@ class DataHandler():
 
     def estimate_parameters(self):
 
-        if self. datatype == 't_stud_mfit':
+        if self.datatype == "t_stud_mfit":
             # look at the remark above: use .loc[factor_lb[-1] :] if you want the same series of t_stud
             # this method doesn't require to fit the true parameters
             df = pd.DataFrame(
@@ -73,7 +77,7 @@ class DataHandler():
             )
 
             y, X = df[df.columns[0]], df[df.columns[1:]]
-            
+
             params_meanrev, fitted_ous = RunModels(y, X, mr_only=True)
 
         else:
@@ -83,23 +87,24 @@ class DataHandler():
 
             y, X = df[df.columns[0]], df[df.columns[1:]]
 
-            params_retmodel, params_meanrev, fitted_retmodel, fitted_ous = RunModels(y, X)
+            params_retmodel, params_meanrev, fitted_retmodel, fitted_ous = RunModels(
+                y, X
+            )
 
             sigma_fit = df.iloc[:, 0].std()
-            gin.bind_parameter('%SIGMA',sigma_fit)
+            gin.bind_parameter("%SIGMA", sigma_fit)
 
             f_param_fit = params_retmodel["params"]
-            gin.bind_parameter('%F_PARAM',f_param_fit)
+            gin.bind_parameter("%F_PARAM", f_param_fit)
 
             sigmaf_fit = X.std().values
-            gin.bind_parameter('%SIGMAF',sigmaf_fit)
+            gin.bind_parameter("%SIGMAF", sigmaf_fit)
 
         self.f_speed = np.abs(np.array([*params_meanrev.values()]).ravel())
-        gin.bind_parameter('%HALFLIFE',np.around(np.log(2) / self.f_speed_fit, 2))
+        gin.bind_parameter("%HALFLIFE", np.around(np.log(2) / self.f_speed_fit, 2))
 
         self.returns = df.iloc[:, 0].values
         self.factors = df.iloc[:, 1:].values
-        
 
 
 @gin.configurable()
@@ -249,7 +254,7 @@ def return_sampler_GP(
             f.append(f1)
             f0 = f1
     else:
-        print('Choose proper volatility setting')
+        print("Choose proper volatility setting")
         sys.exit()
 
     factors = np.vstack(f)
@@ -272,11 +277,12 @@ def return_sampler_GP(
 
         realret = np.sum(f_param * factors, axis=1) + sigma * u
     else:
-        print('Choose proper volatility setting')
+        print("Choose proper volatility setting")
         sys.exit()
     f_speed = lambdas
 
     return realret.astype(np.float32), factors.astype(np.float32), f_speed
+
 
 @gin.configurable()
 def return_sampler_garch(
@@ -341,7 +347,8 @@ def return_sampler_garch(
     names = []
     vals = []
 
-    if seed_param is None : seed_param = seed
+    if seed_param is None:
+        seed_param = seed
 
     rng = np.random.RandomState(seed_param)
 
@@ -510,5 +517,3 @@ def return_sampler_garch(
     simulations = model.simulate(p, N_train) / 100
 
     return simulations["data"].values, p
-
-

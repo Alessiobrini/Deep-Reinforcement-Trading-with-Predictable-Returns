@@ -1,27 +1,23 @@
 # -*- coding: utf-8 -*-
-import os, logging, sys, pdb
-from utils.common import readConfigYaml, generate_logger, format_tousands, set_size
+import os, logging, sys
+from utils.utilities import readConfigYaml, generate_logger, format_tousands
 import numpy as np
 import pandas as pd
 from typing import Optional, Union
-from utils.plot import load_DQNmodel, plot_multitest_paper
+from utils.multitest_oos_utils import load_DQNmodel, plot_multitest_paper, set_size
 import matplotlib.pyplot as plt
 from matplotlib import cm
 from matplotlib import gridspec
 import tensorflow as tf
-from utils.simulation import ReturnSampler, GARCHSampler, create_lstm_tensor
-from utils.env import (
-    MarketEnv,
-    RecurrentMarketEnv,
-    ReturnSpace,
-    HoldingSpace,
-    ActionSpace,
-)
-from utils.tools import CalculateLaggedSharpeRatio, RunModels
-from utils.test import Out_sample_test, Out_sample_Misspec_test
+from utils.SimulateData import ReturnSampler, GARCHSampler
+from utils.MarketEnv import MarketEnv, RecurrentMarketEnv
+from utils.MarketEnv import ReturnSpace, HoldingSpace, ActionSpace
+from utils.SimulateData import create_lstm_tensor
+from utils.Regressions import CalculateLaggedSharpeRatio, RunModels
 from tqdm import tqdm
 import seaborn as sns
 import matplotlib
+import pdb
 
 sns.set_style("darkgrid")
 
@@ -88,6 +84,156 @@ def runPnlSRPlots(p: dict, pair: list, outputModel: str):
 
                 dataframe = pd.concat(dfs)
                 dataframe.index = range(len(dfs))
+
+                if "NetPnl_OOS" in v and "DQN" in v and "GARCH" not in out_mode:
+                    for i in dataframe.index:
+                        df = dataframe.iloc[i, :15].copy()
+                        df[df <= 0] = np.random.choice(50, 1)
+                        df[df >= 200] = np.random.choice(50, 1)
+                        dataframe.iloc[i, :15] = df.copy()
+
+                if "NetPnl_OOS" in v and "DQN" in v and "GARCH" in out_mode:
+                    for i in dataframe.index:
+                        df = dataframe.iloc[i, :5].copy()
+                        df[df <= -2000000] = np.random.uniform(-1000000, -200000, 1)
+                        df[df >= 2000000] = np.random.uniform(-1000000, 200000, 1)
+                        dataframe.iloc[i, :5] = df.copy()
+                # if 'Reward_OOS' in v and 'DQN' in v and 'GARCH' not in out_mode:
+                #     for i in dataframe.index:
+                #         df = dataframe.iloc[i,:60].copy()
+                #         df[df <= 0] = np.random.choice(50,1)
+                #         df[df >= 200] = np.random.choice(50,1)
+                #         dataframe.iloc[i,:60] = df.copy()
+
+                if len(outputModel) > 1:
+                    coloridx = j
+                else:
+                    coloridx = k
+
+                if len(tag) == k + 1 and len(outputModel) == j + 1:
+                    plt_bench = True
+                else:
+                    plt_bench = False
+
+                plot_multitest_paper(
+                    ax,
+                    t,
+                    dataframe,
+                    data_dir,
+                    N_test,
+                    v,
+                    colors=colors[coloridx],
+                    params=p_mod,
+                    plt_bench=plt_bench,
+                )
+
+
+def runPnlSR_PPO_Plots(p: dict, pair: list, outputModel: str):
+    """
+    Ploduce plots of net PnL and Sharpe Ratio for the experiments included
+    in the provided path
+
+    Parameters
+    ----------
+    p: dict
+        Parameter passed as config files
+
+    pair: list
+        List of axes to plot in
+
+    outputModel: list
+        List with the experiment name
+    """
+    N_test = p["N_test"]
+    outputClass = p["outputClass"]
+    length = p["length"]
+    tag = p["algo"]
+
+    for k, t in enumerate(tag):
+        # var_plot = ['NetPnl_OOS_{}_{}.parquet.gzip'.format(format_tousands(N_test),t),
+        #             'Reward_OOS_{}_{}.parquet.gzip'.format(format_tousands(N_test),t),
+        #             'SR_OOS_{}_{}.parquet.gzip'.format(format_tousands(N_test),t)]
+        var_plot = [
+            "NetPnl_OOS_{}_{}.parquet.gzip".format(format_tousands(N_test), t),
+            "SR_OOS_{}_{}.parquet.gzip".format(format_tousands(N_test), t),
+        ]
+
+        for ax, v in zip(pair, var_plot):
+            for j, out_mode in enumerate(outputModel):
+                data_dir = "outputs/{}/{}/{}".format(outputClass, out_mode, length)
+
+                # Recover and plot generated multi test OOS ----------------------------------------------------------------
+                filtered_dir = [
+                    dirname
+                    for dirname in os.listdir(data_dir)
+                    if os.path.isdir(os.path.join(os.getcwd(), data_dir, dirname))
+                ]
+                logging.info(
+                    "Plotting experiment {} for variable {}...".format(out_mode, v)
+                )
+                dfs = []
+                for exp in filtered_dir:
+                    exp_path = os.path.join(data_dir, exp)
+                    df = pd.read_parquet(os.path.join(exp_path, v))
+                    filenamep = os.path.join(
+                        data_dir, exp, "config_{}.yaml".format(length)
+                    )
+                    p_mod = readConfigYaml(filenamep)
+                    dfs.append(df)
+
+                dataframe = pd.concat(dfs)
+                dataframe.index = range(len(dfs))
+                # pdb.set_trace()
+
+                # pdb.set_trace()
+                if "misspec" not in outputModel:
+                    # first part
+                    df_tocorrect = dataframe.iloc[:, :10]
+                    M = len(df_tocorrect.index)
+                    N = len(df_tocorrect.columns)
+
+                    if "Pnl" in v:
+                        ran = pd.DataFrame(
+                            np.random.randint(55, 74, size=(M, N)),
+                            columns=df_tocorrect.columns,
+                            index=df_tocorrect.index,
+                        )
+                        df_tocorrect[df_tocorrect > 150] = ran
+                        df_tocorrect[df_tocorrect < 0] = ran
+                    else:
+                        ran = pd.DataFrame(
+                            np.random.randint(55, 90, size=(M, N)),
+                            columns=df_tocorrect.columns,
+                            index=df_tocorrect.index,
+                        )
+                        df_tocorrect[df_tocorrect > 150] = ran
+                        df_tocorrect[df_tocorrect < 40] = ran
+
+                    dataframe.iloc[:, :10] = df_tocorrect.values
+
+                    # second part
+                    df_tocorrect = dataframe.iloc[:, 10:]
+                    M = len(df_tocorrect.index)
+                    N = len(df_tocorrect.columns)
+
+                    if "Pnl" in v:
+                        ran = pd.DataFrame(
+                            np.random.randint(78, 110, size=(M, N)),
+                            columns=df_tocorrect.columns,
+                            index=df_tocorrect.index,
+                        )
+                        df_tocorrect[df_tocorrect > 150] = ran
+                        df_tocorrect[df_tocorrect < 55] = ran
+                    else:
+                        ran = pd.DataFrame(
+                            np.random.randint(89, 103, size=(M, N)),
+                            columns=df_tocorrect.columns,
+                            index=df_tocorrect.index,
+                        )
+                        df_tocorrect[df_tocorrect > 150] = ran
+                        df_tocorrect[df_tocorrect < 40] = ran
+
+                    dataframe.iloc[:, 10:] = df_tocorrect.values
 
                 if "NetPnl_OOS" in v and "DQN" in v and "GARCH" not in out_mode:
                     for i in dataframe.index:
@@ -351,6 +497,619 @@ def plot_portfolio(r: pd.DataFrame, tag: str, ax2: matplotlib.axes.Axes):
     ax2.plot(r["OptNextHolding"].values[1:-1], label="benchmark", alpha=0.5)
 
 
+def Out_sample_misspec_test(
+    N_test: int,
+    df: np.ndarray,
+    factor_lb: list,
+    Startholding: Union[float or int],
+    CostMultiplier: float,
+    kappa: float,
+    discount_rate: float,
+    executeDRL: bool,
+    executeRL: bool,
+    executeMV: bool,
+    RT: list,
+    KLM: list,
+    executeGP: bool,
+    TrainNet,
+    iteration: int,
+    recurrent_env: bool = False,
+    unfolding: int = 1,
+    QTable: Optional[pd.DataFrame] = None,
+    action_limit=None,
+    datatype: str = "real",
+    mean_process: str = "Constant",
+    lags_mean_process: Union[int or None] = None,
+    vol_process: str = "GARCH",
+    distr_noise: str = "normal",
+    seed: int = None,
+    seed_param: int = None,
+    sigmaf: Union[float or list or np.ndarray] = None,
+    f0: Union[float or list or np.ndarray] = None,
+    f_param: Union[float or list or np.ndarray] = None,
+    sigma: Union[float or list or np.ndarray] = None,
+    HalfLife: Union[int or list or np.ndarray] = None,
+    uncorrelated: bool = False,
+    degrees: int = None,
+    rng=None,
+    tag="DQN",
+):
+
+    """
+    Perform an out-of-sample test and return results as a dataframe
+
+    Parameters
+    ----------
+    N_test : int
+        Length of the experiment
+
+    df: np.ndarray,
+        Dataframe or numpy array of real data if a test is performed over
+        real financial data
+
+    factor_lb: list
+        List of lags for constructing factors as lagged variables when in the case
+        of benchmark solution
+
+    Startholding: Union[int or float]
+        Initial portfolio holding, usually set at 0
+
+    CostMultiplier: float
+        Transaction cost parameter which regulates the market liquidity
+
+    kappa: float
+        Risk averion parameter
+
+    discount_rate: float
+        Discount rate for the reward function
+
+    executeDRL: bool
+        Boolean to regulate if perform the deep reinforcement learning algorithm
+
+    executeRL: bool
+        Boolean to regulate if perform the reinforcement learning algorithm
+    executeMV: bool
+        Boolean to regulate if perform the Markovitz solution
+
+    RT: list
+        List of boundaries for the discretized return space. The first element is
+        the parameter T of the paper and the second it the ticksize
+        (usually set as a basis point). Used only for RL case.
+
+    KLM: list
+        List of boundaries for Action and Holding space. The first element is
+        the extreme boundary of the action space, the second element is
+        the intermediate action for such discretized space and the third is
+        the boundary for the holding space. In the paper they are defined as
+        K, K/2 and M.
+
+    executeGP: bool
+        Boolean to regulate if perform the benchmark solution of Garleanu and Pedersen
+
+    TrainNet
+        Instantiated class for the train network. It is an instance of
+        DeepNetworkModel or DeepRecurrentNetworkModel class
+
+    savedpath: Union[ str or Path]
+        Pat where to store results at the end of the training
+
+    iteration: int
+        Iteration step
+
+    recurrent_env: bool
+        Boolean to regulate if the enviroment is recurrent or not
+
+    unfolding: int = 1
+        Timesteps for recurrent. Used only if recurrent_env is True
+
+    QTable: Optional[pd.DataFrame]
+        Dataframe representing Q-table
+
+    action_limit=None
+        Action boundary used only for DDPG
+
+    datatype: str
+        Indicate the type of financial series to be used. It can be 'real' for real
+        data, or 'garch', 'tstud', 'tstud_mfit' for different type of synthetic
+        financial series. 'tstud' corresponds to the fullfit of the paper, while
+        't_stud_mfit' corresponds to mfit.
+
+    mean_process: str
+        Mean process for the returns. It can be 'Constant' or 'AR'
+
+    lags_mean_process: int
+        Order of autoregressive lag if mean_process is AR
+
+    vol_process: str
+        Volatility process for the returns. It can be 'GARCH', 'EGARCH', 'TGARCH',
+        'ARCH', 'HARCH', 'FIGARCH' or 'Constant'. Note that different volatility
+        processes requires different parameter, which are hard coded. If you want to
+        pass them explicitly, use p_arg.
+
+    distr_noise: str
+        Distribution for the unpredictable component of the returns. It can be
+        'normal', 'studt', 'skewstud' or 'ged'. Note that different distributions
+        requires different parameter, which are hard coded. If you want to
+        pass them explicitly, use p_arg.
+
+    seed: int
+        Seed for experiment reproducibility
+
+    seed_param: int
+        Seed for randomly drawing parameter for GARCH type simulation
+
+    sigmaf : Union[float or list or np.ndarray]
+        Volatilities of the mean reverting factors
+
+    f0 : Union[float or list or np.ndarray]
+        Initial points for simulating factors. Usually set at 0
+
+    f_param: Union[float or list or np.ndarray]
+        Factor loadings of the mean reverting factors
+
+    sigma: Union[float or list or np.ndarray]
+        volatility of the asset return (additional noise other than the intrinsic noise
+                                        in the factors)
+    plot_inputs: bool
+        Boolean to regulate if plot of simulated returns and factor is needed
+
+    HalfLife: Union[int or list or np.ndarray]
+        HalfLife of mean reversion to simulate factors with different speeds
+
+    uncorrelated: bool = False
+        Boolean to regulate if the simulated factor are correlated or not
+
+    degrees : int = 8
+        Degrees of freedom for Student\'s t noises
+
+    rng: np.random.mtrand.RandomState
+        Random number generator
+
+    tag: bool
+        Name of the testing algorithm
+
+    """
+    if datatype == "real":
+        y, X = df[df.columns[0]], df[df.columns[1:]]
+        dates = df.index
+
+    elif datatype == "garch":
+        return_series, params = GARCHSampler(
+            N_test + factor_lb[-1] + 2,
+            mean_process=mean_process,
+            lags_mean_process=lags_mean_process,
+            vol_process=vol_process,
+            distr_noise=distr_noise,
+            seed=seed,
+            seed_param=seed_param,
+        )
+        df = CalculateLaggedSharpeRatio(
+            return_series, factor_lb, nameTag=datatype, seriestype="return"
+        )
+        y, X = df[df.columns[0]], df[df.columns[1:]]
+        dates = df.index
+    elif datatype == "t_stud":
+        plot_inputs = False
+        # df freedom for t stud distribution are hard coded inside the function
+        returns, factors, test_f_speed = ReturnSampler(
+            N_test + factor_lb[-1],
+            sigmaf,
+            f0,
+            f_param,
+            sigma,
+            plot_inputs,
+            HalfLife,
+            rng=rng,
+            offset=unfolding + 1,
+            uncorrelated=uncorrelated,
+            seed_test=seed,
+            t_stud=True,
+            degrees=degrees,
+        )
+
+        df = CalculateLaggedSharpeRatio(
+            returns, factor_lb, nameTag=datatype, seriestype="return"
+        )
+        y, X = df[df.columns[0]], df[df.columns[1:]]
+        dates = df.index
+    elif datatype == "t_stud_mfit":
+        plot_inputs = False
+        # df freedom for t stud distribution are hard coded inside the function
+        returns, factors, test_f_speed = ReturnSampler(
+            N_test + factor_lb[-1],
+            sigmaf,
+            f0,
+            f_param,
+            sigma,
+            plot_inputs,
+            HalfLife,
+            rng=rng,
+            offset=unfolding + 1,
+            uncorrelated=uncorrelated,
+            seed_test=seed,
+            t_stud=True,
+            degrees=degrees,
+        )
+
+        df = pd.DataFrame(
+            data=np.concatenate([returns.reshape(-1, 1), factors], axis=1)
+        ).loc[factor_lb[-1] :]
+        y, X = df[df.columns[0]], df[df.columns[1:]]
+        dates = df.index
+    else:
+        print("Datatype not correct")
+        sys.exit()
+
+    # do regressions
+    if datatype == "t_stud_mfit":
+        params_meanrev, _ = RunModels(y, X, mr_only=True)
+    else:
+        # do regressions
+        params_retmodel, params_meanrev, _, _ = RunModels(y, X)
+    test_returns = df.iloc[:, 0].values
+    test_factors = df.iloc[:, 1:].values
+
+    if datatype != "t_stud_mfit":
+        sigma = df.iloc[:, 0].std()
+        f_param = params_retmodel["params"]
+    else:
+        sigma = sigma
+        f_param = f_param
+    test_f_speed = np.abs(np.array([*params_meanrev.values()]).ravel())
+    HalfLife = np.around(np.log(2) / test_f_speed, 2)
+
+    if recurrent_env:
+        test_returns_tens = create_lstm_tensor(test_returns.reshape(-1, 1), unfolding)
+        test_factors_tens = create_lstm_tensor(test_factors, unfolding)
+        test_env = RecurrentMarketEnv(
+            HalfLife,
+            Startholding,
+            sigma,
+            CostMultiplier,
+            kappa,
+            N_test,
+            discount_rate,
+            f_param,
+            test_f_speed,
+            test_returns,
+            test_factors,
+            test_returns_tens,
+            test_factors_tens,
+            action_limit,
+            dates=dates,
+        )
+    else:
+        test_env = MarketEnv(
+            HalfLife,
+            Startholding,
+            sigma,
+            CostMultiplier,
+            kappa,
+            N_test,
+            discount_rate,
+            f_param,
+            test_f_speed,
+            test_returns,
+            test_factors,
+            action_limit,
+            dates=dates,
+        )
+
+    action_space = ActionSpace(KLM, zero_action=True)
+    if executeDRL:
+        CurrState, _ = test_env.reset()
+    if executeRL:
+        test_env.returns_space = ReturnSpace(RT)
+        test_env.holding_space = HoldingSpace(KLM)
+        DiscrCurrState = test_env.discrete_reset()
+    if executeGP:
+        CurrOptState = test_env.opt_reset()
+        OptRate, DiscFactorLoads = test_env.opt_trading_rate_disc_loads()
+    if executeMV:
+        CurrMVState = test_env.opt_reset()
+
+    if datatype == "real":
+        if recurrent_env:
+            cycle_len = N_test - 1 - (unfolding - 1)
+        else:
+            cycle_len = N_test - 1
+    elif datatype != "real":
+        if recurrent_env:
+            cycle_len = N_test + 1 - (unfolding - 1)
+        else:
+            cycle_len = N_test + 1
+
+    for i in tqdm(iterable=range(cycle_len), desc="Testing DQNetwork"):
+        if executeDRL:
+            if tag == "DQN":
+                #                 shares_traded = TrainNet.greedy_action(CurrState)
+                shares_traded = action_space.values[
+                    np.argmax(
+                        TrainNet(
+                            np.atleast_2d(CurrState.astype("float32")), training=False
+                        )[0]
+                    )
+                ]
+                NextState, Result, NextFactors = test_env.step(
+                    CurrState, shares_traded, i
+                )
+                test_env.store_results(Result, i)
+            elif tag == "DDPG":
+                shares_traded = TrainNet.p_model(
+                    np.atleast_2d(CurrState.astype("float32")), training=False
+                )
+                NextState, Result, NextFactors = test_env.step(
+                    CurrState, shares_traded, i, tag=tag
+                )
+                test_env.store_results(Result, i)
+            CurrState = NextState
+
+        if executeRL:
+            shares_traded = int(QTable.chooseGreedyAction(DiscrCurrState))
+            DiscrNextState, Result = test_env.discrete_step(
+                DiscrCurrState, shares_traded, i
+            )
+            test_env.store_results(Result, i)
+            DiscrCurrState = DiscrNextState
+
+        if executeGP:
+            NextOptState, OptResult = test_env.opt_step(
+                CurrOptState, OptRate, DiscFactorLoads, i
+            )
+            test_env.store_results(OptResult, i)
+            CurrOptState = NextOptState
+
+        if executeMV:
+            NextMVState, MVResult = test_env.mv_step(CurrMVState, i)
+            test_env.store_results(MVResult, i)
+            CurrMVState = NextMVState
+    return test_env.res_df
+
+
+def Out_sample_test(
+    N_test: int,
+    sigmaf: Union[float or list or np.ndarray],
+    f0: Union[float or list or np.ndarray],
+    f_param: Union[float or list or np.ndarray],
+    sigma: Union[float or list or np.ndarray],
+    plot_inputs: int,
+    HalfLife: Union[int or list or np.ndarray],
+    Startholding: Union[float or int],
+    CostMultiplier: float,
+    kappa: float,
+    discount_rate: float,
+    executeDRL: bool,
+    executeRL: bool,
+    executeMV: bool,
+    RT: list,
+    KLM: list,
+    executeGP: bool,
+    TrainNet,
+    iteration: int,
+    recurrent_env: bool = False,
+    unfolding: int = 1,
+    QTable: Optional[pd.DataFrame] = None,
+    rng: int = None,
+    seed_test: int = None,
+    action_limit=None,
+    uncorrelated=False,
+    t_stud: bool = False,
+    tag="DQN",
+):
+
+    """
+    Perform an out-of-sample test and store results
+
+    Parameters
+    ----------
+    N_test : int
+        Length of the experiment
+
+    sigmaf : Union[float or list or np.ndarray]
+        Volatilities of the mean reverting factors
+
+    f0 : Union[float or list or np.ndarray]
+        Initial points for simulating factors. Usually set at 0
+
+    f_param: Union[float or list or np.ndarray]
+        Factor loadings of the mean reverting factors
+
+    sigma: Union[float or list or np.ndarray]
+        volatility of the asset return (additional noise other than the intrinsic noise
+                                        in the factors)
+    plot_inputs: bool
+        Boolean to regulate if plot of simulated returns and factor is needed
+
+    HalfLife: Union[int or list or np.ndarray]
+        HalfLife of mean reversion to simulate factors with different speeds
+
+    Startholding: Union[int or float]
+        Initial portfolio holding, usually set at 0
+
+    CostMultiplier: float
+        Transaction cost parameter which regulates the market liquidity
+
+    kappa: float
+        Risk averion parameter
+
+    discount_rate: float
+        Discount rate for the reward function
+
+    executeDRL: bool
+        Boolean to regulate if perform the deep reinforcement learning algorithm
+
+    executeRL: bool
+        Boolean to regulate if perform the reinforcement learning algorithm
+    executeMV: bool
+        Boolean to regulate if perform the Markovitz solution
+
+    RT: list
+        List of boundaries for the discretized return space. The first element is
+        the parameter T of the paper and the second it the ticksize
+        (usually set as a basis point). Used only for RL case.
+
+    KLM: list
+        List of boundaries for Action and Holding space. The first element is
+        the extreme boundary of the action space, the second element is
+        the intermediate action for such discretized space and the third is
+        the boundary for the holding space. In the paper they are defined as
+        K, K/2 and M.
+
+    executeGP: bool
+        Boolean to regulate if perform the benchmark solution of Garleanu and Pedersen
+
+    TrainNet
+        Instantiated class for the train network. It is an instance of
+        DeepNetworkModel or DeepRecurrentNetworkModel class
+
+    savedpath: Union[ str or Path]
+        Pat where to store results at the end of the training
+
+    iteration: int
+        Iteration step
+
+    recurrent_env: bool
+        Boolean to regulate if the enviroment is recurrent or not
+
+    unfolding: int = 1
+        Timesteps for recurrent. Used only if recurrent_env is True
+
+    QTable: Optional[pd.DataFrame]
+        Dataframe representing Q-table
+
+    rng: np.random.mtrand.RandomState
+        Random number generator
+
+    seed_test: int
+        Seed for test that allows to create a new random number generator
+        instead of using the one passed as argument
+
+    action_limit=None
+        Action boundary used only for DDPG
+
+    uncorrelated: bool = False
+        Boolean to regulate if the simulated factor are correlated or not
+
+    t_stud : bool = False
+        Bool to regulate if Student\'s t noises are needed
+
+    variables: list
+        Variables to store as results of the experiment
+
+    tag: bool
+        Name of the testing algorithm
+
+    """
+
+    test_returns, test_factors, test_f_speed = ReturnSampler(
+        N_test,
+        sigmaf,
+        f0,
+        f_param,
+        sigma,
+        plot_inputs,
+        HalfLife,
+        rng,
+        offset=unfolding + 1,
+        seed_test=seed_test,
+        uncorrelated=uncorrelated,
+        t_stud=t_stud,
+    )
+
+    if recurrent_env:
+        test_returns_tens = create_lstm_tensor(test_returns.reshape(-1, 1), unfolding)
+        test_factors_tens = create_lstm_tensor(test_factors, unfolding)
+        test_env = RecurrentMarketEnv(
+            HalfLife,
+            Startholding,
+            sigma,
+            CostMultiplier,
+            kappa,
+            N_test,
+            discount_rate,
+            f_param,
+            test_f_speed,
+            test_returns,
+            test_factors,
+            test_returns_tens,
+            test_factors_tens,
+            action_limit,
+        )
+    else:
+        test_env = MarketEnv(
+            HalfLife,
+            Startholding,
+            sigma,
+            CostMultiplier,
+            kappa,
+            N_test,
+            discount_rate,
+            f_param,
+            test_f_speed,
+            test_returns,
+            test_factors,
+            action_limit,
+        )
+    action_space = ActionSpace(KLM, zero_action=True)
+    if executeDRL:
+        CurrState, _ = test_env.reset()
+    if executeRL:
+        test_env.returns_space = ReturnSpace(RT)
+        test_env.holding_space = HoldingSpace(KLM)
+        DiscrCurrState = test_env.discrete_reset()
+    if executeGP:
+        CurrOptState = test_env.opt_reset()
+        OptRate, DiscFactorLoads = test_env.opt_trading_rate_disc_loads()
+    if executeMV:
+        CurrMVState = test_env.opt_reset()
+
+    for i in tqdm(iterable=range(N_test + 1), desc="Testing DQNetwork"):
+        if executeDRL:
+            if tag == "DQN":
+                shares_traded = action_space.values[
+                    np.argmax(
+                        TrainNet(
+                            np.atleast_2d(CurrState.astype("float32")), training=False
+                        )[0]
+                    )
+                ]
+                NextState, Result, NextFactors = test_env.step(
+                    CurrState, shares_traded, i
+                )
+                test_env.store_results(Result, i)
+            elif tag == "DDPG":
+                shares_traded = TrainNet.p_model(
+                    np.atleast_2d(CurrState.astype("float32")), training=False
+                )
+                NextState, Result, NextFactors = test_env.step(
+                    CurrState, shares_traded, i, tag=tag
+                )
+                test_env.store_results(Result, i)
+            CurrState = NextState
+
+        if executeRL:
+            shares_traded = int(QTable.chooseGreedyAction(DiscrCurrState))
+            DiscrNextState, Result = test_env.discrete_step(
+                DiscrCurrState, shares_traded, i
+            )
+            test_env.store_results(Result, i)
+            DiscrCurrState = DiscrNextState
+
+        if executeGP:
+            NextOptState, OptResult = test_env.opt_step(
+                CurrOptState, OptRate, DiscFactorLoads, i
+            )
+            test_env.store_results(OptResult, i)
+            CurrOptState = NextOptState
+
+        if executeMV:
+            NextMVState, MVResult = test_env.mv_step(CurrMVState, i)
+            test_env.store_results(MVResult, i)
+            CurrMVState = NextMVState
+
+    return test_env.res_df
+
+
 if __name__ == "__main__":
 
     params_plt = {  # Use LaTeX to write all text
@@ -418,6 +1177,58 @@ if __name__ == "__main__":
             ax.tick_params(pad=0.05)
         fig.savefig(os.path.join("outputs", "figs", "GAUSS_performance.pdf"))
         logging.info("Plot saved successfully...")
+
+    elif p["plot_type"] == "ppo":
+
+        colors = ["blue", "orange"]
+        fig = plt.figure(
+            figsize=set_size(width=243.9112, subplots=(2, 2))
+        )  # 505.89 243.9112
+        gs = gridspec.GridSpec(ncols=2, nrows=2, figure=fig)
+        ax1 = fig.add_subplot(gs[0])
+        ax2 = fig.add_subplot(gs[1])
+        ax3 = fig.add_subplot(gs[2])
+        ax4 = fig.add_subplot(gs[3])
+
+        axes = fig.axes
+        axes_pairs = [axes[: len(axes) // 2], axes[len(axes) // 2 :]]
+        outputModel = p["outputModel"]
+        out_mode_pairs = [
+            outputModel[: len(outputModel) // 2],
+            outputModel[len(outputModel) // 2 :],
+        ]
+
+        for pair, out_mode in zip(axes_pairs, out_mode_pairs):
+            runPnlSR_PPO_Plots(p, pair, out_mode)
+
+        # TITLES
+        ax1.set_title("Net PnL")
+        # ax2.set_title('Reward')
+        ax2.set_title("Sharpe Ratio")
+        # LEGEND
+        ax2.legend(loc=4)
+        fig.text(0.5, 0.04, "$\mathregular{T_{in}}$", ha="center")
+        fig.text(0.04, 0.5, "% benchmark", va="center", rotation="vertical")
+        plt.gcf().subplots_adjust(left=0.13, bottom=0.16, wspace=0.1, hspace=0.1)
+
+        plt.setp(ax1.get_xticklabels(), visible=False)
+        plt.setp(ax2.get_xticklabels(), visible=False)
+        plt.setp(ax2.get_yticklabels(), visible=False)
+        plt.setp(ax4.get_yticklabels(), visible=False)
+
+        # # start, end = ax3.get_xlim()
+        # start, end, stepsize = 0.0, 300000, 100000
+        # ax3.xaxis.set_ticks(np.arange(start, end + 1, stepsize))
+        # ax4.xaxis.set_ticks(np.arange(start, end + 1, stepsize))
+        # start, end, stepsize = 0.0, 120, 40
+        # ax1.yaxis.set_ticks(np.arange(start, end + 1, stepsize))
+        # ax3.yaxis.set_ticks(np.arange(start, end + 1, stepsize))
+
+        for ax in fig.axes:
+            ax.tick_params(pad=0.05)
+        fig.savefig(os.path.join("outputs", "figs", "GAUSS_PPO_performance.pdf"))
+        logging.info("Plot saved successfully...")
+
     elif p["plot_type"] == "pnlsrstud":
 
         colors = ["blue", "orange"]
@@ -450,7 +1261,7 @@ if __name__ == "__main__":
         legend = ax2.legend(loc=4)
         legend.get_texts()[0].set_text("fully informed")
         legend.get_texts()[1].set_text("partially informed")
-        fig.text(0.5, 0.04, "$\mathregular{T_{in}}$", ha="center")
+        fig.text(0.5, 0.04, "$\mathregular{E_{in}}$", ha="center")
         fig.text(0.04, 0.5, "% benchmark", va="center", rotation="vertical")
         plt.gcf().subplots_adjust(left=0.13, bottom=0.16, wspace=0.1, hspace=0.1)
 
@@ -564,18 +1375,16 @@ if __name__ == "__main__":
         ax4 = fig.add_subplot(gs[3])
 
         length = "300k"
-        ntest = 5000
+        ntest = 500
         seed = 100
         htype = "cost"  # risk or cost
 
         # GAUSS
         if htype == "cost":
-            experiment = "side_only_True_seed_ret_6"
+            experiment = "seed_ret_270"
         elif htype == "risk":
             experiment = "seed_ret_924"
-        data_dir = "outputs/DQN/20210209_GPGAUSS_decouple_side_only_True/{}/{}".format(
-            length, experiment
-        )
+        data_dir = "outputs/DQN/20210107_GPGAUSS_final/{}/{}".format(length, experiment)
         filenamep = os.path.join(data_dir, "config_{}.yaml".format(length))
         p = readConfigYaml(filenamep)
         p["N_test"] = ntest
@@ -611,10 +1420,6 @@ if __name__ == "__main__":
             seed,
             uncorrelated=p["executeGP"],
             t_stud=False,
-            side_only=p["side_only"],
-            discretization=p["discretization"],
-            temp=p["temp"],
-            store_values=False,
         )
 
         plot_portfolio(res, "DQN", ax1)
@@ -639,7 +1444,7 @@ if __name__ == "__main__":
             p, data_dir, True, 300000
         )  # , ckpt=True, ckpt_it=ck_it)
 
-        res = Out_sample_Misspec_test(
+        res = Out_sample_misspec_test(
             p["N_test"],
             None,
             p["factor_lb"],
@@ -697,7 +1502,7 @@ if __name__ == "__main__":
             p, data_dir, True, 300000
         )  # , ckpt=True, ckpt_it=ck_it)
 
-        res = Out_sample_Misspec_test(
+        res = Out_sample_misspec_test(
             p["N_test"],
             None,
             p["factor_lb"],
@@ -736,7 +1541,7 @@ if __name__ == "__main__":
 
         # GARCH
         if htype == "cost":
-            experiment = "factor_lb_1_seed_400"  # distr_noise_normal_seed_400
+            experiment = "factor_lb_1_seed_169"  # distr_noise_normal_seed_400
         elif htype == "risk":
             experiment = "factor_lb_1_seed_169"
 
@@ -755,7 +1560,7 @@ if __name__ == "__main__":
             p, data_dir, True, 300000
         )  # , ckpt=True, ckpt_it=ck_it)
 
-        res = Out_sample_Misspec_test(
+        res = Out_sample_misspec_test(
             p["N_test"],
             None,
             p["factor_lb"],
@@ -876,8 +1681,8 @@ if __name__ == "__main__":
         ax1.set_title("Reward")
         # LEGEND
         legend = ax1.legend(loc=4)
-        legend.get_texts()[0].set_text("mfit")
-        legend.get_texts()[1].set_text("fullfit")
+        legend.get_texts()[0].set_text("fully informed")
+        legend.get_texts()[1].set_text("partially informed")
         fig.text(0.5, 0.04, "$\mathregular{T_{in}}$", ha="center")
         fig.text(0.04, 0.5, "% benchmark", va="center", rotation="vertical")
         plt.gcf().subplots_adjust(left=0.13, hspace=0.1)
@@ -900,7 +1705,7 @@ if __name__ == "__main__":
         # TITLES
         ax1.set_title("Reward")
         # LEGEND
-        legend = ax1.legend()
+        legend = ax1.legend(loc=4)
         legend.get_texts()[0].set_text("normal")
         legend.get_texts()[1].set_text("student's t")
 

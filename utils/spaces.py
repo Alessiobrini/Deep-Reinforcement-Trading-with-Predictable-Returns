@@ -23,15 +23,19 @@ class ActionSpace(Space):
         and return a boolean
     """
 
-    def __init__(self, action_range: list, zero_action: bool = True, side_only: bool = False):
+    def __init__(
+        self, action_range: list, zero_action: bool = True, side_only: bool = False
+    ):
         if not side_only:
-            self.values = np.round(np.linspace(-action_range[0], action_range[0], action_range[1]),2)
+            self.values = np.round(
+                np.linspace(-action_range[0], action_range[0], action_range[1]), 2
+            )
         else:
             self.values = np.array([-1.0, 0.0, 1.0])
         if not zero_action:
             self.values = self.values[self.values != 0.0]
 
-        self.action_range=action_range
+        self.action_range = action_range
         self.zero_action = zero_action
         self.side_only = side_only
         super().__init__(self.values.shape, self.values.dtype)
@@ -46,6 +50,7 @@ class ActionSpace(Space):
             return self.values.ndim
         elif policy_type == "discrete":
             return self.values.size
+
 
 @gin.configurable()
 class ResActionSpace(Space):
@@ -66,13 +71,17 @@ class ResActionSpace(Space):
         and return a boolean
     """
 
-    def __init__(self, action_range:list, zero_action: bool = True, side_only: bool = False):
+    def __init__(
+        self, action_range: list, zero_action: bool = True, side_only: bool = False
+    ):
 
-        self.values = np.round(np.linspace(action_range[0], action_range[1], action_range[2]),2)
+        self.values = np.round(
+            np.linspace(action_range[0], action_range[1], action_range[2]), 2
+        )
         if not zero_action:
             self.values = self.values[self.values != 0.0]
-        
-        self.action_range=action_range
+
+        self.action_range = action_range
         self.zero_action = zero_action
         self.side_only = side_only
         super().__init__(self.values.shape, self.values.dtype)

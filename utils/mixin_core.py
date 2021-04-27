@@ -53,11 +53,7 @@ class MixinCore(LoggerMixin):
         return trial_dict
 
     def _make_uuid(
-        self,
-        keys=None,
-        truncate=False,
-        string=None,
-        additional=None,
+        self, keys=None, truncate=False, string=None, additional=None,
     ):
         if keys:
             attributes = []
@@ -89,9 +85,5 @@ class MixinCore(LoggerMixin):
         return hashed
 
     def _set_hash(self, keys, additional=None):
-        model_hash = self._make_uuid(
-            keys=keys,
-            additional=additional,
-            truncate=10,
-        )
+        model_hash = self._make_uuid(keys=keys, additional=additional, truncate=10,)
         return model_hash

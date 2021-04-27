@@ -30,15 +30,15 @@ class PPOActorCritic(nn.Module):
         policy_type: str,
         init_std: float = 0.5,
         min_std: float = 0.003,
-        std_transform: str = 'softplus',
-        init_last_layers: str = 'rescaled',
+        std_transform: str = "softplus",
+        init_last_layers: str = "rescaled",
         modelname: str = "PPO",
     ):
 
         super(PPOActorCritic, self).__init__()
 
         torch.manual_seed(seed)
-        self.modelname=modelname
+        self.modelname = modelname
         # set dimensionality of input/output depending on the model
         inp_dim = input_shape[0]
         out_dim = num_actions
@@ -53,7 +53,9 @@ class PPOActorCritic(nn.Module):
 
         if self.bnflag_input:
             # affine false sould be equal to center and scale to False in TF2
-            critic_modules.append(nn.BatchNorm1d(inp_dim, affine=False)) #, momentum=1.0
+            critic_modules.append(
+                nn.BatchNorm1d(inp_dim, affine=False)
+            )  # , momentum=1.0
             # critic_modules.append(nn.LayerNorm(inp_dim, elementwise_affine=False))
 
         # self.input_layer = InputLayer(input_shape=inp_shape)
@@ -128,9 +130,9 @@ class PPOActorCritic(nn.Module):
 
         # TODO insert here flag for cont/discrete
         if self.policy_type == "continuous":
-            if self.std_transform == 'exp':
+            if self.std_transform == "exp":
                 self.log_std = nn.Parameter(torch.ones(1, out_dim) * 0.0)
-            elif self.std_transform == 'softplus':
+            elif self.std_transform == "softplus":
                 self.log_std = nn.Parameter(torch.ones(1, out_dim) * 0.0)
                 self.softplus = nn.Softplus()
                 self.init_std = init_std
@@ -148,15 +150,17 @@ class PPOActorCritic(nn.Module):
         value = self.critic(x)
         if self.policy_type == "continuous":
             mu = self.actor(x)
-            if self.std_transform == 'exp':
+            if self.std_transform == "exp":
                 std = self.log_std.exp().expand_as(
                     mu
                 )  # make the tensor of the same size of mu
-            elif self.std_transform == 'softplus':
-                init_const = 1/self.softplus(torch.tensor(self.init_std - self.min_std))
-                std = (self.softplus(self.log_std + init_const) + self.min_std).expand_as(
-                    mu
+            elif self.std_transform == "softplus":
+                init_const = 1 / self.softplus(
+                    torch.tensor(self.init_std - self.min_std)
                 )
+                std = (
+                    self.softplus(self.log_std + init_const) + self.min_std
+                ).expand_as(mu)
 
             dist = Normal(mu, std)
 
@@ -178,20 +182,20 @@ class PPOActorCritic(nn.Module):
     def init_weights(self):
         # to access module and layer of an architecture
         # https://discuss.pytorch.org/t/how-to-access-to-a-layer-by-module-name/83797/2
-        for layer in self.actor: #[:-1]:
+        for layer in self.actor:  # [:-1]:
             if isinstance(layer, nn.Linear):
                 nn.init.orthogonal_(layer.weight, gain=np.sqrt(2))
                 nn.init.zeros_(layer.bias)
 
         # carefully initialize last layer
-        if self.init_last_layers == 'rescaled':
+        if self.init_last_layers == "rescaled":
             self.actor[-1].weight = torch.nn.Parameter(self.actor[-1].weight * 0.01)
             self.actor[-1].bias = torch.nn.Parameter(self.actor[-1].bias * 0.01)
-        elif self.init_last_layers == 'normal':
+        elif self.init_last_layers == "normal":
             nn.init.normal_(self.actor[-1].weight, mean=0.0, std=0.01)
             nn.init.constant_(self.actor[-1].bias, 0.01)
 
-        for layer in self.critic: #[:-2]:
+        for layer in self.critic:  # [:-2]:
             if isinstance(layer, nn.Linear):
                 nn.init.orthogonal_(layer.weight, gain=np.sqrt(2))
                 nn.init.zeros_(layer.bias)
@@ -204,7 +208,6 @@ class PPOActorCritic(nn.Module):
         #         elif self.init_last_layers == 'normal':
         #             nn.init.normal_(layer.weight, mean=0.0, std=0.01)
         #             nn.init.constant_(layer.bias, 0.01)
-
 
 
 # ############################### DQN ALGORITHM ################################
@@ -237,8 +240,8 @@ class PPO:
         lr_schedule: Optional[str] = None,
         exp_decay_rate: Optional[float] = None,
         step_size: Optional[int] = None,
-        std_transform: str = 'softplus',
-        init_last_layers: str = 'rescaled',
+        std_transform: str = "softplus",
+        init_last_layers: str = "rescaled",
         rng=None,
         modelname: str = "PPO act_crt",
     ):
@@ -313,20 +316,20 @@ class PPO:
                 centered=False,
             )
 
-        if lr_schedule == 'step':
-            self.scheduler = StepLR(optimizer=self.optimizer,
-                                     step_size=step_size,
-                                     gamma=exp_decay_rate)
+        if lr_schedule == "step":
+            self.scheduler = StepLR(
+                optimizer=self.optimizer, step_size=step_size, gamma=exp_decay_rate
+            )
 
-        elif lr_schedule == 'exponential':
-            self.scheduler = ExponentialLR(optimizer=self.optimizer,
-                                            gamma=exp_decay_rate)
+        elif lr_schedule == "exponential":
+            self.scheduler = ExponentialLR(
+                optimizer=self.optimizer, gamma=exp_decay_rate
+            )
         else:
             self.scheduler = None
 
     def train(self, state, action, old_log_probs, return_, advantage):
-        advantage = (advantage - advantage.mean()) / (
-            advantage.std() + 1e-5)
+        advantage = (advantage - advantage.mean()) / (advantage.std() + 1e-5)
 
         self.model.train()
         dist, value = self.model(state)
@@ -336,7 +339,8 @@ class PPO:
         ratio = (new_log_probs - old_log_probs).exp()  # log properties
         surr1 = ratio * advantage
         surr2 = (
-            torch.clamp(ratio, 1.0/(1+self.clip_param), 1.0 + self.clip_param) * advantage
+            torch.clamp(ratio, 1.0 / (1 + self.clip_param), 1.0 + self.clip_param)
+            * advantage
         )
 
         actor_loss = -torch.min(surr1, surr2).mean()
@@ -366,8 +370,12 @@ class PPO:
         if recompute_value:
             self.model.eval()
             with torch.no_grad():
-                _ , values = self.model(torch.Tensor(self.experience["state"]).to(self.device))
-            self.experience["value"] = [np.array(v,dtype=float) for v in values.detach().cpu().tolist()]
+                _, values = self.model(
+                    torch.Tensor(self.experience["state"]).to(self.device)
+                )
+            self.experience["value"] = [
+                np.array(v, dtype=float) for v in values.detach().cpu().tolist()
+            ]
             # for i in range(len(self.experience["value"])):
             #     _, value = self.act(self.experience["state"][i])
             #     self.experience["value"][i] = value.detach().cpu().numpy().ravel()
@@ -416,7 +424,7 @@ class PPO:
 
         len_rollout = states.shape[0]
         ids = self.rng.permutation(len_rollout)
-        ids = np.array_split(ids,len_rollout//self.batch_size)
+        ids = np.array_split(ids, len_rollout // self.batch_size)
         for i in range(len(ids)):
 
             yield (
@@ -427,15 +435,15 @@ class PPO:
                 torch.from_numpy(advantage[ids[i], :]).float().to(self.device),
             )
 
-    def getBack(self,var_grad_fn):
+    def getBack(self, var_grad_fn):
         print(var_grad_fn)
         for n in var_grad_fn.next_functions:
             if n[0]:
                 try:
-                    tensor = getattr(n[0], 'variable')
+                    tensor = getattr(n[0], "variable")
                     print(n[0])
-                    print('Tensor with grad found:', tensor)
-                    print(' - gradient:', tensor.grad)
+                    print("Tensor with grad found:", tensor)
+                    print(" - gradient:", tensor.grad)
                     print()
                 except AttributeError as e:
                     self.getBack(n[0])
