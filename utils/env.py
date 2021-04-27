@@ -242,7 +242,7 @@ class MarketEnv(gym.Env):
         elif self.inp_type == 'f':
             nextState = np.append(nextFactors,nextHolding)
 
-        Result = self._getreward(currState, nextState, iteration, tag)
+        Result = self._getreward(currState, nextState, iteration, tag, res_action = shares_traded)
         # reward scaling
         # if tag == "DDPG":
         #     Result["Reward_{}".format(tag)] = Result["Reward_{}".format(tag)]*0.0001
@@ -422,6 +422,7 @@ class MarketEnv(gym.Env):
         nextState: Tuple[Union[float or int], Union[float or int]],
         iteration:int,
         tag: str,
+        res_action: float = None,
     ) -> dict:
 
         # Remember that a state is a tuple (price, holding)
@@ -448,6 +449,8 @@ class MarketEnv(gym.Env):
             "Cost_{}".format(tag): Cost,
             "Reward_{}".format(tag): Reward,
         }
+        if res_action:
+            Result["ResAction_{}".format(tag)] = res_action
         return Result
 
     def _get_opt_reward(
