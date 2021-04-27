@@ -126,8 +126,10 @@ class PPO_runner(MixinCore):
         self.logging.debug("Instantiating DQN model")
         input_shape = self.env.get_state_dim()
 
+        step_size = (self.len_series/gin.query_parameter('PPO.batch_size')) * gin.query_parameter('%EPOCHS')
+        gin.bind_parameter('PPO.step_size',step_size)
         self.train_agent = PPO(
-            input_shape=input_shape, action_space=self.action_space, rng=self.rng
+            input_shape=input_shape, action_space=self.action_space, rng=self.rng 
         )
 
         self.train_agent.model.to(self.device)
@@ -259,7 +261,6 @@ class PPO_runner(MixinCore):
         self.train_agent.reset_experience()
 
         for i in range(len(self.env.returns) - 1):
-
             dist, value = self.train_agent.act(state)
 
             if self.train_agent.policy_type == "continuous":
@@ -315,6 +316,7 @@ class PPO_runner(MixinCore):
 
     def update(self):
         for _ in range(self.epochs):  # run for more than one epochs
+            
             for (
                 state,
                 action,
@@ -324,7 +326,7 @@ class PPO_runner(MixinCore):
             ) in self.train_agent.ppo_iter():
 
                 self.train_agent.train(state, action, old_log_probs, return_, advantage)
-
+                
             # recompute gae to avoid stale advantages
             if _ == len(range(self.epochs)) - 1:
                 pass

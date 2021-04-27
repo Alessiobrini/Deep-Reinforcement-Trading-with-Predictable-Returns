@@ -132,10 +132,13 @@ class Out_sample_vs_gp:
                     CurrState = CurrState.to(test_agent.device)
 
                     # PPO actions
-                    dist, qvalues = test_agent.model(CurrState.unsqueeze(0))
+                    with torch.no_grad():
+                        dist, qvalues = test_agent.model(CurrState.unsqueeze(0))
 
                     if test_agent.policy_type == "continuous":
-                        action = dist.sample()
+                        # action = dist.sample()
+                        # pdb.set_trace()
+                        action = dist.mean      
 
                         # clip the action in the space [0,1]
                         action = nn.Tanh()(action).cpu().numpy().ravel()[0]
@@ -234,7 +237,7 @@ class Out_sample_vs_gp:
                 perc_SR = (sr / optsr) * 100
                 pnl_std = (std / opt_std) * 100
 
-                
+
                 avg_pnls.append(ref_pnl[-1])
                 avg_rews.append(ref_rew[-1])
                 avg_srs.append(perc_SR)

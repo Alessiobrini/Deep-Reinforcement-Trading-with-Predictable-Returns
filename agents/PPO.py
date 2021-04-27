@@ -2,7 +2,7 @@ import torch
 import torch.nn as nn
 import torch.nn.functional as F
 import torch.optim as optim
-from torch.optim.lr_scheduler import ExponentialLR
+from torch.optim.lr_scheduler import StepLR, ExponentialLR
 from torch.distributions import Normal, Categorical
 import numpy as np
 from typing import Optional, Union
@@ -30,6 +30,8 @@ class PPOActorCritic(nn.Module):
         policy_type: str,
         init_std: float = 0.5,
         min_std: float = 0.003,
+        std_transform: str = 'softplus',
+        init_last_layers: str = 'rescaled',
         modelname: str = "PPO",
     ):
 
@@ -40,6 +42,8 @@ class PPOActorCritic(nn.Module):
         inp_dim = input_shape[0]
         out_dim = num_actions
         self.policy_type = policy_type
+        self.std_transform = std_transform
+        self.init_last_layers = init_last_layers
 
         # set flag for batch norm as attribute
         self.bnflag_input = batch_norm_input
@@ -48,7 +52,8 @@ class PPOActorCritic(nn.Module):
 
         if self.bnflag_input:
             # affine false sould be equal to center and scale to False in TF2
-            critic_modules.append(nn.BatchNorm1d(inp_dim, affine=False))
+            critic_modules.append(nn.BatchNorm1d(inp_dim, affine=False)) #, momentum=1.0
+            # critic_modules.append(nn.LayerNorm(inp_dim, elementwise_affine=False))
 
         # self.input_layer = InputLayer(input_shape=inp_shape)
         # set of hidden layers
@@ -78,6 +83,7 @@ class PPOActorCritic(nn.Module):
             critic_modules = critic_modules + [
                 nn.Linear(hidden_units_value[-1], 1),
                 nn.BatchNorm1d(1, affine=False),
+                # nn.LayerNorm(1, elementwise_affine=False),
             ]
         else:
             critic_modules = critic_modules + [nn.Linear(hidden_units_value[-1], 1)]
@@ -87,6 +93,7 @@ class PPOActorCritic(nn.Module):
         if self.bnflag_input:
             # affine false sould be equal to center and scale to False in TF2
             actor_modules.append(nn.BatchNorm1d(inp_dim, affine=False))
+            # actor_modules.append(nn.LayerNorm(inp_dim, elementwise_affine=False))
 
         # self.input_layer = InputLayer(input_shape=inp_shape)
         # set of hidden layers
@@ -114,7 +121,6 @@ class PPOActorCritic(nn.Module):
 
         actor_modules = actor_modules + [nn.Linear(hidden_units_actor[-1], out_dim)]
 
-        # pdb.set_trace()
         self.critic = nn.Sequential(*critic_modules)
 
         self.actor = nn.Sequential(*actor_modules)
@@ -138,13 +144,16 @@ class PPOActorCritic(nn.Module):
     def forward(self, x):
         value = self.critic(x)
         if self.policy_type == "continuous":
-
             mu = self.actor(x)
-            # std = self.log_std.exp().expand_as(
-            #     mu
-            # )  # make the tensor of the same size of mu
-            init_const = 1/self.softplus(torch.tensor(self.init_std - self.min_std))
-            std = self.softplus(self.log_std + init_const) + self.min_std
+            if self.std_transform == 'exp':
+                std = self.log_std.exp().expand_as(
+                    mu
+                )  # make the tensor of the same size of mu
+            elif self.std_transform == 'softplus':
+                init_const = 1/self.softplus(torch.tensor(self.init_std - self.min_std))
+                std = (self.softplus(self.log_std + init_const) + self.min_std).expand_as(
+                    mu
+                )
 
             dist = Normal(mu, std)
 
@@ -168,26 +177,31 @@ class PPOActorCritic(nn.Module):
         # https://discuss.pytorch.org/t/how-to-access-to-a-layer-by-module-name/83797/2
         for layer in self.actor: #[:-1]:
             if isinstance(layer, nn.Linear):
-                nn.init.xavier_uniform_(layer.weight)
+                nn.init.orthogonal_(layer.weight, gain=np.sqrt(2))
                 nn.init.zeros_(layer.bias)
 
         # carefully initialize last layer
-        self.actor[-1].weight = torch.nn.Parameter(self.actor[-1].weight * 0.001)
-        self.actor[-1].bias = torch.nn.Parameter(self.actor[-1].bias * 0.001)
-        # nn.init.normal_(self.actor[-1].weight, mean=0.0, std=0.01)
-        # nn.init.constant_(self.actor[-1].bias, 0.01)
+        if self.init_last_layers == 'rescaled':
+            self.actor[-1].weight = torch.nn.Parameter(self.actor[-1].weight * 0.01)
+            self.actor[-1].bias = torch.nn.Parameter(self.actor[-1].bias * 0.01)
+        elif self.init_last_layers == 'normal':
+            nn.init.normal_(self.actor[-1].weight, mean=0.0, std=0.01)
+            nn.init.constant_(self.actor[-1].bias, 0.01)
 
         for layer in self.critic: #[:-2]:
             if isinstance(layer, nn.Linear):
-                nn.init.xavier_uniform_(layer.weight)
+                nn.init.orthogonal_(layer.weight, gain=np.sqrt(2))
                 nn.init.zeros_(layer.bias)
         # carefully initialize last layer
-        for layer in self.critic[-2:]:
-            if isinstance(layer, nn.Linear):
-                # nn.init.normal_(layer.weight, mean=0.0, std=0.01)
-                # nn.init.constant_(layer.bias, 0.01)
-                layer.weight = torch.nn.Parameter(layer.weight * 0.001)
-                layer.bias = torch.nn.Parameter(layer.bias * 0.001)
+        # for layer in self.critic[-2:]:
+        #     if isinstance(layer, nn.Linear):
+        #         if self.init_last_layers == 'rescaled':
+        #             layer.weight = torch.nn.Parameter(layer.weight * 0.01)
+        #             layer.bias = torch.nn.Parameter(layer.bias * 0.01)
+        #         elif self.init_last_layers == 'normal':
+        #             nn.init.normal_(layer.weight, mean=0.0, std=0.01)
+        #             nn.init.constant_(layer.bias, 0.01)
+
 
 
 # ############################### DQN ALGORITHM ################################
@@ -219,6 +233,9 @@ class PPO:
         eps_opt: float = 1e-07,
         lr_schedule: Optional[str] = None,
         exp_decay_rate: Optional[float] = None,
+        step_size: Optional[int] = None,
+        std_transform: str = 'softplus',
+        init_last_layers: str = 'rescaled',
         rng=None,
         modelname: str = "PPO act_crt",
     ):
@@ -265,6 +282,8 @@ class PPO:
             self.policy_type,
             init_pol_std,
             min_pol_std,
+            std_transform,
+            init_last_layers,
             modelname,
         )
 
@@ -289,18 +308,22 @@ class PPO:
                 centered=False,
             )
 
-        if lr_schedule == "exponential":
-            self.scheduler = ExponentialLR(
-                optimizer=self.optimizer,
-                gamma=exp_decay_rate,
-            )
+        if lr_schedule == 'step':
+            self.scheduler = StepLR(optimizer=self.optimizer,
+                                     step_size=step_size,
+                                     gamma=exp_decay_rate)
+
+        elif lr_schedule == 'exponential':
+            self.scheduler = ExponentialLR(optimizer=self.optimizer,
+                                            gamma=exp_decay_rate)
         else:
             self.scheduler = None
 
     def train(self, state, action, old_log_probs, return_, advantage):
+        advantage = (advantage - advantage.mean()) / (
+            advantage.std() + 1e-5)
 
         self.model.train()
-
         dist, value = self.model(state)
         entropy = dist.entropy().mean()
         new_log_probs = dist.log_prob(action)
@@ -308,7 +331,7 @@ class PPO:
         ratio = (new_log_probs - old_log_probs).exp()  # log properties
         surr1 = ratio * advantage
         surr2 = (
-            torch.clamp(ratio, 1.0 - self.clip_param, 1.0 + self.clip_param) * advantage
+            torch.clamp(ratio, 1.0/(1+self.clip_param), 1.0 + self.clip_param) * advantage
         )
 
         actor_loss = -torch.min(surr1, surr2).mean()
@@ -328,18 +351,20 @@ class PPO:
         # useful when the states are single dimensional
         self.model.eval()
         # make 1D tensor to 2D
-        states = torch.from_numpy(states).float().unsqueeze(0)
-        states = states.to(self.device)
+        with torch.no_grad():
+            states = torch.from_numpy(states).float().unsqueeze(0)
+            states = states.to(self.device)
         return self.model(states)
 
     def compute_gae(self, next_value, recompute_value=False):
 
         if recompute_value:
-            for i in range(len(self.experience["value"])):
-
-                _, value = self.act(self.experience["state"][i])
-
-                self.experience["value"][i] = value.detach().cpu().numpy().ravel()
+            self.model.eval()
+            _ , values = self.model(torch.Tensor(self.experience["state"]).to(self.device))
+            self.experience["value"] = [np.array(v,dtype=float) for v in values.detach().cpu().tolist()]
+            # for i in range(len(self.experience["value"])):
+            #     _, value = self.act(self.experience["state"][i])
+            #     self.experience["value"][i] = value.detach().cpu().numpy().ravel()
 
         rewards = self.experience["reward"]
         values = self.experience["value"]
@@ -384,16 +409,30 @@ class PPO:
         advantage = np.asarray(self.experience["advantage"])
 
         len_rollout = states.shape[0]
-        for _ in range(len_rollout // self.batch_size):
-            rand_ids = self.rng.randint(0, len_rollout, self.batch_size)
+        ids = self.rng.permutation(len_rollout)
+        ids = np.array_split(ids,len_rollout//self.batch_size)
+        for i in range(len(ids)):
 
             yield (
-                torch.from_numpy(states[rand_ids, :]).float().to(self.device),
-                torch.from_numpy(actions[rand_ids, :]).float().to(self.device),
-                torch.from_numpy(log_probs[rand_ids, :]).float().to(self.device),
-                torch.from_numpy(returns[rand_ids, :]).float().to(self.device),
-                torch.from_numpy(advantage[rand_ids, :]).float().to(self.device),
+                torch.from_numpy(states[ids[i], :]).float().to(self.device),
+                torch.from_numpy(actions[ids[i], :]).float().to(self.device),
+                torch.from_numpy(log_probs[ids[i], :]).float().to(self.device),
+                torch.from_numpy(returns[ids[i], :]).float().to(self.device),
+                torch.from_numpy(advantage[ids[i], :]).float().to(self.device),
             )
+
+    def getBack(self,var_grad_fn):
+        print(var_grad_fn)
+        for n in var_grad_fn.next_functions:
+            if n[0]:
+                try:
+                    tensor = getattr(n[0], 'variable')
+                    print(n[0])
+                    print('Tensor with grad found:', tensor)
+                    print(' - gradient:', tensor.grad)
+                    print()
+                except AttributeError as e:
+                    self.getBack(n[0])
 
 
 if __name__ == "__main__":

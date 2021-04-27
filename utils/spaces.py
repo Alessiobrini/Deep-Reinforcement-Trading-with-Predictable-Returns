@@ -68,7 +68,7 @@ class ResActionSpace(Space):
 
     def __init__(self, action_range:list, zero_action: bool = True, side_only: bool = False):
 
-        self.values = np.round(np.linspace(-action_range[0], action_range[1], action_range[2]),2)
+        self.values = np.round(np.linspace(action_range[0], action_range[1], action_range[2]),2)
         if not zero_action:
             self.values = self.values[self.values != 0.0]
         
