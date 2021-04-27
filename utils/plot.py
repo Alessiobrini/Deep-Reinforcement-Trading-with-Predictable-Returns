@@ -4,49 +4,40 @@ Created on Mon Dec  7 10:32:11 2020
 
 @author: aless
 """
+import gin
+gin.enter_interactive_mode()
 import numpy as np
+import tensorflow as tf
 from agents.DQN import DeepNetworkModel
-from agents.DDPG import CriticNetwork, ActorNetwork
-import os, sys, pdb
+import os, pdb
 import pandas as pd
-from tqdm import tqdm
-from typing import Union, Optional
-from utils.simulation import ReturnSampler, GARCHSampler, create_lstm_tensor
-from sklearn.preprocessing import StandardScaler, MinMaxScaler
 from utils.spaces import (
-    ReturnSpace,
-    HoldingSpace,
     ActionSpace,
     ResActionSpace,
 )
-from utils.env import MarketEnv
-from utils.tools import CalculateLaggedSharpeRatio, RunModels
+from utils.math_tools import unscale_action
+# from utils.env import MarketEnv
+# from utils.tools import CalculateLaggedSharpeRatio, RunModels
 import collections
 from natsort import natsorted
 import re
 import matplotlib.pyplot as plt
 from matplotlib.ticker import FuncFormatter, ScalarFormatter
 from matplotlib import cm
-from utils.common import format_tousands
-from utils.tools import get_bet_size
 import torch
 from agents.PPO import PPOActorCritic
 
-# LOAD UTILS
+# # LOAD UTILS
 def load_DQNmodel(
-    p: dict,
     data_dir: str,
-    ckpt: bool = False,
     ckpt_it: int = None,
-    ckpt_folder: str = None,
+    model: object = None,
 ):
     """
     Load trained parameter for DQN
 
     Parameters
     ----------
-    p: dict
-        Parameter config loaded from the folder experiment
 
     data_dir: str
         Dicretory model where the weights are store
@@ -68,47 +59,52 @@ def load_DQNmodel(
         Array of possible actions
 
     """
-    num_inp = 2  # TODO insert number of factors as parameter
-    if p['MV_res']:
-        actions = ResActionSpace(p['KLM'][0], p["zero_action"]).values
-    else:
-        if not p["zero_action"]:
-            actions = np.arange(-p["KLM"][0], p["KLM"][0] + 1, p["KLM"][1])
-            actions = actions[actions != 0]
+    if not model:
+        query = gin.query_parameter
+        
+        if query('%INP_TYPE')=='f': 
+            num_inp = 3
         else:
-            actions = np.arange(-p["KLM"][0], p["KLM"][0] + 1, p["KLM"][1])
-    num_actions = len(actions)
-
-    model = DeepNetworkModel(
-        p["seed_init"],
-        num_inp,
-        p["hidden_units"],
-        num_actions,
-        p["batch_norm_input"],
-        p["batch_norm_hidden"],
-        p["activation"],
-        p["kernel_initializer"],
-        modelname="TrainNet",
-    )
-
-    if ckpt:
-        if not ckpt_folder == "ckpt_pt":
-            model.load_weights(
-                os.path.join(data_dir, "ckpt", "DQN_{}_it_weights".format(ckpt_it))
-            )
+            num_inp = 2
+    
+        if query('%MV_RES'):
+            actions = ResActionSpace(query('%ACTION_RANGE_RES'), query('%ZERO_ACTION')).values
         else:
-            model.load_weights(
-                os.path.join(
-                    data_dir, "ckpt_pt", "DQN_{}_it_pretrained_weights".format(ckpt_it)
-                )
-            )
+            actions = ActionSpace(query('%ACTION_RANGE'), query('%ZERO_ACTION'), query('%SIDE_ONLY')).values
+                
+        num_actions = len(actions)
+    
+        model = DeepNetworkModel(
+            query('%SEED'),
+            num_inp,
+            query('DQN.hidden_units'),
+            num_actions,
+            query('DQN.batch_norm_input'),
+            query('DQN.batch_norm_hidden'),
+            query('DQN.activation'),
+            query('DQN.kernel_initializer'),
+            modelname="TrainNet",
+        )
+
+        model.load_weights(
+            os.path.join(data_dir, "ckpt", "DQN_{}_ep_weights".format(ckpt_it))
+        )
+        
+        return model, actions
+    
     else:
-        model.load_weights(os.path.join(data_dir, "DQN_final_weights"))
+        model.load_weights(
+            os.path.join(data_dir, "ckpt", "DQN_{}_ep_weights".format(ckpt_it))
+        )
+        
+        return model
 
-    return model, actions
+    
 
 
-def load_PPOmodel(p: dict, data_dir: str, ckpt_it: int = None):
+def load_PPOmodel(   data_dir: str,
+    ckpt_it: int = None,
+    model: object = None,):
     """
     Load trained parameter for DQN
 
@@ -134,208 +130,59 @@ def load_PPOmodel(p: dict, data_dir: str, ckpt_it: int = None):
         Array of possible actions
 
     """
+    
+    if not model:
+        query = gin.query_parameter
+        
+        if query('%INP_TYPE')=='f': 
+            inp_shape = (3,)
+        else:
+            inp_shape = (2,)
+    
+        if query('%MV_RES'):
+            actions = ResActionSpace(query('%ACTION_RANGE_RES'), query('%ZERO_ACTION')).values
+        else:
+            actions = ActionSpace(query('%ACTION_RANGE'), query('%ZERO_ACTION'), query('%SIDE_ONLY')).values
 
-    inp_shape = (p["n_inputs"],)
-    action_space = ActionSpace(p["KLM"])
-    num_actions = action_space.get_n_actions(policy_type=p["policy_type"])
-
-    model = PPOActorCritic(
-        p["seed_init"],
-        inp_shape,
-        p["activation"],
-        p["hidden_units_value"],
-        p["hidden_units_actor"],
-        num_actions,
-        p["batch_norm_input"],
-        p["batch_norm_value_out"],
-        p["policy_type"],
-        p["pol_std"],
-        modelname="PPO",
-    )
-
-    model.load_state_dict(
-        torch.load(
-            os.path.join(data_dir, "ckpt", "PPO_{}_ep_weights.pth".format(ckpt_it))
+        num_actions = actions.ndim
+    
+        model = PPOActorCritic(
+            query('%SEED'),
+            inp_shape,
+            query('PPO.activation'),
+            query('PPO.hidden_units_value'),
+            query('PPO.hidden_units_actor'),
+            num_actions,
+            query('PPO.batch_norm_input'),
+            query('PPO.batch_norm_value_out'),
+            query('PPO.policy_type'),
+            query('PPO.init_pol_std'),
+            query('PPO.min_pol_std'),
+            query('PPO.std_transform'),
+            query('PPO.init_last_layers'),
+            modelname="PPO",
         )
-    )
 
-    return model, action_space.values
-
-
-class TrainedQTable:
-    """
-    Class which represents the Q-table to approximate the action-value function
-    in the Q-learning algorithm. Used for inference since there are no update methods
-    ...
-
-    Attributes
-    ----------
-    Q_space : pd.DataFrame
-        Current Q-table estimate
-
-    Methods
-    -------
-    getQvalue(state: np.ndarray)-> np.ndarray
-        Get the estimated action-value for each action at the current state
-
-    argmaxQ(state: np.ndarray)-> int
-        Get the index position of the action that gives the maximum action-value
-        at the current state
-
-    getMaxQ(state: np.ndarray)-> int
-        Get the action that gives the maximum action-value at the current state
-
-    chooseAction(state: np.ndarray, epsilon: float)-> int
-        Get the index position of the action that gives the maximum action-value
-        at the current state or a random action depeding on the epsilon parameter
-        of exploration
-
-    chooseGreedyAction(state: np.ndarray)-> int
-        Get the index position of the action that gives the maximum action-value
-        at the current state
-
-    """
-
-    def __init__(self, Q_space):
-        # generate row index of the dataframe with every possible combination
-        # of state space variables
-        self.Q_space = Q_space
-
-    def getQvalue(self, state):
-        ret = state[0]
-        holding = state[1]
-        return self.Q_space.loc[
-            (ret, holding),
-        ]
-
-    def argmaxQ(self, state):
-        return self.getQvalue(state).idxmax()
-
-    def getMaxQ(self, state):
-        return self.getQvalue(state).max()
-
-    def chooseAction(self, state, epsilon):
-        random_action = self.rng.random()
-        if random_action < epsilon:
-            # pick one action at random for exploration purposes
-            # dn = self.ActionSpace.sample()
-            dn = self.rng.choice(self.ActionSpace.values)
-
-        else:
-            # pick the greedy action
-            dn = self.argmaxQ(state)
-
-        return dn
-
-    def chooseGreedyAction(self, state):
-        return self.argmaxQ(state)
-
-
-def load_Actor_Critic(
-    p, data_dir, ckpt=False, ckpt_it=None, ckpt_folder=None, DDPG_type="DDPG"
-):
-    num_states = 2
-    num_actions = 1
-
-    if ckpt:
-        if not ckpt_folder == "ckpt_pt":
-            if DDPG_type == "DDPG":
-                p_model = ActorNetwork(
-                    p["seed_init"],
-                    num_states,
-                    p["hidden_units_p"],
-                    num_actions,
-                    p["batch_norm_input"],
-                    p["batch_norm_hidden"],
-                    p["activation_p"],
-                    p["kernel_initializer"],
-                    p["output_init"],
-                    modelname="pmodel",
-                )
-
-                p_model.load_weights(
-                    os.path.join(
-                        data_dir, "ckpt", "p_model_{}_it_weights".format(ckpt_it)
-                    )
-                )
-            elif DDPG_type == "TD3":
-                p_model = ActorNetwork(
-                    p["seed_init"],
-                    num_states,
-                    p["hidden_units_p"],
-                    num_actions,
-                    p["batch_norm_input"],
-                    p["batch_norm_hidden"],
-                    p["activation_p"],
-                    p["kernel_initializer"],
-                    p["output_init"],
-                    modelname="pmodel",
-                )
-
-                p_model.load_weights(
-                    os.path.join(
-                        data_dir, "ckpt", "p_model_{}_it_weights".format(ckpt_it)
-                    )
-                )
-        else:
-            p_model = ActorNetwork(
-                p["seed_init"],
-                num_states,
-                p["hidden_units_p"],
-                num_actions,
-                p["batch_norm_input"],
-                p["batch_norm_hidden"],
-                p["activation_p"],
-                p["kernel_initializer"],
-                p["output_init"],
-                modelname="pmodel",
+        model.load_state_dict(
+            torch.load(
+                os.path.join(data_dir, "ckpt", "PPO_{}_ep_weights.pth".format(ckpt_it))
             )
-            p_model.load_weights(
-                os.path.join(
-                    data_dir,
-                    "ckpt_pt",
-                    "p_model_{}_it_pretrained_weights".format(ckpt_it),
-                )
-            )
+        )
+        
+        return model, actions
+        
     else:
-        if DDPG_type == "DDPG":
-            p_model = ActorNetwork(
-                p["seed_init"],
-                num_states,
-                p["hidden_units_p"],
-                num_actions,
-                p["batch_norm_input"],
-                p["batch_norm_hidden"],
-                p["activation_p"],
-                p["kernel_initializer"],
-                p["output_init"],
-                modelname="pmodel",
+        model.load_state_dict(
+            torch.load(
+                os.path.join(data_dir, "ckpt", "PPO_{}_ep_weights.pth".format(ckpt_it))
             )
-            p_model.load_weights(os.path.join(data_dir, "p_model_final_weights"))
-        elif DDPG_type == "TD3":
-            p_model = ActorNetwork(
-                p["seed_init"],
-                num_states,
-                p["hidden_units_p"],
-                num_actions,
-                p["batch_norm_input"],
-                p["batch_norm_hidden"],
-                p["activation_p"],
-                p["kernel_initializer"],
-                p["output_init"],
-                modelname="pmodel",
-            )
+        )
 
-            p_model.load_weights(os.path.join(data_dir, "p_model_final_weights"))
-
-    return p_model
-    # if DDPG_type == 'DDPG':
-    #     return Q_model, p_model
-    # elif DDPG_type == 'TD3':
-    #     return Q1_model, Q2_model, p_model
+    return model
 
 
-def plot_multitest_overlap_OOS(
+
+def plot_pct_metrics(
     ax1,
     df,
     data_dir,
@@ -344,13 +191,13 @@ def plot_multitest_overlap_OOS(
     colors=["b", "darkblue"],
     conf_interval=False,
     diff_colors=False,
-    params=None,
-    plot_lr=False,
-    plot_experience=False,
-    plot_buffer=False,
+    params_path=None,
 ):
 
-    df_mean = df.mean(axis=0)
+    gin.parse_config_file(params_path, skip_unknown=True)
+    
+    # df_mean = df.mean(axis=0)
+    df_mean = df.median(axis=0)
 
     idxs = [int(i) for i in df.iloc[0, :].index]
     # https://matplotlib.org/examples/color/colormaps_reference.html
@@ -370,25 +217,6 @@ def plot_multitest_overlap_OOS(
                 x=idxs, y=df.iloc[i, :], alpha=0.6, color=colors, marker="o", s=7.5
             )
 
-    pgarch = np.round(
-        np.array(
-            [
-                [
-                    value
-                    for key, value in params.items()
-                    if "garch_omega" in key.lower()
-                ],
-                [
-                    value
-                    for key, value in params.items()
-                    if "garch_alpha" in key.lower()
-                ],
-                [value for key, value in params.items() if "garch_beta" in key.lower()],
-            ]
-        ).ravel(),
-        2,
-    )
-
     ax1.plot(
         idxs,
         df_mean.values,
@@ -404,10 +232,8 @@ def plot_multitest_overlap_OOS(
             idxs, (df_mean.values - ci), (df_mean.values + ci), color=colors, alpha=0.5
         )
         
-    # add benchmark series to plot the hline
-    if "datatype" not in params.keys():
-        params["datatype"] = "gp"
-    if pgarch.size == 0 and "garch" not in params["datatype"]:
+
+    if gin.query_parameter('%DATATYPE') != 'garch':
 
         if variable.split("_")[0] == "Pdist":
 
@@ -436,11 +262,11 @@ def plot_multitest_overlap_OOS(
                 linewidth=4,
                 color="red",
             )
-            if params["datatype"] == "t_stud":
+            if gin.query_parameter('%DATATYPE') == "t_stud":
                 ax1.set_ylim(-1500000, 1500000)
-            elif params["datatype"] == "garch":
+            elif gin.query_parameter('%DATATYPE') == "garch":
                 ax1.set_ylim(-1000000, 1000000)
-            elif params["datatype"] == "garch_mr":
+            elif gin.query_parameter('%DATATYPE') == "garch_mr":
                 ax1.set_ylim(-5000000, 5000000)
 
         else:
@@ -459,91 +285,22 @@ def plot_multitest_overlap_OOS(
     ax1.set_xlabel("in-sample training iterations")
 
     ax1.legend()
-    # scientific_formatter = FuncFormatter(scientific)
     ax1.xaxis.set_major_formatter(ScalarFormatter())
     ax1.yaxis.set_major_formatter(ScalarFormatter())
-
-    if plot_lr:
-        N = idxs[-1]
-        rates = pd.DataFrame()
-        initial_learning_rate = params["learning_rate"]
-        decay_rate = params["exp_decay_rate"]
-        decay_steps = params["exp_decay_pct"] * N
-        l = lr_exp_decay(N, initial_learning_rate, decay_rate, decay_steps)
-        rates[decay_steps / N] = l
-
-        rates = rates / initial_learning_rate * 100
-        idxs[-1] = idxs[-1] - 1
-
-        if "exp_decay_pct" in data_dir or "exp_decay_rate" in data_dir:
-            ax1.plot(
-                idxs, rates.iloc[idxs], lw=2, linestyle="-", color=colors, alpha=0.8
-            )
-        else:
-            ax1.plot(
-                idxs, rates.iloc[idxs], lw=2, linestyle="-", color="blue", alpha=0.8
-            )  # , label='lr_{}'.format(data_dir.split('/')[-2]))#
-
-    if plot_experience:
-        N = idxs[-1]
-        epsilon = 1.0
-        min_eps_pct = params["min_eps_pct"]
-        min_eps = params["min_eps"]
-        steps_to_min_eps = int(N * min_eps_pct)
-        eps_decay = (epsilon - min_eps) / steps_to_min_eps
-        e = eps(N, epsilon, eps_decay, min_eps)
-        e = e / epsilon * 100
-        idxs[-1] = idxs[-1] - 1
-
-        if "min_eps_pct" in data_dir:
-            ax1.plot(idxs, e[idxs], lw=2, linestyle="--", color=colors, alpha=0.8)
-        else:
-            ax1.plot(idxs, e[idxs], lw=2, linestyle="--", color="blue", alpha=0.8)
-
-    if plot_buffer:
-        N = idxs[-1]
-        max_exp_pct = params["max_exp_pct"]
-
-        if "max_exp_pct" in data_dir:
-            ax1.axvline(
-                x=max_exp_pct * N, lw=2, linestyle="-.", color=colors, alpha=0.8
-            )
-        else:
-            ax1.axvline(
-                x=max_exp_pct * N, lw=2, linestyle="-.", color="blue", alpha=0.8
-            )
 
     # fig.savefig(os.path.join(data_dir,'{}.pdf'.format(variable)), dpi=300)
 
 
-def lr_exp_decay(N, initial_learning_rate, decay_rate, decay_steps):
 
-    lrs = []
-
-    for i in range(N):
-        lr = initial_learning_rate * decay_rate ** (i / decay_steps)
-        lrs.append(lr)
-
-    return np.array(lrs)
-
-
-def eps(N, epsilon, eps_decay, min_eps):
-
-    eps = []
-
-    for i in range(N):
-        epsilon = max(min_eps, epsilon - eps_decay)
-        eps.append(epsilon)
-
-    return np.array(eps)
-
-
-def plot_abs_pnl_OOS(
-    ax1, df, df_opt, data_dir, N_test, variable, colors=["b", "darkblue"], params=None, i=0
+def plot_abs_metrics(
+    ax1, df, df_opt, data_dir, N_test, variable, colors=["b", "darkblue"], i=0
 ):
 
-    df_mean = df.mean(axis=0)
-    df_opt = df_opt.mean(axis=0)
+
+    # df_mean = df.mean(axis=0)
+    # df_opt = df_opt.mean(axis=0)
+    df_mean = df.median(axis=0)
+    df_opt = df_opt.median(axis=0)
 
     idxs = [int(i) for i in df.iloc[0, :].index]
 
@@ -576,104 +333,387 @@ def plot_abs_pnl_OOS(
 
     # fig.savefig(os.path.join(data_dir,'{}.pdf'.format(variable)), dpi=300)
 
-
-# def scientific(x, pos):
-#     # x:  tick value - ie. what you currently see in yticks
-#     # pos: a position - ie. the index of the tick (from 0 to 9 in this example)
-#     return '%.2E' % x
-
-########################################################################################################################
-# Plot picture for the paper
-def plot_multitest_paper(
-    ax1,
-    tag,
-    df,
-    data_dir,
-    N_test,
-    variable,
-    colors=["b", "darkblue"],
-    params=None,
-    plt_bench=False,
+def plot_vf(
+    model,
+    actions: list,
+    holding: float,
+    ax: object = None,
+    less_labels: bool = False,
+    n_less_labels: int = None,
+    optimal=False
 ):
 
-    df_mean = df.mean(axis=0)
+    """
+    Ploduce plots of learned action-value function of DQN
 
-    idxs = [int(i) for i in df.iloc[0, :].index]
-    for j, i in enumerate(df.index):
-        ax1.scatter(
-            x=idxs, y=df.iloc[i, :], alpha=0.15, color=colors, marker="o", s=0.5
-        )
+    Parameters
+    ----------
+    model
+        Loaded model
 
-    pgarch = np.round(
-        np.array(
-            [
-                [
-                    value
-                    for key, value in params.items()
-                    if "garch_omega" in key.lower()
-                ],
-                [
-                    value
-                    for key, value in params.items()
-                    if "garch_alpha" in key.lower()
-                ],
-                [value for key, value in params.items() if "garch_beta" in key.lower()],
-            ]
-        ).ravel(),
-        2,
-    )
+    actions: list
+        List of possible action for the mdel
 
-    ax1.plot(idxs, df_mean.values, color=colors, linewidth=1.0, label=tag)
+    holding: float
+        Fixed holding at which we produce the value function plot
 
-    # if 'datatype' in params:
-    #     cond = params['datatype']!='t_stud'
-    # else:
-    #     cond = True
-    cond = True
-    # if pgarch.size==0 and params['datatype']!='t_stud':
+    ax: matplotlib.axes.Axes
+        Axes to draw in
 
-    if plt_bench:
-        if pgarch.size == 0 and cond:
-            df.loc["Benchmark"] = 100.0
-            ax1.plot(
-                idxs,
-                df.loc["Benchmark"].values,
-                linestyle="--",
+    less_labels: bool
+        Boolean to regulate if all labels appear in the legend. If False, they all appear
+
+    n_less_labels: int
+        Number of labels to include in the legend
+
+    """
+    
+    
+    query = gin.query_parameter
+    
+    if query('%INP_TYPE') == 'ret':
+        sample_Ret = np.linspace(-0.05, 0.05, 100)
+        
+        if holding == 0:
+            holdings = np.zeros(len(sample_Ret), dtype='float')
+        else:
+            holdings = np.ones(len(sample_Ret), dtype='float') * holding
+
+        if model.modelname == 'DQN':
+            states = tf.constant(
+                np.hstack((sample_Ret.reshape(-1, 1), holdings.reshape(-1, 1))),
+                dtype=tf.float32,
+            )
+            pred = model(states, training=False)
+        
+        elif model.modelname == 'PPO':
+            states = torch.from_numpy(
+                np.hstack((sample_Ret.reshape(-1, 1), holdings.reshape(-1, 1)))).float()
+            with torch.no_grad():
+                _, pred = model(states)
+            
+
+    elif query('%INP_TYPE') == 'f':
+        
+        n_factors = len(query('%F_PARAM'))
+        
+        f_to_concat = [np.linspace(-0.5 - i, 0.5 + i, 100).reshape(-1,1) for i,_ in enumerate(range(n_factors))]
+        
+        factors = np.concatenate(f_to_concat,axis=1, dtype='float')
+        
+        if holding == 0:
+            holdings = np.zeros(len(factors), dtype='float')
+        else:
+            holdings = np.ones(len(factors), dtype='float') * holding
+            
+
+        if model.modelname == 'DQN':
+            states = tf.constant(
+                np.hstack((factors, holdings.reshape(-1, 1))),
+                dtype=tf.float32,
+            )
+    
+            pred = model(states, training=False)
+        
+        elif model.modelname == 'PPO':
+            states = torch.from_numpy(
+                np.hstack((factors, holdings.reshape(-1, 1)))).float()
+            with torch.no_grad():
+                _, pred = model(states)
+
+    viridis = cm.get_cmap("viridis", pred.shape[1])
+    for i in range(pred.shape[1]):
+        if less_labels:
+            subset_label_idx = np.round(
+                np.linspace(0, len(actions) - 1, n_less_labels)
+            ).astype(int)
+            subset_label = actions[subset_label_idx]
+            if actions[i] in subset_label:
+                ax.plot(
+                    states[:, 0],
+                    pred[:, i],
+                    label=str(actions[i]),
+                    c=viridis.colors[i],
+                    linewidth=1.5,
+                )
+            else:
+                ax.plot(
+                    states[:, 0],
+                    pred[:, i],
+                    label="_nolegend_",
+                    c=viridis.colors[i],
+                    linewidth=1.5,
+                )
+        else:
+            ax.plot(
+                states[:, 0],
+                pred[:, i],
+                label=str(actions[i]),
+                c=viridis.colors[i],
                 linewidth=1.5,
-                color="red",
-                label="benchmark",
+            )
+            
+    # if optimal and query('%INP_TYPE') == 'f':
+    
+    discount_rate, kappa, costmultiplier, f_param, halflife, sigma = (query('%DISCOUNT_RATE'), query('%KAPPA'),
+    query('%COSTMULTIPLIER'), query('%F_PARAM'), query('%HALFLIFE'), query('%SIGMA'))
+    
+    n_factors = len(query('%F_PARAM'))
+    
+    f_to_concat = [np.linspace(-0.5 - i, 0.5 + i, 100).reshape(-1,1) for i,_ in enumerate(range(n_factors))]
+    
+    factors = np.concatenate(f_to_concat,axis=1)
+    
+    
+    V = optimal_vf(states, discount_rate, kappa, costmultiplier, f_param, halflife, sigma)
+
+    ax.plot(factors[:,0], V, linewidth=1.5, label='GP Vf')
+            
+def optimal_vf(states, discount_rate, kappa, costmultiplier, f_param, halflife, sigma):
+    
+    def opt_trading_rate_disc_loads(discount_rate, kappa, CostMultiplier, f_param, f_speed):
+    
+        # 1 percent annualized discount rate (same rate of Ritter)
+        rho = 1 - np.exp(-discount_rate / 260)
+    
+        # kappa is the risk aversion, CostMultiplier the parameter for trading cost
+        num1 = kappa * (1 - rho) + CostMultiplier * rho
+        num2 = np.sqrt(
+            num1 ** 2 + 4 * kappa * CostMultiplier * (1 - rho) ** 2
+        )
+        den = 2 * (1 - rho)
+        a = (-num1 + num2) / den
+    
+        OptRate = a / CostMultiplier
+        DiscFactorLoads = f_param / (
+            1 + f_speed * ((OptRate * CostMultiplier) / kappa)
+        )
+    
+        return OptRate, DiscFactorLoads
+    f_speed = np.around(np.log(2) / halflife, 4)
+    OptRate, DiscFactorLoads = opt_trading_rate_disc_loads(discount_rate,
+                                                       kappa,
+                                                       costmultiplier, 
+                                                       f_param, 
+                                                       f_speed)
+    
+
+    disc_rate_bar = 1 - discount_rate
+    lambda_bar = (costmultiplier*sigma**2)/disc_rate_bar
+    costmultiplier_bar = costmultiplier/disc_rate_bar
+    
+    axx1 = (disc_rate_bar * kappa * lambda_bar * sigma**2)
+    axx2 = 0.25 * (discount_rate**2 * lambda_bar**2 + 2 * discount_rate * kappa * lambda_bar * sigma**2 + \
+                   (kappa**2 * lambda_bar * sigma**2)/lambda_bar)
+    axx3 = - 0.5 * (discount_rate*lambda_bar + kappa * sigma**2)
+    Axx = np.sqrt(axx1 + axx2) + axx3
+    
+    axf1 = disc_rate_bar/(1 - disc_rate_bar*(1-f_speed) * (1-Axx/lambda_bar))
+    axf2 = (1-Axx/lambda_bar)*np.array(f_param)
+    Axf = axf1 * axf2
+    
+    aff1 = disc_rate_bar/(1 - disc_rate_bar*(1-f_speed) * (1-f_speed))
+    q = (np.array(f_param) + Axf*(1-f_speed)) ** 2 / (kappa*sigma**2 + lambda_bar + Axx)
+    Aff = aff1 * q
+    
+    # v1 = - 0.5 * states[:,-1]**2 * Axx
+    # v2 = np.dot(states[:,-1]*Axf, states[:,:-1])
+    v3 = 0.5 * states[:,:-1] * Aff
+    
+    
+    # V = v1 + v2 + v3
+    V =  v3
+    
+    return V
+
+
+def plot_BestActions(
+    model, holding: float, ax: object = None, optimal: bool = False,
+):
+
+    """
+    Ploduce plots of learned action-value function of DQN
+
+    Parameters
+    ----------
+    p: dict
+        Parameter passed as config files
+
+    model
+        Loaded model
+
+    holding: float
+        Fixed holding at which we produce the value function plot
+
+    ax: matplotlib.axes.Axes
+        Axes to draw in
+
+    """
+    
+    query = gin.query_parameter
+    
+    def opt_trading_rate_disc_loads(discount_rate, kappa, CostMultiplier, f_param, f_speed):
+    
+        # 1 percent annualized discount rate (same rate of Ritter)
+        rho = 1 - np.exp(-discount_rate / 260)
+    
+        # kappa is the risk aversion, CostMultiplier the parameter for trading cost
+        num1 = kappa * (1 - rho) + CostMultiplier * rho
+        num2 = np.sqrt(
+            num1 ** 2 + 4 * kappa * CostMultiplier * (1 - rho) ** 2
+        )
+        den = 2 * (1 - rho)
+        a = (-num1 + num2) / den
+    
+        OptRate = a / CostMultiplier
+        DiscFactorLoads = f_param / (
+            1 + f_speed * ((OptRate * CostMultiplier) / kappa)
+        )
+    
+        return OptRate, DiscFactorLoads
+    
+    if query('%MV_RES'):
+        actions = ResActionSpace(query('%ACTION_RANGE_RES'), query('%ZERO_ACTION')).values
+    else:
+        actions = ActionSpace(query('%ACTION_RANGE'), query('%ZERO_ACTION'), query('%SIDE_ONLY')).values
+
+
+    if query('%INP_TYPE') == 'ret':
+        sample_Ret = np.linspace(-0.05, 0.05, 100, dtype='float')
+        
+        if holding == 0:
+            holdings = np.zeros(len(sample_Ret), dtype='float')
+        else:
+            holdings = np.ones(len(sample_Ret), dtype='float') * holding
+                    
+        if model.modelname == 'DQN':
+            states = tf.constant(
+                np.hstack((sample_Ret.reshape(-1, 1), holdings.reshape(-1, 1))),
+                dtype=tf.float32,
+            )
+            pred = model(states, training=False)
+        
+            max_action = actions[tf.math.argmax(pred, axis=1)]
+        elif model.modelname == 'PPO':
+            states = torch.from_numpy(
+                np.hstack((sample_Ret.reshape(-1, 1), holdings.reshape(-1, 1)))).float()
+            with torch.no_grad():
+                dist, _ = model(states)
+
+            unscaled_max_action = torch.nn.Tanh()(dist.mean)
+            scaled_max_action = unscale_action(
+                actions[-1], unscaled_max_action
             )
 
-            ax1.set_ylim(20, 130)
-            # ax1.set_ylim(20,120)
-
+        
+        
+        ax.plot(sample_Ret, scaled_max_action, linewidth=1.5, label='{} Policy'.format(model.modelname))
+        
+        
+    elif query('%INP_TYPE') == 'f':
+        
+        n_factors = len(query('%F_PARAM'))
+        
+        f_to_concat = [np.linspace(-0.5 - i, 0.5 + i, 100).reshape(-1,1) for i,_ in enumerate(range(n_factors))]
+        
+        factors = np.concatenate(f_to_concat,axis=1, dtype='float')
+        
+        if holding == 0:
+            holdings = np.zeros(len(factors), dtype='float')
         else:
-            if variable.split("_")[0] != "SR" or variable.split("_")[0] != "PnLstd":
-                df.loc["Benchmark"] = 0.0
-                ax1.plot(
-                    idxs,
-                    df.loc["Benchmark"].values,
-                    linestyle="--",
-                    linewidth=1.5,
-                    color="red",
-                )
-                if params["datatype"] == "t_stud":
-                    ax1.set_ylim(-1500000, 1500000)
-                    # ax1.set_ylim(0.0,1.0)
-                elif params["datatype"] == "garch":
-                    # ax1.set_ylim(-100000,100000)
+            holdings = np.ones(len(factors), dtype='float') * holding
 
-                    ax1.set_ylim(-1000000, 1000000)
-                    # pass
+        if model.modelname == 'DQN':
+            states = tf.constant(
+                np.hstack((factors, holdings.reshape(-1, 1))),
+                dtype=tf.float32,
+            )
+            
+            pred = model(states, training=False)
+        
+            max_action = actions[tf.math.argmax(pred, axis=1)]
+        elif model.modelname == 'PPO':
+            states = torch.from_numpy(
+                np.hstack((factors, holdings.reshape(-1, 1)))).float()
+            with torch.no_grad():
+                dist, _ = model(states)
 
-            else:
-                df.loc["Benchmark"] = 100.0
-                ax1.plot(
-                    idxs,
-                    df.loc["Benchmark"].values,
-                    linestyle="--",
-                    linewidth=1.5,
-                    color="red",
-                )
-                ax1.set_ylim(20, 130)
-                # ax1.set_ylim(-500,500)
+            unscaled_max_action = torch.nn.Tanh()(dist.mean)
+            scaled_max_action = unscale_action(
+                actions[-1], unscaled_max_action
+            )
+
+
+        ax.plot(factors[:,0], max_action, linewidth=1.5, label='{} Policy'.format(model.modelname))
+
+
+    if optimal:
+        
+        discount_rate, kappa, costmultiplier, f_param, halflife, sigma = (query('%DISCOUNT_RATE'), query('%KAPPA'),
+        query('%COSTMULTIPLIER'), query('%F_PARAM'), query('%HALFLIFE'), query('%SIGMA'))
+        
+        OptRate, DiscFactorLoads = opt_trading_rate_disc_loads(discount_rate,
+                                                               kappa,
+                                                               costmultiplier, 
+                                                               f_param, 
+                                                               np.around(np.log(2) / halflife, 4))
+
+        if query('%INP_TYPE') == 'ret':
+            
+            OptNextHolding = (1 - OptRate) * holding + OptRate * (
+                                    1 / (kappa * (sigma) ** 2)
+                                )  * sample_Ret
+            optimal_policy = OptNextHolding - holding
+            
+            ax.plot(sample_Ret, optimal_policy, linewidth=1.5, label='GP Policy')
+        elif query('%INP_TYPE') == 'f':
+            
+            OptNextHolding = (1 - OptRate) * holding + OptRate * (
+                                    1 / (kappa * (sigma) ** 2)
+                                ) * np.sum(DiscFactorLoads * factors, axis=1)
+            optimal_policy = OptNextHolding - holding
+
+            ax.plot(factors[:,0], optimal_policy, linewidth=1.5, label='GP Policy')
+            
+            
+
+
+def plot_portfolio(r: pd.DataFrame, tag: str, ax2: object):
+    """
+    Ploduce plots of portfolio holding
+
+    Parameters
+    ----------
+    r: pd.DataFrame
+        Dataframe containing the variables
+
+    tag: str
+        Name of the algorithm to plot result
+
+    ax2: matplotlib.axes.Axes
+        Axes to draw in
+
+    """
+
+    ax2.plot(r["NextHolding_{}".format(tag)].values[1:-1], label=tag)
+    ax2.plot(r["OptNextHolding"].values[1:-1], label="benchmark", alpha=0.5)
+    
+def plot_action(r: pd.DataFrame, tag: str, ax2: object):
+    """
+    Ploduce plots of portfolio holding
+
+    Parameters
+    ----------
+    r: pd.DataFrame
+        Dataframe containing the variables
+
+    tag: str
+        Name of the algorithm to plot result
+
+    ax2: matplotlib.axes.Axes
+        Axes to draw in
+
+    """
+
+    ax2.plot(r["Action_{}".format(tag)].values[1:-1], label=tag)
+    ax2.plot(r["OptNextAction"].values[1:-1], label="benchmark", alpha=0.5)
