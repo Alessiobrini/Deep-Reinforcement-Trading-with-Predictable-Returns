@@ -1,6 +1,8 @@
 import utils.env
 import utils.spaces
 import utils.simulation
+import agents.DQN
+import agents.PPO
 
 # Macros:
 # ==============================================================================
@@ -11,26 +13,27 @@ ENV_CLS = @MarketEnv
 
 
 EXPERIMENT_TYPE = 'GP' # GP or Misspec
-MV_RES = False #[False, True]  # Decide which actions to take (trading quantity or MVresiduals)
+MV_RES = False # [False, True]  # Decide which actions to take (trading quantity or MVresiduals)
+UNIVERSAL_TRAIN = True
 
-EPISODES = 150 # episode to run the algorithm. Put None if you want to train DQN online
-N_TRAIN = 1000 #[100000, 250000, 500000, 1000000] 
-LEN_SERIES = 2500 # length of simulated series, if null the legth is N_train
+EPISODES = 150  #None # episode to run the algorithm. Put None if you want to train DQN online
+N_TRAIN = None
+LEN_SERIES = 2000 #None # length of simulated series, if null the legth is N_train
 EPOCHS = 3
 OUTPUTDIR = 'outputs' # main directory for the experiment
 OUTPUTCLASS = %ALGO # first subdirectory
-OUTPUTMODEL = '20210418_GPGAUSS_polstd_softplus' # second subdirectory
-SAVE_FREQ = 10 # number of checkpoints to save during training
-SEED =  [297, 932, 165,  26, 831]  # seed for reproducibility
+OUTPUTMODEL = '20210427_GPGAUSS_tot_sens_relu2' # second subdirectory
+SAVE_FREQ = 2  # number of checkpoints to save during training
+SEED =  [297, 932, 165,  26] #, 55, 44, 33, 22]  # seed for reproducibility
 START_TRAIN = 300 # steps after which the training starts
 USE_GPU = True
-VARYING_PARS = ['%SEED']
+VARYING_PARS = ['%SEED'] #['%N_TRAIN', '%HALFLIFE', '%SIGMAF', '%MV_RES', '%INP_TYPE', '%SEED']
 VARYING_TYPE = 'chunk'
-NUM_CORES = 5
+NUM_CORES = 24
 
 # spaces
-ACTION_RANGE =  [None, 5] # action range for standard RL [boundary,number of actions]
-ACTION_RANGE_RES =  [0.0, 1.0, 5] # action range for residual RL [LB,UB,number of actions]
+ACTION_RANGE =  [None, 9] # action range for standard RL [boundary,number of actions]
+ACTION_RANGE_RES =  [-0.5, 1.0, 10] # action range for residual RL [LB,UB,number of actions]
 SIDE_ONLY = False # set the action space so that only the side of the bet is captured by the algorithm
 ZERO_ACTION = True # include the zero action (hold) in the action space
 
@@ -51,10 +54,10 @@ KAPPA = 0.001 # risk aversion
 INP_TYPE = 'ret' #['f','ret'] # 'f' or 'ret'
 
 
-HALFLIFE = [22,125] # list of Halflives of mean reversion
+HALFLIFE = [350] #[[66,630]] # list of Halflives of mean reversion
 SIGMA = 0.01 # return volatility
-SIGMAF = [0.2, 0.1] #[[0.2, 0.1],[0.1, 0.1]] # list of factor volatilities
-F_PARAM = [0.00535,0.00635] # list of factor loadings
+SIGMAF = [0.2] #[[0.2, 0.1],[0.05, 0.1] ,[0.1, 0.1] ] #[[0.2, 0.1],[0.1, 0.1]] # list of factor volatilities
+F_PARAM = [0.004] #[0.004, 0.005] # list of factor loadings
 QTS = [0.001,0.999] # quantile to select action boundaries
 ACTION_TYPE = 'MV' # GP or MV for selecting action boundaries
 UNCORRELATED = True # generate correlated or uncorrelated factors
@@ -66,7 +69,7 @@ MEAN_PROCESS = 'AR' # choice for mean process ['AR', 'Constant']
 LAGS_MEAN_PROCESS = 1 # lag or list of lags for the autoregressive component in the mean return
 VOL_PROCESS = 'GARCH' # choice for volatility process ['GARCH', 'TGARCH', 'EGARCH', 'Constant']
 DISTR_NOISE = 'normal' # choice for noise distribution ['normal', 'studt', 'skewstud', 'ged']
- 
+
 
 
 # Parameters for main_runner:
@@ -105,7 +108,7 @@ DQN.PER_e = 0.01 # Hyperparameter that we use to avoid some experiences to have 
 DQN.activation = 'elu' # 'elu', 'relu6', 'leaky_relu' or every other activation as aliased in TF2
 DQN.batch_norm_hidden = False # batch norm at hidden layer level
 DQN.batch_norm_input = True # batch norm at input layer level
-DQN.batch_size = 256 # size of the batch for the update
+DQN.batch_size = 250 # size of the batch for the update
 DQN.beta_1 = 0.5 # first parameter for adaptive optimizers
 DQN.beta_2 = 0.75 # second parameter for adaptive optimizers
 DQN.copy_step = 1.0 # steps for target network update in DQN: 'hard' or 'soft'
@@ -153,31 +156,35 @@ PPO_runner.varying_type = %VARYING_TYPE
 PPO_runner.num_cores = %NUM_CORES
 PPO_runner.len_series = %LEN_SERIES
 PPO_runner.epochs = %EPOCHS
+PPO_runner.universal_train = %UNIVERSAL_TRAIN
 
 # Parameters for PPO:
 # ==============================================================================
 PPO.seed = %SEED
-PPO.gamma = 0.99 # discounting factor for the Q target
-PPO.tau = 0.95 # lambda in the original GAE paper
-PPO.clip_param = 0.2 # clipping of objective function
+PPO.gamma = 0.8 # discounting factor for the Q target
+PPO.tau = 0.9 # lambda in the original GAE paper
+PPO.clip_param = 0.4 # clipping of objective function
 PPO.vf_c = 0.5 # coefficient for the value error
-PPO.ent_c = 0.001 # coefficient for entropy
+PPO.ent_c = 0.0 # coefficient for entropy
 PPO.hidden_units_value = [256,128]
 PPO.hidden_units_actor = [128,64]
-PPO.batch_size = 250
+PPO.batch_size =  125
 PPO.lr = 0.0003 # initial learning rate
-PPO.activation = 'tanh'
+PPO.activation = 'relu'
 PPO.batch_norm_input = True # batch norm at input layer level
 PPO.batch_norm_value_out = False # normalize value function output
 PPO.policy_type = 'continuous' #discrete or continuous
 PPO.init_pol_std = 0.5 # initial policy std dev for stochasticity
 PPO.min_pol_std = 0.003 # minimum policy std dev for stochasticity
+PPO.std_transform = 'exp'
+PPO.init_last_layers = 'normal'
 PPO.optimizer_name = 'adam'
 PPO.beta_1 = 0.9 # first parameter for adaptive optimizers
 PPO.beta_2 = 0.999 # second parameter for adaptive optimizers
-PPO.eps_opt = 1e-08 # corrective parameter for adaptive optimizers
-PPO.lr_schedule = None # 'exponential', 'piecewise', 'inverse_time' or 'polynomial'
-PPO.exp_decay_rate = 0.6 # decay rate
+PPO.eps_opt = 1e-8 # corrective parameter for adaptive optimizers
+PPO.lr_schedule = ''
+PPO.exp_decay_rate = 0.999
+PPO.step_size = None
 
 
 
@@ -221,6 +228,7 @@ MarketEnv.inp_type = %INP_TYPE
 # Parameters for DataHandler and its related functions:
 # ==============================================================================
 DataHandler.datatype = %DATATYPE
+DataHandler.factor_lb = %FACTOR_LB
 
 return_sampler_GP.sigmaf = %SIGMAF
 return_sampler_GP.f_param = %F_PARAM
