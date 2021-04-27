@@ -38,6 +38,7 @@ class PPOActorCritic(nn.Module):
         super(PPOActorCritic, self).__init__()
 
         torch.manual_seed(seed)
+        self.modelname=modelname
         # set dimensionality of input/output depending on the model
         inp_dim = input_shape[0]
         out_dim = num_actions
@@ -127,11 +128,13 @@ class PPOActorCritic(nn.Module):
 
         # TODO insert here flag for cont/discrete
         if self.policy_type == "continuous":
-
-            self.log_std = nn.Parameter(torch.ones(1, out_dim) * 0.0)
-            self.softplus = nn.Softplus()
-            self.init_std = init_std
-            self.min_std = min_std
+            if self.std_transform == 'exp':
+                self.log_std = nn.Parameter(torch.ones(1, out_dim) * 0.0)
+            elif self.std_transform == 'softplus':
+                self.log_std = nn.Parameter(torch.ones(1, out_dim) * 0.0)
+                self.softplus = nn.Softplus()
+                self.init_std = init_std
+                self.min_std = min_std
 
         elif self.policy_type == "discrete":
             pass
@@ -287,6 +290,8 @@ class PPO:
             modelname,
         )
 
+        self.model.to(self.device)
+
         self.optimizer_name = optimizer_name
         if optimizer_name == "adam":
             self.optimizer = optim.Adam(
@@ -354,13 +359,14 @@ class PPO:
         with torch.no_grad():
             states = torch.from_numpy(states).float().unsqueeze(0)
             states = states.to(self.device)
-        return self.model(states)
+            return self.model(states)
 
     def compute_gae(self, next_value, recompute_value=False):
 
         if recompute_value:
             self.model.eval()
-            _ , values = self.model(torch.Tensor(self.experience["state"]).to(self.device))
+            with torch.no_grad():
+                _ , values = self.model(torch.Tensor(self.experience["state"]).to(self.device))
             self.experience["value"] = [np.array(v,dtype=float) for v in values.detach().cpu().tolist()]
             # for i in range(len(self.experience["value"])):
             #     _, value = self.act(self.experience["state"][i])
