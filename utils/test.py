@@ -22,7 +22,7 @@ import pdb, sys
 from utils.tools import get_bet_size
 import torch
 import torch.nn as nn
-from utils.math_tools import unscale_action
+from utils.math_tools import unscale_action, unscale_asymmetric_action
 from utils.simulation import DataHandler
 
 
@@ -128,7 +128,6 @@ class Out_sample_vs_gp:
                     self.test_env.store_results(Result, i)
 
                 elif self.tag == "PPO":
-                    # TODO to revise
                     side_only = test_agent.action_space.side_only
                     test_agent.model.eval()
                     CurrState = torch.from_numpy(CurrState).float()
@@ -140,13 +139,14 @@ class Out_sample_vs_gp:
 
                     if test_agent.policy_type == "continuous":
                         # action = dist.sample()
-                        # pdb.set_trace()
                         action = dist.mean
+                        action = nn.Tanh()(action).cpu().numpy().ravel()[0]
+
                         if self.MV_res:
-                            action = action.cpu().numpy().ravel()
+                            action = unscale_asymmetric_action(
+                                test_agent.action_space.action_range[0],test_agent.action_space.action_range[1], action
+                            )
                         else:
-                            # clip the action in the space [0,1]
-                            action = nn.Tanh()(action).cpu().numpy().ravel()[0]
                             action = unscale_action(
                                 test_agent.action_space.values[-1], action
                             )

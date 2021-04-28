@@ -27,7 +27,7 @@ from utils.simulation import DataHandler
 from agents.PPO import PPO
 from utils.tools import get_action_boundaries, get_bet_size, CalculateLaggedSharpeRatio
 from utils.test import Out_sample_vs_gp
-from utils.math_tools import unscale_action
+from utils.math_tools import unscale_action, unscale_asymmetric_action
 from utils.mixin_core import MixinCore
 
 
@@ -265,15 +265,13 @@ class PPO_runner(MixinCore):
             if self.train_agent.policy_type == "continuous":
                 action = dist.sample()
                 log_prob = dist.log_prob(action)
-
+                clipped_action = nn.Tanh()(action).cpu().numpy().ravel()
+                action = action.cpu().numpy().ravel()
                 if self.MV_res:
-                    action = action.cpu().numpy().ravel()
-                    unscaled_action = action
+                    unscaled_action = unscale_asymmetric_action(
+                        self.action_space.action_range[0],self.action_space.action_range[1], clipped_action
+                    )
                 else:
-
-                    clipped_action = nn.Tanh()(action).cpu().numpy().ravel()
-                    action = action.cpu().numpy().ravel()
-
                     unscaled_action = unscale_action(
                         self.action_space.action_range[0], clipped_action
                     )
