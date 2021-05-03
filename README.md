@@ -1,6 +1,6 @@
 # Deep Reinforcement Trading with Predictable Returns
 
-This code repository comes with the submitted paper to the IJCAI2021. It contains the main scripts and the utilities that allow to run the experiments and produce the figures attached to the paper. 
+This code repository comes with the [paper](https://arxiv.org/abs/2104.14683) uploaded on arxiv. It contains the main scripts and the utilities that allow to run the experiments and produce the figures attached to the paper. 
 
 ## Requirements
 
@@ -22,17 +22,15 @@ Install the required packages inside the environment:
 
 ## Source Code Structure
 
-In the main folder there is a script called `main_runner.py` which represents the main script to launch all the simulations through runners, that are located in the `runners` folder. Each runner can let the user run an algorithm (DQN,PPO or DDPG) over simulated synthetic data of different types. The subfolder `utils` contains all classes and functions used to run the experiments and they are imported in the main scripts and runners.
+In the main folder there is a script called `main_runner.py` which represents the main script to launch all the simulations through runners, that are located in the `runners` folder. Each runner can let the user run an algorithm (DQN and PPO) over simulated synthetic data of different types. The subfolder `utils` contains all classes and functions used to run the experiments and they are imported in the main scripts and runners.
 
 ## Usage
 
-All the `*.py` files have their own documentation, both for class methods and functions. There are two main kind of experiments that the user can perform by running the following scripts:
-- `runDQN.py` with associated config file for parameter called `paramDQN.yaml`. This script performs a DQN training on a return series driven by Gaussian mean-reverting factors.
-- `runMisspecDQN.py` with associated config file for parameter called `paramMisspecDQN.yaml`. This script performs a DQN training on a return series simulated by a model misspecified as for the cases presented in the paper.
+Almost all the `*.py` files have their own documentation, both for class methods and functions. There are two main kind of experiments that the user can perform by running the following scripts:
+- A training on a return series driven by Gaussian mean-reverting factors.
+- A training on a return series simulated by a model misspecified as for the cases presented in the paper.
 
-The same holds for the other two available algorithms (PPO and DDPG). **TODO: DDPP still needs the misspecified implementation**
-
-Note that both script in the case of DQN allows also to run *Q-learning* in parallel with *DQN* algorithm. All the parameters for the simulation and the hyperparameters for the algorithm are passed to the scripts through their associated `*.yaml` file. Every config file contains also relevant information to choose the hyperparameters and all the general settings for the experiments. Config files are stored in the `config` folder.
+All the parameters for the simulation and the hyperparameters for the algorithm are passed to the scripts through a `gin` file. This file contains also relevant information to choose the hyperparameters and all the general settings for the experiments. It is stored in the `config` folder.
 
 For an extensive analysis, the scripts can be run many times in parallel on different cores of your machine. This allows to do either extensive grid searches for hyperparameter tuning or to perform robustness checks of the algorithm by running on many different seeds at a time.
 
@@ -43,9 +41,8 @@ The configuration of the experiment type and its parallelization is done with `g
 
 If you have never worked with this framework, before moving on, read the README.md in the above linked repo. Our gin files are stored in the `config` folder together with the `yaml` files.
 
-The user can visualize the evolution of some diagnostics during the training as the gradient norms, intermediate layer outputs and losses with tensorboard just by running the command `tensorboard --logdir exp_directory` where `exp_directory` is the output folder for the corresponding experiment or set of experiments. Then the user can open the URL http://localhost:6006 on its machine. In this way also many different experiments can be visualized together, if the `exp_directory` folder contains them.
 
-The repository contains a runner called `runMultiTestOOSParbySeed.py` that allows the user to perform all the needed out-of-sample tests and to produce the same figures of the paper. The parallelization “by seed” means that you run plenty of out-of-sample tests for each hyperparameter (or just seeds) combination at the same time. Please note that you machine can have a different amount of cores than the default settings, so change the amount of combinations you want to run at the same time in order to avoid memory problems.
+The repository allows the user to perform all the needed out-of-sample tests and to produce the same figures of the paper. The parallelization “by seed” means that you run plenty of out-of-sample tests for each hyperparameter (or just seeds) combination at the same time. Please note that you machine can have a different amount of cores than the default settings, so change the amount of combinations you want to run at the same time in order to avoid memory problems.
 
 Note that the config file called `paramMultiTestOOS.yaml` regulates some hyperparameters for performing the out-of-sample tests and also for plotting the same figures of the paper. The script for plotting is `plot_runner.py`, which reproduces different kinds of plots according to the flags passed from the `paramMultiTestOOS.yaml` config file.
 
@@ -54,7 +51,6 @@ As the user can see from the config files, randomness is a key ingredient of the
 - The simulation of the synthetic return series
 - The initialization and the training of the DRL algorithm
 
-The experiments of the type `runDQN.py` allows also to decouple the two sources of stochasticity by passing two different seed numbers. However, in our proposed experiment, we let those two sources be driven by the same `RandomState`.
 
 # Endnotes for a better usage
 The repository can be used in many different ways.
@@ -63,7 +59,7 @@ One can run a simple experiment on a simulated financial series, one can run a g
 
 The results proposed in our paper mostly do the last option. Thanks to the parameters passed through  the config files, the experiments are generally stored in a path like `outputDir\outputClass\outputModel\length\single_experiment_name`.
 
-Understanding this folder tree structure is very important when you want to use the attached code and go through the results of such extensive simulations. In general, each `single_experiment_name` has a certain number of associated checkpoints stored inside that folder. The `*MultiTestOOS*.py` scripts are able to take every checkpoints and perform many different tests out-of-sample for each, in order to do the above mentioned robustness check. Please note that those scripts need to know the name "outputModel" and the "length" of the folder where checkpoints are stored. More details are provided in `paramMultiTestOOS.yaml`.
+Understanding this folder tree structure is very important when you want to use the attached code and go through the results of such extensive simulations. In general, each `single_experiment_name` has a certain number of associated checkpoints stored inside that folder. 
 
 The script for plotting figures is not general enough to produce whatever the user wants, but it is specifically customized to produce multiple subplots to be attached to the paper and the supplementary material. However it is simple enough, so that it can be modified with a low effort, if one wants to do a different amount of subplots.
 
@@ -71,4 +67,4 @@ The script for plotting figures is not general enough to produce whatever the us
 
 This repository should be intended as a work in progress and represents a first step in understanding the reasoning of DRL algorithms when they have to interpret and analyze financial trading signals.
 
-From the point of view of the code, it is effective and can be improved in its efficiency and readability. A modular approach should be adopted in many different parts of the code and the `gin` style of passing hyperparameters should be entirely adopted instead of `yaml` files which are easy to use but it causes redundancy in the code.
+Further extensions will come as soon as possible.
