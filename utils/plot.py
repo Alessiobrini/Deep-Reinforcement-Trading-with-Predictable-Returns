@@ -93,13 +93,17 @@ def load_DQNmodel(
         model.load_weights(
             os.path.join(data_dir, "ckpt", "DQN_{}_ep_weights".format(ckpt_it))
         )
-
+        
+        model.modelname = 'DQN'
+        
         return model, actions
 
     else:
         model.load_weights(
             os.path.join(data_dir, "ckpt", "DQN_{}_ep_weights".format(ckpt_it))
         )
+        
+        model.modelname = 'DQN'
 
         return model
 
@@ -405,7 +409,7 @@ def plot_vf(
             for i, _ in enumerate(range(n_factors))
         ]
 
-        factors = np.concatenate(f_to_concat, axis=1, dtype="float")
+        factors = np.concatenate(f_to_concat, axis=1)
 
         if holding == 0:
             holdings = np.zeros(len(factors), dtype="float")
@@ -428,61 +432,61 @@ def plot_vf(
 
     viridis = cm.get_cmap("viridis", pred.shape[1])
     for i in range(pred.shape[1]):
-        if less_labels:
-            subset_label_idx = np.round(
-                np.linspace(0, len(actions) - 1, n_less_labels)
-            ).astype(int)
-            subset_label = actions[subset_label_idx]
-            if actions[i] in subset_label:
-                ax.plot(
-                    states[:, 0],
-                    pred[:, i],
-                    label=str(actions[i]),
-                    c=viridis.colors[i],
-                    linewidth=1.5,
-                )
-            else:
-                ax.plot(
-                    states[:, 0],
-                    pred[:, i],
-                    label="_nolegend_",
-                    c=viridis.colors[i],
-                    linewidth=1.5,
-                )
-        else:
-            ax.plot(
-                states[:, 0],
-                pred[:, i],
-                label=str(actions[i]),
-                c=viridis.colors[i],
-                linewidth=1.5,
-            )
+        # if less_labels:
+        #     subset_label_idx = np.round(
+        #         np.linspace(0, len(actions) - 1, n_less_labels)
+        #     ).astype(int)
+        #     subset_label = actions[subset_label_idx]
+        #     if actions[i] in subset_label:
+        #         ax.plot(
+        #             states[:, 0],
+        #             pred[:, i],
+        #             label=str(actions[i]),
+        #             c=viridis.colors[i],
+        #             linewidth=1.5,
+        #         )
+        #     else:
+        #         ax.plot(
+        #             states[:, 0],
+        #             pred[:, i],
+        #             label="_nolegend_",
+        #             c=viridis.colors[i],
+        #             linewidth=1.5,
+        #         )
+        # else:
+        ax.plot(
+            states[:, 0],
+            pred[:, i],
+            label=str(actions[i]),
+            c=viridis.colors[i],
+            linewidth=1.5,
+        )
 
-    # if optimal and query('%INP_TYPE') == 'f':
+    if optimal and query('%INP_TYPE') == 'f':
 
-    discount_rate, kappa, costmultiplier, f_param, halflife, sigma = (
-        query("%DISCOUNT_RATE"),
-        query("%KAPPA"),
-        query("%COSTMULTIPLIER"),
-        query("%F_PARAM"),
-        query("%HALFLIFE"),
-        query("%SIGMA"),
-    )
+        discount_rate, kappa, costmultiplier, f_param, halflife, sigma = (
+            query("%DISCOUNT_RATE"),
+            query("%KAPPA"),
+            query("%COSTMULTIPLIER"),
+            query("%F_PARAM"),
+            query("%HALFLIFE"),
+            query("%SIGMA"),
+        )
+    
+        n_factors = len(query("%F_PARAM"))
+    
+        f_to_concat = [
+            np.linspace(-0.5 - i, 0.5 + i, 100).reshape(-1, 1)
+            for i, _ in enumerate(range(n_factors))
+        ]
+    
+        factors = np.concatenate(f_to_concat, axis=1)
 
-    n_factors = len(query("%F_PARAM"))
-
-    f_to_concat = [
-        np.linspace(-0.5 - i, 0.5 + i, 100).reshape(-1, 1)
-        for i, _ in enumerate(range(n_factors))
-    ]
-
-    factors = np.concatenate(f_to_concat, axis=1)
-
-    V = optimal_vf(
-        states, discount_rate, kappa, costmultiplier, f_param, halflife, sigma
-    )
-
-    ax.plot(factors[:, 0], V, linewidth=1.5, label="GP Vf")
+        V = optimal_vf(
+            states, discount_rate, kappa, costmultiplier, f_param, halflife, sigma
+        )
+        
+        ax.plot(factors[:, 0], V, linewidth=1.5, label="GP Vf")
 
 
 def optimal_vf(states, discount_rate, kappa, costmultiplier, f_param, halflife, sigma):
@@ -530,14 +534,25 @@ def optimal_vf(states, discount_rate, kappa, costmultiplier, f_param, halflife, 
     q = (np.array(f_param) + Axf * (1 - f_speed)) ** 2 / (
         kappa * sigma ** 2 + lambda_bar + Axx
     )
-    Aff = aff1 * q
+    Aff = aff1.reshape(-1,1) @ q.reshape(-1,1).T
+    
+    states = states.numpy()
+    
+    v1 = - 0.5 * states[:,-1]**2 * Axx
+    v2s = []
+    for i in range(states.shape[0]):
+        v2 = states[i,-1].reshape(-1,1).T @ Axf.reshape(-1,1).T @ states[i,:-1].reshape(-1,1)
+        v2s.append(v2)
+    v2 = np.array(v2s).ravel()
+    v3s = []
+    for i in range(states.shape[0]):
+        v3 = states[i,:-1].reshape(-1,1).T @ Aff @ states[i,:-1].reshape(-1,1)
+        v3s.append(v3)
+    v3 = 0.5 * np.array(v3s).ravel()
 
-    # v1 = - 0.5 * states[:,-1]**2 * Axx
-    # v2 = np.dot(states[:,-1]*Axf, states[:,:-1])
-    v3 = 0.5 * states[:, :-1] * Aff
+    pdb.set_trace()
+    V = v1 + v2 + v3
 
-    # V = v1 + v2 + v3
-    V = v3
 
     return V
 
@@ -610,6 +625,7 @@ def plot_BestActions(
             pred = model(states, training=False)
 
             max_action = actions[tf.math.argmax(pred, axis=1)]
+            
         elif model.modelname == "PPO":
             states = torch.from_numpy(
                 np.hstack((sample_Ret.reshape(-1, 1), holdings.reshape(-1, 1)))
@@ -618,11 +634,11 @@ def plot_BestActions(
                 dist, _ = model(states)
 
             unscaled_max_action = torch.nn.Tanh()(dist.mean)
-            scaled_max_action = unscale_action(actions[-1], unscaled_max_action)
+            max_action = unscale_action(actions[-1], unscaled_max_action)
 
         ax.plot(
             sample_Ret,
-            scaled_max_action,
+            max_action,
             linewidth=1.5,
             label="{} Policy".format(model.modelname),
         )
@@ -636,7 +652,7 @@ def plot_BestActions(
             for i, _ in enumerate(range(n_factors))
         ]
 
-        factors = np.concatenate(f_to_concat, axis=1, dtype="float")
+        factors = np.concatenate(f_to_concat, axis=1)
 
         if holding == 0:
             holdings = np.zeros(len(factors), dtype="float")
@@ -659,7 +675,33 @@ def plot_BestActions(
                 dist, _ = model(states)
 
             unscaled_max_action = torch.nn.Tanh()(dist.mean)
-            scaled_max_action = unscale_action(actions[-1], unscaled_max_action)
+            max_action = unscale_action(actions[-1], unscaled_max_action).numpy().reshape(-1,)
+
+        if query("%MV_RES"):
+            discount_rate, kappa, costmultiplier, f_param, halflife, sigma = (
+                query("%DISCOUNT_RATE"),
+                query("%KAPPA"),
+                query("%COSTMULTIPLIER"),
+                query("%F_PARAM"),
+                query("%HALFLIFE"),
+                query("%SIGMA"),
+            )
+    
+            OptRate, DiscFactorLoads = opt_trading_rate_disc_loads(
+                discount_rate,
+                kappa,
+                costmultiplier,
+                f_param,
+                np.around(np.log(2) / halflife, 4),
+            )
+            OptNextHolding = (1 / (kappa * (sigma) ** 2)) * np.sum(
+                f_param * factors, axis=1
+            )
+            # Compute optimal markovitz action
+            MV_action = OptNextHolding - holding
+
+            max_action = MV_action * (1 - max_action)
+            
 
         ax.plot(
             factors[:, 0],
@@ -726,7 +768,7 @@ def plot_portfolio(r: pd.DataFrame, tag: str, ax2: object):
     ax2.plot(r["OptNextHolding"].values[1:-1], label="benchmark", alpha=0.5)
 
 
-def plot_action(r: pd.DataFrame, tag: str, ax2: object):
+def plot_action(r: pd.DataFrame, tag: str, ax2: object, hist=False):
     """
     Ploduce plots of portfolio holding
 
@@ -742,6 +784,13 @@ def plot_action(r: pd.DataFrame, tag: str, ax2: object):
         Axes to draw in
 
     """
+    if hist:
 
-    ax2.plot(r["Action_{}".format(tag)].values[1:-1], label=tag)
-    ax2.plot(r["OptNextAction"].values[1:-1], label="benchmark", alpha=0.5)
+        if "ResAction_{}".format(tag) in r.columns:
+            ax2.hist(r["ResAction_{}".format(tag)].values[1:-1], label=tag)
+        else:
+            ax2.hist(r["Action_{}".format(tag)].values[1:-1], label=tag)
+            ax2.hist(r["OptNextAction"].values[1:-1], label="benchmark", alpha=0.5)
+    else:
+        ax2.plot(r["Action_{}".format(tag)].values[1:-1], label=tag)
+        ax2.plot(r["OptNextAction"].values[1:-1], label="benchmark", alpha=0.5)

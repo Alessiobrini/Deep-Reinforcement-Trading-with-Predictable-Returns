@@ -54,13 +54,19 @@ def runplot_metrics(p):
 
     N_test = p["N_test"]
     outputClass = p["outputClass"]
-    outputModel = p["outputModel"]
-    hp = p["hyperparams_model"]
     tag = p["algo"]
+    if 'DQN' in tag:
+        hp = p["hyperparams_model_dqn"]
+        outputModels = p["outputModels_dqn"]
+    elif 'PPO' in tag:
+        hp = p["hyperparams_model_ppo"]
+        outputModels = p["outputModels_ppo"]
 
-    # pdb.set_trace()
+
     if hp is not None:
-        outputModel = [exp.format(*hp) for exp in outputModel]
+        outputModel = [exp.format(*hp) for exp in outputModels]
+    else:
+        outputModel = outputModels
 
     colors = ["blue", "red", "green", "black"]
     # colors = []
@@ -76,13 +82,13 @@ def runplot_metrics(p):
 
         var_plot = [
             "NetPnl_OOS_{}_{}.parquet.gzip".format(format_tousands(N_test), t),
-            # "Reward_OOS_{}_{}.parquet.gzip".format(format_tousands(N_test), t),
+            "Reward_OOS_{}_{}.parquet.gzip".format(format_tousands(N_test), t),
             "SR_OOS_{}_{}.parquet.gzip".format(format_tousands(N_test), t),
             "PnLstd_OOS_{}_{}.parquet.gzip".format(format_tousands(N_test), t),
             # "Pdist_OOS_{}_GP.parquet.gzip".format(format_tousands(N_test)),
-            "AbsNetPnl_OOS_{}_{}.parquet.gzip".format(format_tousands(N_test), t),
+            # "AbsNetPnl_OOS_{}_{}.parquet.gzip".format(format_tousands(N_test), t),
             # 'AbsRew_OOS_{}_{}.parquet.gzip'.format(format_tousands(N_test), t)
-            # "AbsHold_OOS_{}_{}.parquet.gzip".format(format_tousands(N_test), t),
+            "AbsHold_OOS_{}_{}.parquet.gzip".format(format_tousands(N_test), t),
             # 'AbsSR_OOS_{}_{}.parquet.gzip'.format(format_tousands(N_test), t),
         ]
 
@@ -131,7 +137,11 @@ def runplot_metrics(p):
 
                 dataframe = pd.concat(dfs)
                 dataframe.index = range(len(dfs))
-                pdb.set_trace()
+                
+                # pdb.set_trace()
+
+                if 'PPO' in tag and p['ep_ppo']:
+                    dataframe = dataframe.iloc[:,:dataframe.columns.get_loc(p['ep_ppo'])]
 
                 if "Abs" in v:
 
@@ -144,6 +154,8 @@ def runplot_metrics(p):
                         dfs_opt.append(df_opt)
                     dataframe_opt = pd.concat(dfs_opt)
                     dataframe_opt.index = range(len(dfs_opt))
+                    if 'PPO' in tag and p['ep_ppo']:
+                        dataframe_opt = dataframe_opt.iloc[:,:dataframe_opt.columns.get_loc(p['ep_ppo'])]
 
                     plot_abs_metrics(
                         ax,
@@ -156,10 +168,10 @@ def runplot_metrics(p):
                         i=it,
                     )
 
-                    value = dataframe_opt.iloc[0, 4]
-                    std = 550000
+                    value = dataframe_opt.iloc[0, 2]
+                    std = 25000
                     ax.set_ylim(value - std, value + std)
-                    # pdb.set_trace()
+
 
                 else:
                     plot_pct_metrics(
@@ -171,18 +183,24 @@ def runplot_metrics(p):
                         colors=colors[k],
                         params_path=filenamep,
                     )
-                    ax.set_ylim(20, 150)
+                    ax.set_ylim(20, 220)
                 logging.info("Plot saved successfully...")
 
 
 def runplot_value(p):
 
     outputClass = p["outputClass"]
-    outputModel = p["outputModel"]
     tag = p["algo"]
-    hp_exp = p["hyperparams_exp"]
-    experiment = p["experiment"]
     seed = p["seed"]
+    
+    if 'DQN' in tag:
+        hp_exp = p["hyperparams_exp_dqn"]
+        outputModel = p["outputModel_dqn"]
+        experiment = p["experiment_dqn"]
+    elif 'PPO' in tag:
+        hp_exp = p["hyperparams_exp_ppo"]
+        outputModel = p["outputModel_ppo"]
+        experiment = p["experiment_ppo"]
 
     if hp_exp:
         outputModel = outputModel.format(*hp_exp)
@@ -207,16 +225,22 @@ def runplot_value(p):
     ax = fig.add_subplot()
 
     if "DQN" in tag:
-        model, actions = load_DQNmodel(data_dir, gin.query_parameter("%N_TRAIN"))
-        plot_vf(model, actions, 0, ax=ax)
+        if p['n_dqn']:
+            model, actions = load_DQNmodel(data_dir, p['n_dqn'])
+        else:
+            model, actions = load_DQNmodel(data_dir, gin.query_parameter("%N_TRAIN")) 
+        plot_vf(model, actions, 0, ax=ax, optimal=p['optimal'])
 
         ax.set_xlabel("y")
         ax.set_ylabel("action-value function")
         ax.legend(ncol=3)
 
     elif "PPO" in tag:
-        model, actions = load_PPOmodel(data_dir, gin.query_parameter("%EPISODES"))
-        plot_vf(model, actions, 0, ax=ax)
+        if p['ep_ppo']:
+            model, actions = load_PPOmodel(data_dir, p['ep_ppo'])
+        else:
+            model, actions = load_PPOmodel(data_dir, gin.query_parameter("%EPISODES"))
+        plot_vf(model, actions, 0, ax=ax, optimal=p['optimal'])
 
         ax.set_xlabel("y")
         ax.set_ylabel("value function")
@@ -239,12 +263,17 @@ def runplot_value(p):
 def runplot_policy(p):
 
     outputClass = p["outputClass"]
-    outputModel = p["outputModel"]
     tag = p["algo"]
-    hp_exp = p["hyperparams_exp"]
-    experiment = p["experiment"]
-    optimal = p["optimal"]
     seed = p["seed"]
+    
+    if 'DQN' in tag:
+        hp_exp = p["hyperparams_exp_dqn"]
+        outputModel = p["outputModel_dqn"]
+        experiment = p["experiment_dqn"]
+    elif 'PPO' in tag:
+        hp_exp = p["hyperparams_exp_ppo"]
+        outputModel = p["outputModel_ppo"]
+        experiment = p["experiment_ppo"]
 
     if hp_exp:
         outputModel = outputModel.format(*hp_exp)
@@ -268,8 +297,12 @@ def runplot_policy(p):
 
     if "DQN" in tag:
         gin.parse_config_file(os.path.join(data_dir, "config.gin"), skip_unknown=True)
-        model, actions = load_DQNmodel(data_dir, gin.query_parameter("%N_TRAIN"))
-        plot_BestActions(model, 0, ax=ax, optimal=optimal)
+        if p['n_dqn']:
+            model, actions = load_DQNmodel(data_dir, p['n_dqn'])
+        else:
+            model, actions = load_DQNmodel(data_dir, gin.query_parameter("%N_TRAIN"))      
+        
+        plot_BestActions(model, 0, ax=ax, optimal=p['optimal'])
 
         ax.set_xlabel("y")
         ax.set_ylabel("best $\mathregular{A_{t}}$")
@@ -277,8 +310,12 @@ def runplot_policy(p):
 
     elif "PPO" in tag:
         gin.parse_config_file(os.path.join(data_dir, "config.gin"), skip_unknown=True)
-        model, actions = load_PPOmodel(data_dir, gin.query_parameter("%EPISODES"))
-        plot_BestActions(model, 0, ax=ax, optimal=optimal)
+        if p['ep_ppo']:
+            model, actions = load_PPOmodel(data_dir, p['ep_ppo'])
+        else:
+            model, actions = load_PPOmodel(data_dir, gin.query_parameter("%EPISODES"))
+        
+        plot_BestActions(model, 0, ax=ax, optimal=p['optimal'])
 
         ax.set_xlabel("y")
         ax.set_ylabel("best $\mathregular{A_{t}}$")
@@ -303,13 +340,23 @@ def runplot_holding(p):
 
     query = gin.query_parameter
 
+
     outputClass = p["outputClass"]
-    outputModel = p["outputModel"]
-    hp = p["hyperparams_model"]
     tag = p["algo"]
     seed = p["seed"]
+    if 'DQN' in tag:
+        hp = p["hyperparams_model_dqn"]
+        outputModels = p["outputModels_dqn"]
+    elif 'PPO' in tag:
+        hp = p["hyperparams_model_ppo"]
+        outputModels = p["outputModels_ppo"]
 
-    outputModel = [exp.format(*hp) for exp in outputModel]
+
+    if hp is not None:
+        outputModel = [exp.format(*hp) for exp in outputModels]
+    else:
+        outputModel = outputModels
+
 
     fig = plt.figure(figsize=set_size(width=1000.0, subplots=(2, 2)))
     gs = gridspec.GridSpec(ncols=2, nrows=2, figure=fig)
@@ -326,6 +373,15 @@ def runplot_holding(p):
     ax32 = fig2.add_subplot(gs2[2])
     ax42 = fig2.add_subplot(gs2[3])
     axes2 = [ax12, ax22, ax32, ax42]
+    
+
+    fig3 = plt.figure(figsize=set_size(width=1000.0, subplots=(2, 2)))
+    gs3 = gridspec.GridSpec(ncols=2, nrows=2, figure=fig2)
+    ax13 = fig3.add_subplot(gs3[0])
+    ax23 = fig3.add_subplot(gs3[1])
+    ax33 = fig3.add_subplot(gs3[2])
+    ax43 = fig3.add_subplot(gs3[3])
+    axes3 = [ax13, ax23, ax33, ax43]
 
     for i, model in enumerate(outputModel):
         modelpath = "outputs/{}/{}".format(outputClass, model)
@@ -362,16 +418,23 @@ def runplot_holding(p):
             train_agent = DQN(
                 input_shape=input_shape, action_space=action_space, rng=rng
             )
-
-            train_agent.model = load_DQNmodel(
-                data_dir, query("%N_TRAIN"), model=train_agent.model
-            )
+            if p['n_dqn']:
+                train_agent.model = load_DQNmodel(
+                    data_dir, p['n_dqn'], model=train_agent.model
+                )
+            else:
+                train_agent.model = load_DQNmodel(
+                        data_dir, query("%N_TRAIN"), model=train_agent.model
+                    )
 
         elif "PPO" in tag:
             train_agent = PPO(
                 input_shape=input_shape, action_space=action_space, rng=rng
             )
-            # train_agent.model =  load_DQNmodel(data_dir, query('%EPISODES'), model=train_agent.model)
+            if p['ep_ppo']:
+                train_agent.model = load_PPOmodel(data_dir, p['ep_ppo'], model=train_agent.model)
+            else:
+                train_agent.model = load_PPOmodel(data_dir, gin.query_parameter("%EPISODES"), model=train_agent.model)
         else:
             print("Choose proper algorithm.")
             sys.exit()
@@ -396,8 +459,18 @@ def runplot_holding(p):
             "_".join(["mv_res", split[-1]]).replace("_", " "), fontsize=10
         )
 
-    fig.suptitle(split[0].replace("_", " "))
-    fig2.suptitle(split[0].replace("_", " "))
+        if '18' not in model.split('_')[0]:
+            plot_action(res_df, tag[0], axes3[i], hist=True)
+            axes3[i].set_title(
+                "_".join(["mv_res", split[-1]]).replace("_", " "), fontsize=10
+            )
+
+    fig.suptitle('Holdings: ' + split[0].replace("_", " "))
+    fig2.suptitle('Actions: ' + split[0].replace("_", " "))
+    if '18' not in model.split('_')[0]:  
+        fig2.suptitle('Res Actions: ' + split[0].replace("_", " "))
+    
+        
 
 
 if __name__ == "__main__":
