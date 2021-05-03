@@ -9,6 +9,7 @@ paramDQN.yaml
 paramMisspecDQN.yaml
 paramMisspecPPO.yaml
 paramMultiTestOOS.yaml
+utils/variance_analysis.py
 
 
 # Byte-compiled / optimized / DLL files
