@@ -43,7 +43,7 @@ imagesize==1.1.0
 imbalanced-learn==0.4.3
 imblearn==0.0
 incremental==16.10.1
-Jinja2==2.10
+Jinja2==2.11.3
 joblib==0.14.1
 jsonpatch==1.16
 jsonpointer==1.10
