@@ -63,7 +63,7 @@ def load_DQNmodel(
         query = gin.query_parameter
 
         if query("%INP_TYPE") == "f":
-            num_inp = 3
+            num_inp = len(query('%F_PARAM')) + 1
         else:
             num_inp = 2
 
@@ -141,7 +141,7 @@ def load_PPOmodel(
         query = gin.query_parameter
 
         if query("%INP_TYPE") == "f":
-            inp_shape = (3,)
+            inp_shape = (len(query('%F_PARAM')) + 1,)
         else:
             inp_shape = (2,)
 
@@ -309,7 +309,8 @@ def plot_abs_metrics(
     # df_mean = df.mean(axis=0)
     # df_opt = df_opt.mean(axis=0)
     df_mean = df.median(axis=0)
-    df_opt = df_opt.median(axis=0)
+    if 'Pdist' not in variable:
+        df_opt = df_opt.median(axis=0)
 
     idxs = [int(i) for i in df.iloc[0, :].index]
 
@@ -323,9 +324,10 @@ def plot_abs_metrics(
         label="{}".format("_".join(data_dir.split("/")[-2].split("_")[2:])),
     )
 
-    ax1.plot(
-        idxs, df_opt.values, color="red", linewidth=3, label="GP" if i == 0 else "",
-    )
+    if 'Pdist' not in variable:
+        ax1.plot(
+            idxs, df_opt.values, color="red", linewidth=3, label="GP" if i == 0 else "",
+        )
 
     ax1.set_title(
         "{}: {} simulation".format(
@@ -550,7 +552,7 @@ def optimal_vf(states, discount_rate, kappa, costmultiplier, f_param, halflife, 
         v3s.append(v3)
     v3 = 0.5 * np.array(v3s).ravel()
 
-    pdb.set_trace()
+    # pdb.set_trace()
     V = v1 + v2 + v3
 
 
