@@ -68,7 +68,7 @@ def runplot_metrics(p):
     else:
         outputModel = outputModels
 
-    colors = ["blue", "red", "green", "black"]
+    colors = ["blue", "y", "green", "black"]
     # colors = []
     random.seed(2212)  # 7156
     for _ in range(len(outputModel)):
@@ -80,17 +80,8 @@ def runplot_metrics(p):
 
     for t in tag:
 
-        var_plot = [
-            "NetPnl_OOS_{}_{}.parquet.gzip".format(format_tousands(N_test), t),
-            "Reward_OOS_{}_{}.parquet.gzip".format(format_tousands(N_test), t),
-            "SR_OOS_{}_{}.parquet.gzip".format(format_tousands(N_test), t),
-            "PnLstd_OOS_{}_{}.parquet.gzip".format(format_tousands(N_test), t),
-            # "Pdist_OOS_{}_GP.parquet.gzip".format(format_tousands(N_test)),
-            # "AbsNetPnl_OOS_{}_{}.parquet.gzip".format(format_tousands(N_test), t),
-            # 'AbsRew_OOS_{}_{}.parquet.gzip'.format(format_tousands(N_test), t)
-            "AbsHold_OOS_{}_{}.parquet.gzip".format(format_tousands(N_test), t),
-            # 'AbsSR_OOS_{}_{}.parquet.gzip'.format(format_tousands(N_test), t),
-        ]
+        
+        var_plot = [v.format(format_tousands(N_test), t) for v in p['var_plots'] ]
 
         for it, v in enumerate(var_plot):
 
@@ -143,7 +134,7 @@ def runplot_metrics(p):
                 if 'PPO' in tag and p['ep_ppo']:
                     dataframe = dataframe.iloc[:,:dataframe.columns.get_loc(p['ep_ppo'])]
 
-                if "Abs" in v:
+                if "Abs" in v or 'Pdist' in v:
 
                     dfs_opt = []
                     for exp in filtered_dir:
@@ -167,10 +158,14 @@ def runplot_metrics(p):
                         colors=colors[k],
                         i=it,
                     )
-
-                    value = dataframe_opt.iloc[0, 2]
-                    std = 25000
-                    ax.set_ylim(value - std, value + std)
+                    
+                    if 'Pdist' in v:
+                        std = 1e+10
+                        ax.set_ylim(0.0, 0.0 + std)
+                    else:
+                        value = dataframe_opt.iloc[0, 2]
+                        std = 25000
+                        ax.set_ylim(value - std, value + std)
 
 
                 else:
@@ -229,7 +224,7 @@ def runplot_value(p):
             model, actions = load_DQNmodel(data_dir, p['n_dqn'])
         else:
             model, actions = load_DQNmodel(data_dir, gin.query_parameter("%N_TRAIN")) 
-        plot_vf(model, actions, 0, ax=ax, optimal=p['optimal'])
+        plot_vf(model, actions, p['holding'], ax=ax, optimal=p['optimal'])
 
         ax.set_xlabel("y")
         ax.set_ylabel("action-value function")
@@ -240,7 +235,7 @@ def runplot_value(p):
             model, actions = load_PPOmodel(data_dir, p['ep_ppo'])
         else:
             model, actions = load_PPOmodel(data_dir, gin.query_parameter("%EPISODES"))
-        plot_vf(model, actions, 0, ax=ax, optimal=p['optimal'])
+        plot_vf(model, actions, p['holding'], ax=ax, optimal=p['optimal'])
 
         ax.set_xlabel("y")
         ax.set_ylabel("value function")
@@ -302,7 +297,7 @@ def runplot_policy(p):
         else:
             model, actions = load_DQNmodel(data_dir, gin.query_parameter("%N_TRAIN"))      
         
-        plot_BestActions(model, 0, ax=ax, optimal=p['optimal'])
+        plot_BestActions(model, p['holding'], ax=ax, optimal=p['optimal'])
 
         ax.set_xlabel("y")
         ax.set_ylabel("best $\mathregular{A_{t}}$")
@@ -315,7 +310,7 @@ def runplot_policy(p):
         else:
             model, actions = load_PPOmodel(data_dir, gin.query_parameter("%EPISODES"))
         
-        plot_BestActions(model, 0, ax=ax, optimal=p['optimal'])
+        plot_BestActions(model, p['holding'], ax=ax, optimal=p['optimal'])
 
         ax.set_xlabel("y")
         ax.set_ylabel("best $\mathregular{A_{t}}$")
@@ -410,7 +405,7 @@ def runplot_holding(p):
             action_space = ActionSpace()
 
         if query("%INP_TYPE") == "f":
-            input_shape = (3,)
+            input_shape = (len(query('%F_PARAM')) + 1,)
         else:
             input_shape = (2,)
 
