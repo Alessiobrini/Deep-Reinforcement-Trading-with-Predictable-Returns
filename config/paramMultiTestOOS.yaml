@@ -3,6 +3,7 @@
 # 'value'
 # 'policy' 
 # 'holding' 
+# 'diagnostics'
 # In this one one could reproduce similar figures to the paper and the supplementary material,
 # as long as the folder path in the list "outputModel" contains relevant experiment to plot
 # MULTI TEST OOS PARAMS
@@ -15,42 +16,99 @@ varying_type : 'chunk'
 varying_pars: ['outputModel'] 
 #########################################################################################################
 # FOLDER PARAMETERS
-algo :  ['DQN']
+algo :  ['PPO']
 plot_type: 'holding' 
-optimal : True
+optimal : False
+holding: 0 #1e+5
 outputDir: 'outputs'
-outputClass: 'DQN'
+outputClass: 'PPO'
 seed : '26'
+var_plots : [
+    "NetPnl_OOS_{}_{}.parquet.gzip",
+    # "Reward_OOS_{}_{}.parquet.gzip",
+    "SR_OOS_{}_{}.parquet.gzip",
+    # "PnLstd_OOS_{}_{}.parquet.gzip",
+    # "Pdist_OOS_{}_GP.parquet.gzip",
+    # "AbsNetPnl_OOS_{}_{}.parquet.gzip",
+    # 'AbsRew_OOS_{}_{}.parquet.gzip',
+    # "AbsHold_OOS_{}_{}.parquet.gzip",
+    # 'AbsSR_OOS_{}_{}.parquet.gzip',
+    ]
+var_plot_diagnostics : ['entropy_hist.npy', 'std_hist.npy']
 
-n_dqn: #'200000'
+n_dqn: null #'150000'
 experiment_dqn: 'n_train_{}_halflife_{}_sigmaf_{}_mv_res_{}_inp_type_{}_seed_{}' 
-hyperparams_model_dqn: ['250000','66_630', '0.1_0.1'] 
-hyperparams_exp_dqn: ['250000','66_630', '0.2_0.1', 'True', 'f'] # for policy and value type of plot
-outputModel_dqn: '20210418_GPGAUSS_tot_sens_n_train_{}_halflife_{}_sigmaf_{}_mv_res_{}_inp_type_{}'
-outputModels_dqn: ['20210418_GPGAUSS_tot_sens_n_train_{}_halflife_{}_sigmaf_{}_mv_res_False_inp_type_f', 
-  '20210418_GPGAUSS_tot_sens_n_train_{}_halflife_{}_sigmaf_{}_mv_res_False_inp_type_ret', 
-  '20210428_GPGAUSS_tot_sens_n_train_{}_halflife_{}_sigmaf_{}_mv_res_True_inp_type_f', 
-  '20210428_GPGAUSS_tot_sens_n_train_{}_halflife_{}_sigmaf_{}_mv_res_True_inp_type_ret',]
+hyperparams_model_dqn: ['250000','66', '0.1'] #['500000','66_630', '0.1_0.1'] #['250000','126', '0.1'] #
+hyperparams_exp_dqn: ['250000','66', '0.1', 'False', 'f'] # for policy and value type of plot
+outputModel_dqn: '20210503_GPGAUSS_1f_n_train_{}_halflife_{}_sigmaf_{}_mv_res_{}_inp_type_{}'
+outputModels_dqn: ['20210503_GPGAUSS_1f_n_train_{}_halflife_{}_sigmaf_{}_mv_res_False_inp_type_f',
+'20210503_GPGAUSS_1f_n_train_{}_halflife_{}_sigmaf_{}_mv_res_False_inp_type_ret',
+'20210503_GPGAUSS_1f_n_train_{}_halflife_{}_sigmaf_{}_mv_res_True_inp_type_f',
+'20210503_GPGAUSS_1f_n_train_{}_halflife_{}_sigmaf_{}_mv_res_True_inp_type_ret']
 
 # ['20210418_GPGAUSS_tot_sens_n_train_{}_halflife_{}_sigmaf_{}_mv_res_False_inp_type_f', 
 #   '20210418_GPGAUSS_tot_sens_n_train_{}_halflife_{}_sigmaf_{}_mv_res_False_inp_type_ret', 
-#   '20210418_GPGAUSS_tot_sens_n_train_{}_halflife_{}_sigmaf_{}_mv_res_True_inp_type_f', 
-#   '20210418_GPGAUSS_tot_sens_n_train_{}_halflife_{}_sigmaf_{}_mv_res_True_inp_type_ret',]
+#   '20210428_GPGAUSS_tot_sens_n_train_{}_halflife_{}_sigmaf_{}_mv_res_True_inp_type_f', 
+#   '20210428_GPGAUSS_tot_sens_n_train_{}_halflife_{}_sigmaf_{}_mv_res_True_inp_type_ret',]
 
-ep_ppo: '5'
+# '20210418_GPGAUSS_tot_sens_n_train_{}_halflife_{}_sigmaf_{}_mv_res_{}_inp_type_{}'
+# '20210428_GPGAUSS_tot_sens_n_train_{}_halflife_{}_sigmaf_{}_mv_res_{}_inp_type_{}'
+
+ep_ppo: null #'12'
 experiment_ppo: 'halflife_{}_sigmaf_{}_mv_res_{}_inp_type_{}_seed_{}' 
-hyperparams_model_ppo: ['0.3', '0.1', '0.001'] #['2.5_126', '0.1_0.1'] # only for metrics and holding type of plot
-hyperparams_exp_ppo: ['66_630', '0.2_0.1', 'True', 'f'] # for policy and value type of plot
-outputModel_ppo: '20210428_GPGAUSS_total_halflife_{}_sigmaf_{}_mv_res_{}_inp_type_{}'
-outputModels_ppo: ['20210501_GPGAUSS_sens_gamma_{}_clip_param_{}_lr_{}_mv_res_False_inp_type_f', 
-  '20210501_GPGAUSS_sens_gamma_{}_clip_param_{}_lr_{}_mv_res_False_inp_type_ret', 
-  '20210501_GPGAUSS_sens_gamma_{}_clip_param_{}_lr_{}_mv_res_True_inp_type_f', 
-  '20210501_GPGAUSS_sens_gamma_{}_clip_param_{}_lr_{}_mv_res_True_inp_type_ret']
+hyperparams_model_ppo: null #['66', '0.2'] #['0.3', '0.1', '0.001'] #['2.5_126', '0.1_0.1'] # only for metrics and holding type of plot
+hyperparams_exp_ppo: null #['66', '0.2', 'False', 'f'] # for policy and value type of plot
+outputModel_ppo: '20210505_GPGAUSS_sens_halflife_{}_sigmaf_{}_mv_res_{}_inp_type_{}'
+outputModels_ppo:    ['20210507_GPGAUSS_mvres_sens_halflife_66_action_range_res_-0.5_1.0_10_sigmaf_0.05', 
+  '20210507_GPGAUSS_mvres_sens_halflife_66_action_range_res_-0.5_1.0_10_sigmaf_0.1', 
+  '20210507_GPGAUSS_mvres_sens_halflife_66_action_range_res_-0.5_1.0_10_sigmaf_0.2', 
+  '20210507_GPGAUSS_mvres_sens_halflife_66_action_range_res_0.0_1.0_10_sigmaf_0.05']
+   
+  # '20210507_GPGAUSS_mvres_sens_halflife_66_action_range_res_0.0_1.0_10_sigmaf_0.1', 
+  # '20210507_GPGAUSS_mvres_sens_halflife_66_action_range_res_0.0_1.0_10_sigmaf_0.2']
+
+
+  # ['20210507_GPGAUSS_mvres_sens_halflife_5_action_range_res_-0.5_1.0_10_sigmaf_0.05', 
+  # '20210507_GPGAUSS_mvres_sens_halflife_5_action_range_res_-0.5_1.0_10_sigmaf_0.1', 
+  # '20210507_GPGAUSS_mvres_sens_halflife_5_action_range_res_-0.5_1.0_10_sigmaf_0.2', 
+  # '20210507_GPGAUSS_mvres_sens_halflife_5_action_range_res_0.0_1.0_10_sigmaf_0.05', 
+  # '20210507_GPGAUSS_mvres_sens_halflife_5_action_range_res_0.0_1.0_10_sigmaf_0.1', 
+  # '20210507_GPGAUSS_mvres_sens_halflife_5_action_range_res_0.0_1.0_10_sigmaf_0.2']
+
+
+# ['20210507_GPGAUSS_mvres_sens_halflife_126_action_range_res_-0.5_1.0_10_sigmaf_0.05', 
+#  '20210507_GPGAUSS_mvres_sens_halflife_126_action_range_res_-0.5_1.0_10_sigmaf_0.1', 
+#  '20210507_GPGAUSS_mvres_sens_halflife_126_action_range_res_-0.5_1.0_10_sigmaf_0.2', 
+#  '20210507_GPGAUSS_mvres_sens_halflife_126_action_range_res_0.0_1.0_10_sigmaf_0.05', 
+#  '20210507_GPGAUSS_mvres_sens_halflife_126_action_range_res_0.0_1.0_10_sigmaf_0.1', 
+#  '20210507_GPGAUSS_mvres_sens_halflife_126_action_range_res_0.0_1.0_10_sigmaf_0.2']
+ 
+ 
+  # ['20210507_GPGAUSS_mvres_sens_halflife_66_action_range_res_-0.5_1.0_10_sigmaf_0.05', 
+  # '20210507_GPGAUSS_mvres_sens_halflife_66_action_range_res_-0.5_1.0_10_sigmaf_0.1', 
+  # '20210507_GPGAUSS_mvres_sens_halflife_66_action_range_res_-0.5_1.0_10_sigmaf_0.2', 
+  # '20210507_GPGAUSS_mvres_sens_halflife_66_action_range_res_0.0_1.0_10_sigmaf_0.05', 
+  # '20210507_GPGAUSS_mvres_sens_halflife_66_action_range_res_0.0_1.0_10_sigmaf_0.1', 
+  # '20210507_GPGAUSS_mvres_sens_halflife_66_action_range_res_0.0_1.0_10_sigmaf_0.2']
+
+
+# ['20210506_GPGAUSS_mvres_sigmaf_sigmaf_0.005', 
+#  '20210506_GPGAUSS_mvres_sigmaf_sigmaf_0.01', 
+#  '20210506_GPGAUSS_mvres_sigmaf_sigmaf_0.05', 
+#  '20210506_GPGAUSS_mvres_sigmaf_sigmaf_0.1']
+
+
+# ['20210505_GPGAUSS_sens_halflife_{}_sigmaf_{}_mv_res_False_inp_type_f',
+# '20210505_GPGAUSS_sens_halflife_{}_sigmaf_{}_mv_res_False_inp_type_ret',
+# '20210505_GPGAUSS_sens_halflife_{}_sigmaf_{}_mv_res_True_inp_type_f',
+# '20210505_GPGAUSS_sens_halflife_{}_sigmaf_{}_mv_res_True_inp_type_ret',]
 
  # ['20210428_GPGAUSS_total_halflife_{}_sigmaf_{}_mv_res_False_inp_type_f', 
  #  '20210428_GPGAUSS_total_halflife_{}_sigmaf_{}_mv_res_False_inp_type_ret', 
  #  '20210428_GPGAUSS_total_halflife_{}_sigmaf_{}_mv_res_True_inp_type_f', 
  #  '20210428_GPGAUSS_total_halflife_{}_sigmaf_{}_mv_res_True_inp_type_ret',]
+ 
+ # '20210428_GPGAUSS_total_halflife_{}_sigmaf_{}_mv_res_{}_inp_type_{}'
 
 
 
@@ -140,6 +198,70 @@ outputModels_ppo: ['20210501_GPGAUSS_sens_gamma_{}_clip_param_{}_lr_{}_mv_res_Fa
 #  '20210501_GPGAUSS_sens_gamma_0.5_clip_param_0.3_lr_0.005_mv_res_True_inp_type_f', 
 #  '20210501_GPGAUSS_sens_gamma_0.5_clip_param_0.3_lr_0.005_mv_res_True_inp_type_ret']
 
+
+# ['20210501_GPGAUSS_sens_halflife_{}_sigmaf_{}_mv_res_False_inp_type_f',
+# '20210501_GPGAUSS_sens_halflife_{}_sigmaf_{}_mv_res_False_inp_type_ret',
+# '20210501_GPGAUSS_sens_halflife_{}_sigmaf_{}_mv_res_True_inp_type_f',
+# '20210501_GPGAUSS_sens_halflife_{}_sigmaf_{}_mv_res_True_inp_type_ret',]
+
+# ['20210501_GPGAUSS_sens_halflife_126_sigmaf_0.1_mv_res_False_inp_type_f', 
+#   '20210501_GPGAUSS_sens_halflife_126_sigmaf_0.1_mv_res_False_inp_type_ret', 
+#   '20210501_GPGAUSS_sens_halflife_126_sigmaf_0.1_mv_res_True_inp_type_f', 
+#   '20210501_GPGAUSS_sens_halflife_126_sigmaf_0.1_mv_res_True_inp_type_ret', 
+#   '20210501_GPGAUSS_sens_halflife_126_sigmaf_0.2_mv_res_False_inp_type_f', 
+#   '20210501_GPGAUSS_sens_halflife_126_sigmaf_0.2_mv_res_False_inp_type_ret', 
+#   '20210501_GPGAUSS_sens_halflife_126_sigmaf_0.2_mv_res_True_inp_type_f', 
+#   '20210501_GPGAUSS_sens_halflife_126_sigmaf_0.2_mv_res_True_inp_type_ret', 
+#   '20210501_GPGAUSS_sens_halflife_2.5_sigmaf_0.1_mv_res_False_inp_type_f', 
+#   '20210501_GPGAUSS_sens_halflife_2.5_sigmaf_0.1_mv_res_False_inp_type_ret', 
+#   '20210501_GPGAUSS_sens_halflife_2.5_sigmaf_0.1_mv_res_True_inp_type_f', 
+#   '20210501_GPGAUSS_sens_halflife_2.5_sigmaf_0.1_mv_res_True_inp_type_ret', 
+#   '20210501_GPGAUSS_sens_halflife_2.5_sigmaf_0.2_mv_res_False_inp_type_f', 
+#   '20210501_GPGAUSS_sens_halflife_2.5_sigmaf_0.2_mv_res_False_inp_type_ret', 
+#   '20210501_GPGAUSS_sens_halflife_2.5_sigmaf_0.2_mv_res_True_inp_type_f', 
+#   '20210501_GPGAUSS_sens_halflife_2.5_sigmaf_0.2_mv_res_True_inp_type_ret', 
+#   '20210501_GPGAUSS_sens_halflife_630_sigmaf_0.1_mv_res_False_inp_type_f', 
+#   '20210501_GPGAUSS_sens_halflife_630_sigmaf_0.1_mv_res_False_inp_type_ret', 
+#   '20210501_GPGAUSS_sens_halflife_630_sigmaf_0.1_mv_res_True_inp_type_f', 
+#   '20210501_GPGAUSS_sens_halflife_630_sigmaf_0.1_mv_res_True_inp_type_ret', 
+#   '20210501_GPGAUSS_sens_halflife_630_sigmaf_0.2_mv_res_False_inp_type_f', 
+#   '20210501_GPGAUSS_sens_halflife_630_sigmaf_0.2_mv_res_False_inp_type_ret', 
+#   '20210501_GPGAUSS_sens_halflife_630_sigmaf_0.2_mv_res_True_inp_type_f', 
+#   '20210501_GPGAUSS_sens_halflife_630_sigmaf_0.2_mv_res_True_inp_type_ret', 
+#   '20210501_GPGAUSS_sens_halflife_66_sigmaf_0.1_mv_res_False_inp_type_f', 
+#   '20210501_GPGAUSS_sens_halflife_66_sigmaf_0.1_mv_res_False_inp_type_ret', 
+#   '20210501_GPGAUSS_sens_halflife_66_sigmaf_0.1_mv_res_True_inp_type_f', 
+#   '20210501_GPGAUSS_sens_halflife_66_sigmaf_0.1_mv_res_True_inp_type_ret', 
+#   '20210501_GPGAUSS_sens_halflife_66_sigmaf_0.2_mv_res_False_inp_type_f', 
+#   '20210501_GPGAUSS_sens_halflife_66_sigmaf_0.2_mv_res_False_inp_type_ret', 
+#   '20210501_GPGAUSS_sens_halflife_66_sigmaf_0.2_mv_res_True_inp_type_f', 
+#   '20210501_GPGAUSS_sens_halflife_66_sigmaf_0.2_mv_res_True_inp_type_ret']
+
+# ['20210505_GPGAUSS_sens_halflife_126_sigmaf_0.1_mv_res_False_inp_type_f', 
+#  '20210505_GPGAUSS_sens_halflife_126_sigmaf_0.1_mv_res_False_inp_type_ret', 
+#  '20210505_GPGAUSS_sens_halflife_126_sigmaf_0.1_mv_res_True_inp_type_f', 
+#  '20210505_GPGAUSS_sens_halflife_126_sigmaf_0.1_mv_res_True_inp_type_ret', 
+#  '20210505_GPGAUSS_sens_halflife_126_sigmaf_0.2_mv_res_False_inp_type_f', 
+#  '20210505_GPGAUSS_sens_halflife_126_sigmaf_0.2_mv_res_False_inp_type_ret', 
+#  '20210505_GPGAUSS_sens_halflife_126_sigmaf_0.2_mv_res_True_inp_type_f', 
+#  '20210505_GPGAUSS_sens_halflife_126_sigmaf_0.2_mv_res_True_inp_type_ret', 
+#  '20210505_GPGAUSS_sens_halflife_2.5_sigmaf_0.1_mv_res_False_inp_type_f', 
+#  '20210505_GPGAUSS_sens_halflife_2.5_sigmaf_0.1_mv_res_False_inp_type_ret', 
+#  '20210505_GPGAUSS_sens_halflife_2.5_sigmaf_0.1_mv_res_True_inp_type_f', 
+#  '20210505_GPGAUSS_sens_halflife_2.5_sigmaf_0.1_mv_res_True_inp_type_ret', 
+#  '20210505_GPGAUSS_sens_halflife_2.5_sigmaf_0.2_mv_res_False_inp_type_f', 
+#  '20210505_GPGAUSS_sens_halflife_2.5_sigmaf_0.2_mv_res_False_inp_type_ret', 
+#  '20210505_GPGAUSS_sens_halflife_2.5_sigmaf_0.2_mv_res_True_inp_type_f', 
+#  '20210505_GPGAUSS_sens_halflife_2.5_sigmaf_0.2_mv_res_True_inp_type_ret', 
+#  '20210505_GPGAUSS_sens_halflife_66_sigmaf_0.1_mv_res_False_inp_type_f', 
+#  '20210505_GPGAUSS_sens_halflife_66_sigmaf_0.1_mv_res_False_inp_type_ret', 
+#  '20210505_GPGAUSS_sens_halflife_66_sigmaf_0.1_mv_res_True_inp_type_f', 
+#  '20210505_GPGAUSS_sens_halflife_66_sigmaf_0.1_mv_res_True_inp_type_ret', 
+#  '20210505_GPGAUSS_sens_halflife_66_sigmaf_0.2_mv_res_False_inp_type_f', 
+#  '20210505_GPGAUSS_sens_halflife_66_sigmaf_0.2_mv_res_False_inp_type_ret', 
+#  '20210505_GPGAUSS_sens_halflife_66_sigmaf_0.2_mv_res_True_inp_type_f', 
+#  '20210505_GPGAUSS_sens_halflife_66_sigmaf_0.2_mv_res_True_inp_type_ret']
+
 ########################### DQN #####################################
 # ['20210418_GPGAUSS_tot_sens_n_train_{}_halflife_{}_sigmaf_{}_mv_res_False_inp_type_f', 
 #   '20210418_GPGAUSS_tot_sens_n_train_{}_halflife_{}_sigmaf_{}_mv_res_False_inp_type_ret', 
@@ -152,6 +274,12 @@ outputModels_ppo: ['20210501_GPGAUSS_sens_gamma_{}_clip_param_{}_lr_{}_mv_res_Fa
 #   '20210418_GPGAUSS_tot_sens_n_train_{}_halflife_{}_sigmaf_{}_mv_res_False_inp_type_ret', 
 #   '20210428_GPGAUSS_tot_sens_n_train_{}_halflife_{}_sigmaf_{}_mv_res_True_inp_type_f', 
 #   '20210428_GPGAUSS_tot_sens_n_train_{}_halflife_{}_sigmaf_{}_mv_res_True_inp_type_ret',]
+
+
+# ['20210503_GPGAUSS_1f_n_train_{}_halflife_{}_sigmaf_{}_mv_res_False_inp_type_f',
+# '20210503_GPGAUSS_1f_n_train_{}_halflife_{}_sigmaf_{}_mv_res_False_inp_type_ret',
+# '20210503_GPGAUSS_1f_n_train_{}_halflife_{}_sigmaf_{}_mv_res_True_inp_type_f',
+# '20210503_GPGAUSS_1f_n_train_{}_halflife_{}_sigmaf_{}_mv_res_True_inp_type_ret']
 
 ##########################################################################################
 ############################### DQN ################################################
@@ -229,6 +357,60 @@ outputModels_ppo: ['20210501_GPGAUSS_sens_gamma_{}_clip_param_{}_lr_{}_mv_res_Fa
 #  '20210428_GPGAUSS_tot_sens_n_train_100000_halflife_66_630_sigmaf_0.1_0.1_mv_res_True_inp_type_ret', 
 #  '20210428_GPGAUSS_tot_sens_n_train_100000_halflife_66_630_sigmaf_0.2_0.1_mv_res_True_inp_type_f', 
 #  '20210428_GPGAUSS_tot_sens_n_train_100000_halflife_66_630_sigmaf_0.2_0.1_mv_res_True_inp_type_ret']
+
+
+# ['20210503_GPGAUSS_1f_n_train_250000_halflife_126_sigmaf_0.1_mv_res_False_inp_type_f', 
+#  '20210503_GPGAUSS_1f_n_train_250000_halflife_126_sigmaf_0.1_mv_res_False_inp_type_ret', 
+#  '20210503_GPGAUSS_1f_n_train_250000_halflife_126_sigmaf_0.1_mv_res_True_inp_type_f', 
+#  '20210503_GPGAUSS_1f_n_train_250000_halflife_126_sigmaf_0.1_mv_res_True_inp_type_ret', 
+#  '20210503_GPGAUSS_1f_n_train_250000_halflife_126_sigmaf_0.2_mv_res_False_inp_type_f', 
+#  '20210503_GPGAUSS_1f_n_train_250000_halflife_126_sigmaf_0.2_mv_res_False_inp_type_ret', 
+#  '20210503_GPGAUSS_1f_n_train_250000_halflife_126_sigmaf_0.2_mv_res_True_inp_type_f', 
+#  '20210503_GPGAUSS_1f_n_train_250000_halflife_126_sigmaf_0.2_mv_res_True_inp_type_ret', 
+#  '20210503_GPGAUSS_1f_n_train_250000_halflife_2.5_sigmaf_0.1_mv_res_False_inp_type_f', 
+#  '20210503_GPGAUSS_1f_n_train_250000_halflife_2.5_sigmaf_0.1_mv_res_False_inp_type_ret', 
+#  '20210503_GPGAUSS_1f_n_train_250000_halflife_2.5_sigmaf_0.1_mv_res_True_inp_type_f', 
+#  '20210503_GPGAUSS_1f_n_train_250000_halflife_2.5_sigmaf_0.1_mv_res_True_inp_type_ret', 
+#  '20210503_GPGAUSS_1f_n_train_250000_halflife_2.5_sigmaf_0.2_mv_res_False_inp_type_f', 
+#  '20210503_GPGAUSS_1f_n_train_250000_halflife_2.5_sigmaf_0.2_mv_res_False_inp_type_ret', 
+#  '20210503_GPGAUSS_1f_n_train_250000_halflife_2.5_sigmaf_0.2_mv_res_True_inp_type_f', 
+#  '20210503_GPGAUSS_1f_n_train_250000_halflife_2.5_sigmaf_0.2_mv_res_True_inp_type_ret', 
+#  '20210503_GPGAUSS_1f_n_train_250000_halflife_66_sigmaf_0.1_mv_res_False_inp_type_f', 
+#  '20210503_GPGAUSS_1f_n_train_250000_halflife_66_sigmaf_0.1_mv_res_False_inp_type_ret', 
+#  '20210503_GPGAUSS_1f_n_train_250000_halflife_66_sigmaf_0.1_mv_res_True_inp_type_f', 
+#  '20210503_GPGAUSS_1f_n_train_250000_halflife_66_sigmaf_0.1_mv_res_True_inp_type_ret', 
+#  '20210503_GPGAUSS_1f_n_train_250000_halflife_66_sigmaf_0.2_mv_res_False_inp_type_f', 
+#  '20210503_GPGAUSS_1f_n_train_250000_halflife_66_sigmaf_0.2_mv_res_False_inp_type_ret', 
+#  '20210503_GPGAUSS_1f_n_train_250000_halflife_66_sigmaf_0.2_mv_res_True_inp_type_f', 
+#  '20210503_GPGAUSS_1f_n_train_250000_halflife_66_sigmaf_0.2_mv_res_True_inp_type_ret']
+ 
+#  ['20210503_GPGAUSS_1f_n_train_100000_halflife_126_sigmaf_0.1_mv_res_False_inp_type_f', 
+#  '20210503_GPGAUSS_1f_n_train_100000_halflife_126_sigmaf_0.1_mv_res_False_inp_type_ret', 
+#  '20210503_GPGAUSS_1f_n_train_100000_halflife_126_sigmaf_0.1_mv_res_True_inp_type_f', 
+#  '20210503_GPGAUSS_1f_n_train_100000_halflife_126_sigmaf_0.1_mv_res_True_inp_type_ret', 
+#  '20210503_GPGAUSS_1f_n_train_100000_halflife_126_sigmaf_0.2_mv_res_False_inp_type_f', 
+#  '20210503_GPGAUSS_1f_n_train_100000_halflife_126_sigmaf_0.2_mv_res_False_inp_type_ret', 
+#  '20210503_GPGAUSS_1f_n_train_100000_halflife_126_sigmaf_0.2_mv_res_True_inp_type_f', 
+#  '20210503_GPGAUSS_1f_n_train_100000_halflife_126_sigmaf_0.2_mv_res_True_inp_type_ret', 
+#  '20210503_GPGAUSS_1f_n_train_100000_halflife_2.5_sigmaf_0.1_mv_res_False_inp_type_f', 
+#  '20210503_GPGAUSS_1f_n_train_100000_halflife_2.5_sigmaf_0.1_mv_res_False_inp_type_ret', 
+#  '20210503_GPGAUSS_1f_n_train_100000_halflife_2.5_sigmaf_0.1_mv_res_True_inp_type_f', 
+#  '20210503_GPGAUSS_1f_n_train_100000_halflife_2.5_sigmaf_0.1_mv_res_True_inp_type_ret', 
+#  '20210503_GPGAUSS_1f_n_train_100000_halflife_2.5_sigmaf_0.2_mv_res_False_inp_type_f', 
+#  '20210503_GPGAUSS_1f_n_train_100000_halflife_2.5_sigmaf_0.2_mv_res_False_inp_type_ret', 
+#  '20210503_GPGAUSS_1f_n_train_100000_halflife_2.5_sigmaf_0.2_mv_res_True_inp_type_f', 
+#  '20210503_GPGAUSS_1f_n_train_100000_halflife_2.5_sigmaf_0.2_mv_res_True_inp_type_ret', 
+#  '20210503_GPGAUSS_1f_n_train_100000_halflife_66_sigmaf_0.1_mv_res_False_inp_type_f', 
+#  '20210503_GPGAUSS_1f_n_train_100000_halflife_66_sigmaf_0.1_mv_res_False_inp_type_ret', 
+#  '20210503_GPGAUSS_1f_n_train_100000_halflife_66_sigmaf_0.1_mv_res_True_inp_type_f', 
+#  '20210503_GPGAUSS_1f_n_train_100000_halflife_66_sigmaf_0.1_mv_res_True_inp_type_ret', 
+#  '20210503_GPGAUSS_1f_n_train_100000_halflife_66_sigmaf_0.2_mv_res_False_inp_type_f', 
+#  '20210503_GPGAUSS_1f_n_train_100000_halflife_66_sigmaf_0.2_mv_res_False_inp_type_ret', 
+#  '20210503_GPGAUSS_1f_n_train_100000_halflife_66_sigmaf_0.2_mv_res_True_inp_type_f', 
+#  '20210503_GPGAUSS_1f_n_train_100000_halflife_66_sigmaf_0.2_mv_res_True_inp_type_ret']
+
+
+
 ###################################### PPO ###########################################################
 
 # ['20210428_GPGAUSS_total_halflife_2.5_11_sigmaf_0.1_0.1_mv_res_False_inp_type_f', 

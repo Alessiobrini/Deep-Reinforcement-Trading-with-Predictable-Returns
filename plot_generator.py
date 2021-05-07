@@ -465,7 +465,87 @@ def runplot_holding(p):
     if '18' not in model.split('_')[0]:  
         fig2.suptitle('Res Actions: ' + split[0].replace("_", " "))
     
+
+
+def runplot_diagnostics(p):
+
+    # tODO as of now this plot visualize diagnostics for each seed of the experiment set.
+    outputClass = p["outputClass"]
+    tag = p["algo"]
+    if 'DQN' in tag:
+        hp = p["hyperparams_model_dqn"]
+        outputModels = p["outputModels_dqn"]
+    elif 'PPO' in tag:
+        hp = p["hyperparams_model_ppo"]
+        outputModels = p["outputModels_ppo"]
+
+
+    if hp is not None:
+        outputModel = [exp.format(*hp) for exp in outputModels]
+    else:
+        outputModel = outputModels
+
+    colors = ["blue", "y", "green", "black"]
+    # colors = []
+    random.seed(2212)  # 7156
+    for _ in range(len(outputModel)):
+        r = random.random()
+        b = random.random()
+        g = random.random()
+        color = (r, g, b)
+        colors.append(color)
+
+    for t in tag:
+
         
+        var_plot_diagnostics = p['var_plot_diagnostics'] 
+
+        for it, v in enumerate(var_plot_diagnostics):
+            for k, out_mode in enumerate(outputModel):
+                # read main folder
+                fig = plt.figure(figsize=set_size(width=1000.0))
+                # fig.subplots_adjust(wspace=0.2, hspace=0.6)
+                ax = fig.add_subplot()
+
+                modelpath = "outputs/{}/{}".format(outputClass, out_mode)
+
+                # get the latest created folder "length"
+                all_subdirs = [
+                    os.path.join(modelpath, d)
+                    for d in os.listdir(modelpath)
+                    if os.path.isdir(os.path.join(modelpath, d))
+                ]
+                latest_subdir = max(all_subdirs, key=os.path.getmtime)
+                length = os.path.split(latest_subdir)[-1]
+
+                data_dir = "outputs/{}/{}/{}".format(outputClass, out_mode, length)
+
+                # Recover and plot generated multi test OOS ----------------------------------------------------------------
+                filtered_dir = [
+                    dirname
+                    for dirname in os.listdir(data_dir)
+                    if os.path.isdir(os.path.join(os.getcwd(), data_dir, dirname))
+                ]
+                logging.info(
+                    "Plotting experiment {} for variable {}...".format(out_mode, v)
+                )
+                dfs = []
+                for exp in filtered_dir:
+                    exp_path = os.path.join(data_dir, exp)
+                    array = np.load(os.path.join(exp_path, v))
+                    df = pd.DataFrame(array, columns=[exp])
+
+                    dfs.append(df)
+
+                dataframe = pd.concat(dfs,axis=1)
+                dataframe.plot(ax=ax)
+                ax.set_title(out_mode)
+                ax.set_ylabel(v.split('.npy')[0])
+                ax.set_xlabel('Training time')
+                
+
+            logging.info("Plot saved successfully...")
+
 
 
 if __name__ == "__main__":
@@ -485,3 +565,5 @@ if __name__ == "__main__":
         runplot_holding(p)
     elif p["plot_type"] == "policy":
         runplot_policy(p)
+    elif p["plot_type"] == "diagnostics":
+        runplot_diagnostics(p)
