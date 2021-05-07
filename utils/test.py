@@ -152,7 +152,8 @@ class Out_sample_vs_gp:
                             )
 
                     elif test_agent.policy_type == "discrete":
-                        action = test_agent.action_space.values[dist.sample()]
+                        # action = test_agent.action_space.values[dist.sample()]
+                        action = test_agent.action_space.values[torch.max(dist.logits, axis=1)[1]]
 
                     if side_only:
                         action = get_bet_size(
