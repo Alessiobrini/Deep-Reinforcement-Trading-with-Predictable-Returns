@@ -9,7 +9,7 @@ from typing import Optional, Union
 import pdb
 import sys
 import gin
-
+import os
 
 # To set an initialization similar to TF2
 # https://discuss.pytorch.org/t/how-i-can-set-an-initialization-for-conv-kernels-similarly-to-keras/30473
@@ -168,12 +168,12 @@ class PPOActorCritic(nn.Module):
 
             logits = self.actor(x)
             # correct when logits contain nans
-            if torch.isnan(logits).sum() > 0:
-                logits = (
-                    torch.empty(logits.shape)
-                    .uniform_(-0.01, 0.01)
-                    .type(torch.FloatTensor)
-                )
+            # if torch.isnan(logits).sum() > 0:
+            #     logits = (
+            #         torch.empty(logits.shape)
+            #         .uniform_(-0.01, 0.01)
+            #         .type(torch.FloatTensor)
+            #     )
 
             dist = Categorical(logits=logits)
 
@@ -328,14 +328,21 @@ class PPO:
         else:
             self.scheduler = None
 
+        self.std_hist = []
+        self.entropy_hist = []
+
     def train(self, state, action, old_log_probs, return_, advantage):
         advantage = (advantage - advantage.mean()) / (advantage.std() + 1e-5)
 
         self.model.train()
         dist, value = self.model(state)
         entropy = dist.entropy().mean()
-        new_log_probs = dist.log_prob(action)
-
+        if self.policy_type == 'continuous':
+            new_log_probs = dist.log_prob(action)
+        elif self.policy_type == 'discrete':
+            new_log_probs = dist.log_prob(action.reshape(-1)).reshape(-1,1)
+        
+        
         ratio = (new_log_probs - old_log_probs).exp()  # log properties
         surr1 = ratio * advantage
         surr2 = (
@@ -355,6 +362,9 @@ class PPO:
 
         if self.scheduler:
             self.scheduler.step()
+
+        self.std_hist.append(self.model.log_std.exp().detach().cpu().numpy().ravel())
+        self.entropy_hist.append(entropy.detach().cpu().numpy().ravel())
 
     def act(self, states):
         # useful when the states are single dimensional
@@ -447,6 +457,10 @@ class PPO:
                     print()
                 except AttributeError as e:
                     self.getBack(n[0])
+
+    def save_diagnostics(self,path):
+        np.save(os.path.join(path, "std_hist"), np.array(self.std_hist))
+        np.save(os.path.join(path, "entropy_hist"), np.array(self.entropy_hist))
 
 
 if __name__ == "__main__":
