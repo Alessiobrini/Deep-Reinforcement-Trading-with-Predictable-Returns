@@ -328,8 +328,12 @@ class PPO:
         else:
             self.scheduler = None
 
-        self.std_hist = []
-        self.entropy_hist = []
+        if self.policy_type == 'continuous':
+            self.std_hist = []
+            self.entropy_hist = []
+        elif self.policy_type == 'discrete':
+            self.logits_hist = []
+            self.entropy_hist = []
 
     def train(self, state, action, old_log_probs, return_, advantage):
         advantage = (advantage - advantage.mean()) / (advantage.std() + 1e-5)
@@ -339,8 +343,12 @@ class PPO:
         entropy = dist.entropy().mean()
         if self.policy_type == 'continuous':
             new_log_probs = dist.log_prob(action)
+            self.std_hist.append(self.model.log_std.exp().detach().cpu().numpy().ravel())
+            self.entropy_hist.append(entropy.detach().cpu().numpy().ravel())
         elif self.policy_type == 'discrete':
             new_log_probs = dist.log_prob(action.reshape(-1)).reshape(-1,1)
+            self.logits_hist.append(dist.logits.detach().cpu().numpy())
+            self.entropy_hist.append(entropy.detach().cpu().numpy().ravel())
         
         
         ratio = (new_log_probs - old_log_probs).exp()  # log properties
@@ -363,8 +371,6 @@ class PPO:
         if self.scheduler:
             self.scheduler.step()
 
-        self.std_hist.append(self.model.log_std.exp().detach().cpu().numpy().ravel())
-        self.entropy_hist.append(entropy.detach().cpu().numpy().ravel())
 
     def act(self, states):
         # useful when the states are single dimensional
@@ -459,9 +465,12 @@ class PPO:
                     self.getBack(n[0])
 
     def save_diagnostics(self,path):
-        np.save(os.path.join(path, "std_hist"), np.array(self.std_hist))
-        np.save(os.path.join(path, "entropy_hist"), np.array(self.entropy_hist))
-
+        if self.policy_type == 'continuous':
+            np.save(os.path.join(path, "std_hist"), np.array(self.std_hist))
+            np.save(os.path.join(path, "entropy_hist"), np.array(self.entropy_hist))
+        elif self.policy_type == 'discrete':
+            np.save(os.path.join(path, "logits_hist"), np.array(self.logits_hist))
+            np.save(os.path.join(path, "entropy_hist"), np.array(self.entropy_hist))
 
 if __name__ == "__main__":
 
