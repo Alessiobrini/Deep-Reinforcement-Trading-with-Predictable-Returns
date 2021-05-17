@@ -198,7 +198,7 @@ class PPO_runner(MixinCore):
                 self.oos_test.run_test(it=e + 1, test_agent=self.train_agent)
 
         self.oos_test.save_series()
-        self.train_agent.save_diagnostics(path=self.savedpath)
+        # self.train_agent.save_diagnostics(path=self.savedpath)
 
 
         save_gin(os.path.join(self.savedpath, "config.gin"))
