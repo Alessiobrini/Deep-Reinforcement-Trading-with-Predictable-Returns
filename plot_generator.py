@@ -440,6 +440,7 @@ def runplot_holding(p):
             experiment_type=query("%EXPERIMENT_TYPE"),
             env_cls=MarketEnv,
             MV_res=query("%MV_RES"),
+            N_test=p['N_test']
         )
 
         res_df = oos_test.run_test(train_agent, return_output=True)
@@ -448,22 +449,22 @@ def runplot_holding(p):
         plot_action(res_df, tag[0], axes2[i])
         split = model.split("mv_res")
         axes[i].set_title(
-            "_".join(["mv_res", split[-1]]).replace("_", " "), fontsize=10
+            "_".join(["mv_res", split[-1]]).replace("_", " ") + 'halflife: {}'.format(model.split('halflife_')[1].split('_')[0]), fontsize=10
         )
         axes2[i].set_title(
-            "_".join(["mv_res", split[-1]]).replace("_", " "), fontsize=10
+            "_".join(["mv_res", split[-1]]).replace("_", " ") + 'halflife: {}'.format(model.split('halflife_')[1].split('_')[0]), fontsize=10
         )
 
-        if '18' not in model.split('_')[0]:
-            plot_action(res_df, tag[0], axes3[i], hist=True)
-            axes3[i].set_title(
-                "_".join(["mv_res", split[-1]]).replace("_", " "), fontsize=10
-            )
+        # if '18' not in model.split('_')[0]:
+        plot_action(res_df, tag[0], axes3[i], hist=True)
+        axes3[i].set_title(
+            "_".join(["mv_res", split[-1]]).replace("_", " ") + 'halflife: {}'.format(model.split('halflife_')[1].split('_')[0]), fontsize=10
+        )
 
-    fig.suptitle('Holdings: ' + split[0].replace("_", " "))
-    fig2.suptitle('Actions: ' + split[0].replace("_", " "))
-    if '18' not in model.split('_')[0]:  
-        fig2.suptitle('Res Actions: ' + split[0].replace("_", " "))
+    fig.suptitle('Holdings')
+    fig2.suptitle('Actions')
+    # if '18' not in model.split('_')[0]:  
+    fig3.suptitle('Res Actions')
     
 
 
