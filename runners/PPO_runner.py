@@ -42,6 +42,7 @@ class PPO_runner(MixinCore):
         episodes: int,
         epochs: int,
         len_series: Union[int or None],
+        dt: int,
         start_train: int,
         save_freq: int,
         use_GPU: bool,
@@ -60,6 +61,9 @@ class PPO_runner(MixinCore):
         self.rng = np.random.RandomState(self.seed)
 
         self.device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
+
+        if self.dt != 1.0:
+            self.len_series = self.len_series * (1/self.dt)
 
         self.N_train = self.episodes * self.len_series
         self.col_names_oos = [

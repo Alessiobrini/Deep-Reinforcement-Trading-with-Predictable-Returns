@@ -7,27 +7,27 @@ import agents.PPO
 # Macros:
 # ==============================================================================
 # Set up
-ALGO = 'PPO' # 'PPO', 'DQN' or 'DDPG'  
+ALGO = 'DQN' # 'PPO', 'DQN' 
 
 ENV_CLS = @MarketEnv 
 
 
 EXPERIMENT_TYPE = 'GP' # GP or Misspec
-MV_RES = [False, True]  # Decide which actions to take (trading quantity or MVresiduals)
+MV_RES = True  # Decide which actions to take (trading quantity or MVresiduals)
 UNIVERSAL_TRAIN = True
 
-EPISODES = 100  #None # episode to run the algorithm. Put None if you want to train DQN online
-N_TRAIN = None
-LEN_SERIES = 4000 #None # length of simulated series, if null the legth is N_train
+EPISODES = None  #None # episode to run the algorithm. Put None if you want to train DQN online
+N_TRAIN = 2000
+LEN_SERIES = None #None # length of simulated series, if null the legth is N_train
 EPOCHS = 3
 OUTPUTDIR = 'outputs' # main directory for the experiment
 OUTPUTCLASS = %ALGO # first subdirectory
-OUTPUTMODEL = '20210428_GPGAUSS_res' # second subdirectory
-SAVE_FREQ = 2  # number of checkpoints to save during training
-SEED =  [297, 932, 165,  26] #, 55, 44, 33, 22]  # seed for reproducibility
+OUTPUTMODEL = '20210508_test' # second subdirectory
+SAVE_FREQ = 100  # number of checkpoints to save during training
+SEED =  11 #[319, 467, 840,   3]  # seed for reproducibility
 START_TRAIN = 300 # steps after which the training starts
 USE_GPU = True
-VARYING_PARS = ['%MV_RES', '%INP_TYPE', '%SEED'] #['%N_TRAIN', '%HALFLIFE', '%SIGMAF', '%MV_RES', '%INP_TYPE', '%SEED']
+VARYING_PARS = None #['%HALFLIFE', '%SIGMAF',  '%SEED']
 VARYING_TYPE = 'chunk'
 NUM_CORES = 6
 
@@ -51,13 +51,13 @@ COSTMULTIPLIER = 0.01 # Cost multiplier to make the cost proportional to the ris
 STARTHOLDING = 0.0 # initial portfolio holding
 DISCOUNT_RATE = 0.0 # discount rate for time value of money (not gamma in DQN)
 KAPPA = 0.001 # risk aversion
-INP_TYPE = ['f','ret'] # 'f' or 'ret'
+INP_TYPE = 'ret' #['f','ret'] # 'f' or 'ret'
 
-
-HALFLIFE = [350] #[[66,630]] # list of Halflives of mean reversion
+DT = 0.2
+HALFLIFE = [5] #[ [5], [66], [252]] # [[2.5,11],[2.5,126],[66,630]] # list of Halflives of mean reversion
 SIGMA = 0.01 # return volatility
-SIGMAF = [0.2] #[[0.2, 0.1],[0.05, 0.1] ,[0.1, 0.1] ] #[[0.2, 0.1],[0.1, 0.1]] # list of factor volatilities
-F_PARAM = [0.004] #[0.004, 0.005] # list of factor loadings
+SIGMAF = [0.01] #[[0.2], [0.1], [0.05]] #[[0.2, 0.1] ,[0.1, 0.1] ] #[[0.2, 0.1],[0.1, 0.1]] # list of factor volatilities
+F_PARAM = [0.004] #, 0.005] # list of factor loadings
 QTS = [0.001,0.999] # quantile to select action boundaries
 ACTION_TYPE = 'MV' # GP or MV for selecting action boundaries
 UNCORRELATED = True # generate correlated or uncorrelated factors
@@ -95,6 +95,7 @@ DQN_runner.varying_type = %VARYING_TYPE
 DQN_runner.num_cores = %NUM_CORES
 DQN_runner.N_train = %N_TRAIN
 DQN_runner.len_series = %LEN_SERIES
+DQN_runner.dt = %DT
 
 
 # Parameters for DQN:
@@ -155,25 +156,26 @@ PPO_runner.varying_pars = %VARYING_PARS
 PPO_runner.varying_type = %VARYING_TYPE
 PPO_runner.num_cores = %NUM_CORES
 PPO_runner.len_series = %LEN_SERIES
+PPO_runner.dt = %DT
 PPO_runner.epochs = %EPOCHS
 PPO_runner.universal_train = %UNIVERSAL_TRAIN
 
 # Parameters for PPO:
 # ==============================================================================
 PPO.seed = %SEED
-PPO.gamma = 0.8 # discounting factor for the Q target
+PPO.gamma = 0.5 #0.8 # discounting factor for the Q target
 PPO.tau = 0.9 # lambda in the original GAE paper
-PPO.clip_param = 0.2 # clipping of objective function
+PPO.clip_param = 0.3 # clipping of objective function
 PPO.vf_c = 0.5 # coefficient for the value error
 PPO.ent_c = 0.0 # coefficient for entropy
 PPO.hidden_units_value = [256,128]
 PPO.hidden_units_actor = [128,64]
-PPO.batch_size =  125
+PPO.batch_size =  250
 PPO.lr = 0.0003 # initial learning rate
 PPO.activation = 'relu'
 PPO.batch_norm_input = True # batch norm at input layer level
 PPO.batch_norm_value_out = False # normalize value function output
-PPO.policy_type = 'continuous' #discrete or continuous
+PPO.policy_type = 'discrete' #discrete or continuous
 PPO.init_pol_std = 0.5 # initial policy std dev for stochasticity
 PPO.min_pol_std = 0.003 # minimum policy std dev for stochasticity
 PPO.std_transform = 'exp'
@@ -238,6 +240,7 @@ return_sampler_GP.uncorrelated = %UNCORRELATED
 return_sampler_GP.t_stud = %T_STUD
 return_sampler_GP.degrees = %DEGREES
 return_sampler_GP.vol = %VOL
+return_sampler_GP.dt = %DT
 
 
 return_sampler_garch.mean_process = %MEAN_PROCESS

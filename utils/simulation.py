@@ -120,6 +120,7 @@ def return_sampler_GP(
     t_stud: bool = False,
     degrees: int = 8,
     vol: str = "omosk",
+    dt: int = 1,
     disable_tqdm: bool = False,
 ) -> Tuple[
     Union[list or np.ndarray], Union[list or np.ndarray], Union[list or np.ndarray]
@@ -211,7 +212,7 @@ def return_sampler_GP(
             # multiply makes the hadamard (componentwise) product
             # if we want to add different volatility for different factors we could
             # add multiply also the the second part of the equation
-            f1 = np.multiply((1 - lambdas), f0) + np.multiply(sigmaf, eps[i])
+            f1 = np.multiply((1 - lambdas*dt), f0) + np.multiply(np.array(sigmaf)*np.sqrt(dt), eps[i])
             f.append(f1)
             f0 = f1
 
@@ -250,7 +251,7 @@ def return_sampler_GP(
             # multiply makes the hadamard (componentwise) product
             # if we want to add different volatility for different factors we could
             # add multiply also the the second part of the equation
-            f1 = np.multiply((1 - lambdas), f0) + eps[i]
+            f1 = np.multiply((1 - lambdas*dt), f0) + eps[i]*np.sqrt(dt)
             f.append(f1)
             f0 = f1
     else:

@@ -39,6 +39,7 @@ class DQN_runner(MixinCore):
         episodes: int,
         N_train: int,
         len_series: Union[int or None],
+        dt: int, 
         start_train: int,
         save_freq: int,
         use_GPU: bool,
@@ -64,6 +65,10 @@ class DQN_runner(MixinCore):
             tf.config.experimental.set_visible_devices(
                 devices=my_devices, device_type="CPU"
             )
+
+        if self.dt != 1.0:
+            # self.len_series = self.len_series * (1/self.dt)
+            self.N_train = int(self.N_train * (1/self.dt))
 
         if self.episodes:
             self.N_train = self.episodes * self.len_series
