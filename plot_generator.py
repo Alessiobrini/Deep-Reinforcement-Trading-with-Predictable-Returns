@@ -84,13 +84,18 @@ def runplot_metrics(p):
         var_plot = [v.format(format_tousands(N_test), t) for v in p['var_plots'] ]
 
         for it, v in enumerate(var_plot):
-
-            # read main folder
-            fig = plt.figure(figsize=set_size(width=1000.0))
-            # fig.subplots_adjust(wspace=0.2, hspace=0.6)
-            ax = fig.add_subplot()
+            # pdb.set_trace()
+            if not "Abs" in v and not 'Pdist' in v:
+                # read main folder
+                fig = plt.figure(figsize=set_size(width=1000)) #600
+                # fig.subplots_adjust(wspace=0.2, hspace=0.6)
+                ax = fig.add_subplot()
             for k, out_mode in enumerate(outputModel):
-
+                if "Abs" in v or 'Pdist' in v:
+                    # read main folder
+                    fig = plt.figure(figsize=set_size(width=1000)) #600
+                    # fig.subplots_adjust(wspace=0.2, hspace=0.6)
+                    ax = fig.add_subplot()
                 modelpath = "outputs/{}/{}".format(outputClass, out_mode)
 
                 # get the latest created folder "length"
@@ -147,7 +152,7 @@ def runplot_metrics(p):
                     dataframe_opt.index = range(len(dfs_opt))
                     if 'PPO' in tag and p['ep_ppo']:
                         dataframe_opt = dataframe_opt.iloc[:,:dataframe_opt.columns.get_loc(p['ep_ppo'])]
-
+                    # pdb.set_trace()
                     plot_abs_metrics(
                         ax,
                         dataframe,
@@ -159,13 +164,13 @@ def runplot_metrics(p):
                         i=it,
                     )
                     
-                    if 'Pdist' in v:
-                        std = 1e+10
-                        ax.set_ylim(0.0, 0.0 + std)
-                    else:
-                        value = dataframe_opt.iloc[0, 2]
-                        std = 25000
-                        ax.set_ylim(value - std, value + std)
+                    # if 'Pdist' in v:
+                    #     std = 1e+10
+                    #     ax.set_ylim(0.0, 0.0 + std)
+                    # else:
+                    #     value = dataframe_opt.iloc[0, 2]
+                    #     std = 25000
+                    #     ax.set_ylim(value - std, value + std)
 
 
                 else:
@@ -178,8 +183,9 @@ def runplot_metrics(p):
                         colors=colors[k],
                         params_path=filenamep,
                     )
-                    ax.set_ylim(20, 220)
+                    ax.set_ylim(-20, 150)
                 logging.info("Plot saved successfully...")
+
 
 
 def runplot_value(p):
@@ -448,18 +454,31 @@ def runplot_holding(p):
         plot_portfolio(res_df, tag[0], axes[i])
         plot_action(res_df, tag[0], axes2[i])
         split = model.split("mv_res")
-        axes[i].set_title(
-            "_".join(["mv_res", split[-1]]).replace("_", " ") + 'halflife: {}'.format(model.split('halflife_')[1].split('_')[0]), fontsize=10
-        )
-        axes2[i].set_title(
-            "_".join(["mv_res", split[-1]]).replace("_", " ") + 'halflife: {}'.format(model.split('halflife_')[1].split('_')[0]), fontsize=10
-        )
+        if 'halflife' in model:
+            axes[i].set_title(
+                "_".join(["mv_res", split[-1]]).replace("_", " ") + 'halflife: {}'.format(model.split('halflife_')[1].split('_')[0]), fontsize=10
+            )
+            axes2[i].set_title(
+                "_".join(["mv_res", split[-1]]).replace("_", " ") + 'halflife: {}'.format(model.split('halflife_')[1].split('_')[0]), fontsize=10
+            )
+        else:
+            axes[i].set_title(
+                "_".join(["mv_res", split[-1]]).replace("_", " ") , fontsize=10
+            )
+            axes2[i].set_title(
+                "_".join(["mv_res", split[-1]]).replace("_", " "), fontsize=10
+            )
 
         # if '18' not in model.split('_')[0]:
         plot_action(res_df, tag[0], axes3[i], hist=True)
-        axes3[i].set_title(
-            "_".join(["mv_res", split[-1]]).replace("_", " ") + 'halflife: {}'.format(model.split('halflife_')[1].split('_')[0]), fontsize=10
-        )
+        if 'halflife' in model:
+            axes3[i].set_title(
+                "_".join(["mv_res", split[-1]]).replace("_", " ") + 'halflife: {}'.format(model.split('halflife_')[1].split('_')[0]), fontsize=10
+            )
+        else:
+            axes3[i].set_title(
+                "_".join(["mv_res", split[-1]]).replace("_", " "), fontsize=10
+            )
 
     fig.suptitle('Holdings')
     fig2.suptitle('Actions')

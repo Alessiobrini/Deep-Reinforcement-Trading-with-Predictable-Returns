@@ -256,7 +256,7 @@ def plot_pct_metrics(
                 color="red",
             )
             # ax1.set_ylim(-10000,300)
-            ax1.set_ylim(0, 150)
+            # ax1.set_ylim(0, 150)
             # ax1.set_ylim(-150,150)
 
     else:
@@ -285,7 +285,7 @@ def plot_pct_metrics(
                 linewidth=4,
                 color="red",
             )
-            ax1.set_ylim(0, 150)
+            # ax1.set_ylim(0, 150)
 
     ax1.set_title(
         "{}: {} simulation".format(
@@ -295,7 +295,7 @@ def plot_pct_metrics(
     ax1.set_ylabel("% Reference {}".format(variable.split("_")[0]))
     ax1.set_xlabel("in-sample training iterations")
 
-    ax1.legend()
+    ax1.legend(fontsize=9)
     ax1.xaxis.set_major_formatter(ScalarFormatter())
     ax1.yaxis.set_major_formatter(ScalarFormatter())
 
