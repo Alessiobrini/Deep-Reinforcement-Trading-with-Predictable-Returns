@@ -2,6 +2,7 @@ from gin.config import configurable
 from gym.spaces.space import Space
 import numpy as np
 import gin
+gin.enter_interactive_mode()
 
 
 @gin.configurable()

@@ -86,13 +86,20 @@ class Out_sample_vs_gp:
                 data_handler.generate_returns()
                 # TODO check if these method really fit and change the parameters in the gin file
                 data_handler.estimate_parameters()
-
-            self.test_env = self.env_cls(
-                N_train=self.N_test,
-                f_speed=data_handler.f_speed,
-                returns=data_handler.returns,
-                factors=data_handler.factors,
-            )
+            
+            if data_handler.datatype  == 'alpha_term_structure':
+                self.test_env = self.env_cls(
+                    N_train=self.N_test,
+                    f_speed=data_handler.f_speed,
+                    returns=data_handler.returns,
+                )
+            else:
+                self.test_env = self.env_cls(
+                    N_train=self.N_test,
+                    f_speed=data_handler.f_speed,
+                    returns=data_handler.returns,
+                    factors=data_handler.factors,
+                )
 
             CurrState, _ = self.test_env.reset()
 
@@ -164,7 +171,7 @@ class Out_sample_vs_gp:
                             rng=self.rng,
                         )
                     if self.MV_res:
-                        NextState, Result, _ = self.test_env.MV_res_step(
+                        NextState, Result = self.test_env.MV_res_step(
                             CurrState.cpu(), action, i, tag="PPO"
                         )
                     else:
@@ -177,6 +184,7 @@ class Out_sample_vs_gp:
                 CurrState = NextState
 
                 # benchmark agent
+
                 NextOptState, OptResult = self.test_env.opt_step(
                     CurrOptState, OptRate, DiscFactorLoads, i
                 )

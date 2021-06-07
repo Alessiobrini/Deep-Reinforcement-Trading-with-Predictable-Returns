@@ -54,9 +54,12 @@ class DataHandler:
             # REMARK if you do t_studmfit and you want to compare the training over the same
             # series wrt t_stud, you need to simulate a series of lenght N_train + factor_lb[-1]
             # This is currently not implemented here
-            self.returns, self.factors, self.f_speed = return_sampler_GP(
-                N_train=self.N_train, rng=self.rng, disable_tqdm=disable_tqdm
-            )
+            if self.datatype == "alpha_term_structure":
+                self.returns, self.f_speed = alpha_term_structure_sampler(N_train=self.N_train, rng=self.rng)
+            else:
+                self.returns, self.factors, self.f_speed = return_sampler_GP(
+                    N_train=self.N_train, rng=self.rng, disable_tqdm=disable_tqdm
+                )
 
         elif self.datatype == "garch":
             self.returns, self.params = return_sampler_garch(
@@ -518,3 +521,33 @@ def return_sampler_garch(
     simulations = model.simulate(p, N_train) / 100
 
     return simulations["data"].values, p
+
+# https://courses.lumenlearning.com/waymakercollegealgebra/chapter/exponential-growth-and-decay/
+@gin.configurable()
+def alpha_term_structure_sampler(    
+    N_train: int,
+    HalfLife: Union[int or list or np.ndarray],
+    initial_alpha: Union[int or list or np.ndarray],
+    rng: np.random.mtrand.RandomState = None,
+    offset: int = 2,
+    generate_plot:bool = False):
+    
+
+    if rng:
+        initial_alpha = np.array([rng.uniform(val*(1-0.5),val*(1+0.5),1) for val in initial_alpha]).reshape(-1,)
+        HalfLife = np.array([rng.uniform(val*(1-0.5),val*(1+0.5),1) for val in HalfLife]).reshape(-1,)
+
+    alpha_n = len(HalfLife)
+    f_speed =  np.log(2)/HalfLife
+    t = np.arange(0,N_train+offset).repeat(alpha_n).reshape(-1,alpha_n)
+    alpha_terms = initial_alpha * np.e**(-f_speed*t)
+
+    if generate_plot:
+        fig,ax = plt.subplots()
+        ax.plot(alpha_terms)
+        ax.plot(alpha_terms.sum(axis=1), ls='--')
+        ax.set_title('Alpha term structure')
+
+
+    return alpha_terms.sum(axis=1), f_speed
+

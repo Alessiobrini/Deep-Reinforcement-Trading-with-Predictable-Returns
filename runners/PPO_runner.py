@@ -44,7 +44,6 @@ class PPO_runner(MixinCore):
         len_series: Union[int or None],
         dt: int,
         rollouts_pct_num: float,
-        start_train: int,
         save_freq: int,
         use_GPU: bool,
         outputDir: str = "outputs",
@@ -121,12 +120,19 @@ class PPO_runner(MixinCore):
             self.action_space = ActionSpace()
 
         self.logging.debug("Instantiating market environment")
-        self.env = self.env_cls(
-            N_train=self.N_train,
-            f_speed=self.data_handler.f_speed,
-            returns=self.data_handler.returns,
-            factors=self.data_handler.factors,
-        )
+        if self.data_handler.datatype  == 'alpha_term_structure':
+            self.env = self.env_cls(
+                N_train=self.N_train,
+                f_speed=self.data_handler.f_speed,
+                returns=self.data_handler.returns,
+            )
+        else:
+            self.env = self.env_cls(
+                N_train=self.N_train,
+                f_speed=self.data_handler.f_speed,
+                returns=self.data_handler.returns,
+                factors=self.data_handler.factors,
+            )
 
         self.logging.debug("Instantiating DQN model")
         input_shape = self.env.get_state_dim()
@@ -182,8 +188,9 @@ class PPO_runner(MixinCore):
                     self.data_handler.estimate_parameters()
 
                 self.env.returns = self.data_handler.returns
-                self.env.factors = self.data_handler.factors
-
+                if self.data_handler.datatype != "alpha_term_structure":
+                    self.env.factors = self.data_handler.factors
+            
             self.logging.debug("Training...")
 
             self.collect_rollouts()
@@ -298,7 +305,7 @@ class PPO_runner(MixinCore):
                 sys.exit()
 
             if self.MV_res:
-                next_state, Result, _ = self.env.MV_res_step(
+                next_state, Result = self.env.MV_res_step(
                     state, unscaled_action[0], i, tag="PPO"
                 )
             else:

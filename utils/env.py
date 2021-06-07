@@ -139,9 +139,12 @@ class MarketEnv(gym.Env):
         f_param: Union[float or list or np.ndarray],
         f_speed: Union[float or list or np.ndarray],
         returns: Union[list or np.ndarray],
-        factors: Union[list or np.ndarray],
+        factors: Union[list or np.ndarray] = None,
         action_limit: int = None,
         inp_type: str = "ret",
+        cost_type: str = 'quadratic',
+        cm1: float = 2.89E-4,
+        cm2: float = 7.91E-4,
         dates: pd.DatetimeIndex = None,
     ):
 
@@ -152,6 +155,8 @@ class MarketEnv(gym.Env):
         self.Startholding = Startholding
         self.sigma = sigma
         self.CostMultiplier = CostMultiplier
+        self.cm1 = cm1
+        self.cm2 = cm2
         self.kappa = kappa
         self.N_train = N_train
         self.discount_rate = discount_rate
@@ -161,15 +166,24 @@ class MarketEnv(gym.Env):
         self.factors = factors
         self.action_limit = action_limit
         self.inp_type = inp_type
+        self.cost_type = cost_type
 
-        colnames = ["returns"] + ["factor_" + str(hl) for hl in HalfLife]
+        if self.factors:
+            colnames = ["returns"] + ["factor_" + str(hl) for hl in HalfLife]
 
-        res_df = pd.DataFrame(
-            np.concatenate(
-                [np.array(self.returns).reshape(-1, 1), np.array(self.factors)], axis=1
-            ),
-            columns=colnames,
-        )
+            res_df = pd.DataFrame(
+                np.concatenate(
+                    [np.array(self.returns).reshape(-1, 1), np.array(self.factors)], axis=1
+                ),
+                columns=colnames,
+            )
+        else:
+            colnames = ["returns"] 
+
+            res_df = pd.DataFrame(
+                self.returns,
+                columns=colnames,
+            )
 
         self.dates = dates
         res_df = res_df.astype(np.float32)
@@ -188,7 +202,10 @@ class MarketEnv(gym.Env):
             currState = np.append(self.factors[0], self.Startholding)
             currRet = self.returns[0]
             return currState, currRet
-
+        elif self.inp_type == "alpha":
+            currState = np.array([self.returns[0], self.Startholding])
+            currFactor = None
+            return currState, currFactor
     def step(
         self,
         currState: Union[Tuple or np.ndarray],
@@ -224,15 +241,20 @@ class MarketEnv(gym.Env):
     ) -> Tuple[np.ndarray, dict, np.ndarray]:
 
         CurrHolding = currState[-1]
-        CurrFactors = self.factors[iteration]
-        # Traded quantity as for the Markovitz framework  (Mean-Variance framework)
-        OptNextHolding = (1 / (self.kappa * (self.sigma) ** 2)) * np.sum(
-            self.f_param * CurrFactors
-        )
+        if self.inp_type == 'alpha':
+            curr_alpha = currState[0]
+            # Traded quantity as for the Markovitz framework  (Mean-Variance framework)
+            OptNextHolding = (1 / (self.kappa * (self.sigma) ** 2)) * curr_alpha
+        else:
+            CurrFactors = self.factors[iteration]
+            # Traded quantity as for the Markovitz framework  (Mean-Variance framework)
+            OptNextHolding = (1 / (self.kappa * (self.sigma) ** 2)) * np.sum(
+                self.f_param * CurrFactors
+            )
+            nextFactors = self.factors[iteration + 1]
         # Compute optimal markovitz action
         MV_action = OptNextHolding - CurrHolding
 
-        nextFactors = self.factors[iteration + 1]
         nextRet = self.returns[iteration + 1]
         # if tag == "DDPG":
         #     shares_traded = unscale_action(self.action_limit, shares_traded)
@@ -241,7 +263,9 @@ class MarketEnv(gym.Env):
             nextState = np.array([nextRet, nextHolding], dtype=np.float32)
         elif self.inp_type == "f":
             nextState = np.append(nextFactors, nextHolding)
-
+        elif self.inp_type == "alpha":
+            nextState = np.array([nextRet, nextHolding], dtype=np.float32)
+        
         Result = self._getreward(
             currState, nextState, iteration, tag, res_action=shares_traded
         )
@@ -249,7 +273,7 @@ class MarketEnv(gym.Env):
         # if tag == "DDPG":
         #     Result["Reward_{}".format(tag)] = Result["Reward_{}".format(tag)]*0.0001
 
-        return nextState, Result, nextFactors
+        return nextState, Result
 
     def discrete_reset(self) -> np.ndarray:
         discretecurrState = np.array(
@@ -277,10 +301,16 @@ class MarketEnv(gym.Env):
         return discretenextState, Result
 
     def opt_reset(self) -> np.ndarray:
-        currOptState = np.array(
-            [self.returns[0], self.factors[0], self.Startholding], dtype=object
-        )
-        return currOptState
+        if self.inp_type == "alpha":
+            currOptState = np.array(
+                [self.returns[0], self.Startholding], dtype=object
+            )
+            return currOptState
+        else:
+            currOptState = np.array(
+                [self.returns[0], self.factors[0], self.Startholding], dtype=object
+            )
+            return currOptState
 
     def opt_step(
         self,
@@ -291,17 +321,25 @@ class MarketEnv(gym.Env):
         tag: str = "Opt",
     ) -> Tuple[np.ndarray, dict]:
 
-        CurrFactors = currOptState[1]
-        OptCurrHolding = currOptState[2]
-
-        # Optimal traded quantity between period
-        OptNextHolding = (1 - OptRate) * OptCurrHolding + OptRate * (
-            1 / (self.kappa * (self.sigma) ** 2)
-        ) * np.sum(DiscFactorLoads * CurrFactors)
-
-        nextReturns = self.returns[iteration + 1]
-        nextFactors = self.factors[iteration + 1]
-        nextOptState = (nextReturns, nextFactors, OptNextHolding)
+        
+        OptCurrHolding = currOptState[-1]
+        if self.inp_type == 'alpha':
+            Curralpha = currOptState[0]
+            # Optimal traded quantity between period
+            OptNextHolding = (1 - OptRate) * OptCurrHolding + OptRate * (
+                1 / (self.kappa * (self.sigma) ** 2)
+            ) * np.sum(DiscFactorLoads * Curralpha)
+            nextReturns = self.returns[iteration + 1]
+            nextOptState = (nextReturns, OptNextHolding)
+        else:
+            CurrFactors = currOptState[1]
+            # Optimal traded quantity between period
+            OptNextHolding = (1 - OptRate) * OptCurrHolding + OptRate * (
+                1 / (self.kappa * (self.sigma) ** 2)
+            ) * np.sum(DiscFactorLoads * CurrFactors)
+            nextFactors = self.factors[iteration + 1]
+            nextReturns = self.returns[iteration + 1]
+            nextOptState = (nextReturns, nextFactors, OptNextHolding)
 
         OptResult = self._get_opt_reward(currOptState, nextOptState, tag)
 
@@ -394,9 +432,14 @@ class MarketEnv(gym.Env):
         a = (-num1 + num2) / den
 
         OptRate = a / self.CostMultiplier
-        DiscFactorLoads = self.f_param / (
-            1 + self.f_speed * ((OptRate * self.CostMultiplier) / self.kappa)
-        )
+        if self.inp_type == "alpha":
+            DiscFactorLoads = 1 / (
+                1 + self.f_speed * ((OptRate * self.CostMultiplier) / self.kappa)
+            )
+        else:
+            DiscFactorLoads = self.f_param / (
+                1 + self.f_speed * ((OptRate * self.CostMultiplier) / self.kappa)
+            )
 
         return OptRate, DiscFactorLoads
 
@@ -413,10 +456,15 @@ class MarketEnv(gym.Env):
 
     def _totalcost(self, shares_traded: Union[float or int]) -> Union[float or int]:
 
-        Lambda = self.CostMultiplier * self.sigma ** 2
-        quadratic_costs = 0.5 * (shares_traded ** 2) * Lambda
+        if self.cost_type == 'quadratic':
+            Lambda = self.CostMultiplier * self.sigma ** 2
+            cost = 0.5 * (shares_traded ** 2) * Lambda
+        elif self.cost_type == 'nondiff':
+            #Kyle-Obizhaeva formulation
+            p, v = 40, 1E+6 
+            cost = self.cm1*np.abs(shares_traded) + (self.cm2 *shares_traded ** 2)/(0.01*p*v)
 
-        return quadratic_costs
+        return cost
 
     def _getreward(
         self,
@@ -465,8 +513,8 @@ class MarketEnv(gym.Env):
         # Remember that a state is a tuple (price, holding)
         # currRet = currOptState[0]
         nextRet = nextOptState[0]
-        OptCurrHolding = currOptState[2]
-        OptNextHolding = nextOptState[2]
+        OptCurrHolding = currOptState[-1]
+        OptNextHolding = nextOptState[-1]
 
         # Traded quantity between period
         OptNextAction = OptNextHolding - OptCurrHolding
