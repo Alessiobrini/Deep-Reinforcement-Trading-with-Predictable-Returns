@@ -454,15 +454,18 @@ class MarketEnv(gym.Env):
         idx = (np.abs(array - value)).argmin()
         return array[idx]
 
-    def _totalcost(self, shares_traded: Union[float or int]) -> Union[float or int]:
-
-        if self.cost_type == 'quadratic':
+    def _totalcost(self, shares_traded: Union[float or int], GP: bool = False) -> Union[float or int]:
+        if GP:
             Lambda = self.CostMultiplier * self.sigma ** 2
             cost = 0.5 * (shares_traded ** 2) * Lambda
-        elif self.cost_type == 'nondiff':
-            #Kyle-Obizhaeva formulation
-            p, v = 40, 1E+6 
-            cost = self.cm1*np.abs(shares_traded) + (self.cm2 *shares_traded ** 2)/(0.01*p*v)
+        else:
+            if self.cost_type == 'quadratic':
+                Lambda = self.CostMultiplier * self.sigma ** 2
+                cost = 0.5 * (shares_traded ** 2) * Lambda
+            elif self.cost_type == 'nondiff':
+                #Kyle-Obizhaeva formulation
+                p, v = 40, 1E+6 
+                cost = self.cm1*np.abs(shares_traded) + (self.cm2 *shares_traded ** 2)/(0.01*p*v)
 
         return cost
 
@@ -523,7 +526,7 @@ class MarketEnv(gym.Env):
         # Risk
         OptRisk = 0.5 * self.kappa * ((OptNextHolding) ** 2 * (self.sigma) ** 2)
         # Transaction costs
-        OptCost = self._totalcost(OptNextAction)
+        OptCost = self._totalcost(OptNextAction,GP=True)
         # Portfolio Variation including costs
         OptNetPNL = OptGrossPNL - OptCost
         # Compute reward
