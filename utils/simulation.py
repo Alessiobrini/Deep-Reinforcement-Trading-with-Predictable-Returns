@@ -55,7 +55,7 @@ class DataHandler:
             # series wrt t_stud, you need to simulate a series of lenght N_train + factor_lb[-1]
             # This is currently not implemented here
             if self.datatype == "alpha_term_structure":
-                self.returns, self.f_speed = alpha_term_structure_sampler(N_train=self.N_train, rng=self.rng)
+                self.returns, self.factors, self.f_speed = alpha_term_structure_sampler(N_train=self.N_train, rng=self.rng)
             else:
                 self.returns, self.factors, self.f_speed = return_sampler_GP(
                     N_train=self.N_train, rng=self.rng, disable_tqdm=disable_tqdm
@@ -528,6 +528,7 @@ def alpha_term_structure_sampler(
     N_train: int,
     HalfLife: Union[int or list or np.ndarray],
     initial_alpha: Union[int or list or np.ndarray],
+    f_param: Union[int or list or np.ndarray],
     rng: np.random.mtrand.RandomState = None,
     offset: int = 2,
     generate_plot:bool = False):
@@ -541,13 +542,18 @@ def alpha_term_structure_sampler(
     f_speed =  np.log(2)/HalfLife
     t = np.arange(0,N_train+offset).repeat(alpha_n).reshape(-1,alpha_n)
     alpha_terms = initial_alpha * np.e**(-f_speed*t)
-
+    
+    if sum(f_param) != 1.0:
+        print('Factor loadings for term structure do not sum to one.')
+        sys.exit()
+    alpha_structure = np.sum(np.array(f_param)* alpha_terms, axis=1)
     if generate_plot:
         fig,ax = plt.subplots()
         ax.plot(alpha_terms)
-        ax.plot(alpha_terms.sum(axis=1), ls='--')
+        ax.plot(alpha_structure, ls='--')
+        # ax.plot(alpha_terms.sum(axis=1), ls='--')
         ax.set_title('Alpha term structure')
+        # plt.show()
 
-
-    return alpha_terms.sum(axis=1), f_speed
+    return alpha_structure, alpha_terms, f_speed
 

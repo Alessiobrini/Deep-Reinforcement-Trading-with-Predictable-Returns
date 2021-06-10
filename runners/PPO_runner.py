@@ -120,19 +120,12 @@ class PPO_runner(MixinCore):
             self.action_space = ActionSpace()
 
         self.logging.debug("Instantiating market environment")
-        if self.data_handler.datatype  == 'alpha_term_structure':
-            self.env = self.env_cls(
-                N_train=self.N_train,
-                f_speed=self.data_handler.f_speed,
-                returns=self.data_handler.returns,
-            )
-        else:
-            self.env = self.env_cls(
-                N_train=self.N_train,
-                f_speed=self.data_handler.f_speed,
-                returns=self.data_handler.returns,
-                factors=self.data_handler.factors,
-            )
+        self.env = self.env_cls(
+            N_train=self.N_train,
+            f_speed=self.data_handler.f_speed,
+            returns=self.data_handler.returns,
+            factors=self.data_handler.factors,
+        )
 
         self.logging.debug("Instantiating DQN model")
         input_shape = self.env.get_state_dim()

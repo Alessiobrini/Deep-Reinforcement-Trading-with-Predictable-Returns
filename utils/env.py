@@ -168,22 +168,14 @@ class MarketEnv(gym.Env):
         self.inp_type = inp_type
         self.cost_type = cost_type
 
-        if self.factors:
-            colnames = ["returns"] + ["factor_" + str(hl) for hl in HalfLife]
+        colnames = ["returns"] + ["factor_" + str(hl) for hl in HalfLife]
 
-            res_df = pd.DataFrame(
-                np.concatenate(
-                    [np.array(self.returns).reshape(-1, 1), np.array(self.factors)], axis=1
-                ),
-                columns=colnames,
-            )
-        else:
-            colnames = ["returns"] 
-
-            res_df = pd.DataFrame(
-                self.returns,
-                columns=colnames,
-            )
+        res_df = pd.DataFrame(
+            np.concatenate(
+                [np.array(self.returns).reshape(-1, 1), np.array(self.factors)], axis=1
+            ),
+            columns=colnames,
+        )
 
         self.dates = dates
         res_df = res_df.astype(np.float32)
@@ -194,7 +186,7 @@ class MarketEnv(gym.Env):
         return state.shape
 
     def reset(self) -> Tuple[np.ndarray, np.ndarray]:
-        if self.inp_type == "ret":
+        if self.inp_type == "ret" or self.inp_type == "alpha":
             currState = np.array([self.returns[0], self.Startholding])
             currFactor = self.factors[0]
             return currState, currFactor
@@ -202,10 +194,7 @@ class MarketEnv(gym.Env):
             currState = np.append(self.factors[0], self.Startholding)
             currRet = self.returns[0]
             return currState, currRet
-        elif self.inp_type == "alpha":
-            currState = np.array([self.returns[0], self.Startholding])
-            currFactor = None
-            return currState, currFactor
+
     def step(
         self,
         currState: Union[Tuple or np.ndarray],
@@ -216,8 +205,6 @@ class MarketEnv(gym.Env):
 
         nextFactors = self.factors[iteration + 1]
         nextRet = self.returns[iteration + 1]
-        if tag == "DDPG":
-            shares_traded = unscale_action(self.action_limit, shares_traded)
 
         nextHolding = currState[-1] + shares_traded
         if self.inp_type == "ret":
@@ -226,9 +213,6 @@ class MarketEnv(gym.Env):
             nextState = np.append(nextFactors, nextHolding)
 
         Result = self._getreward(currState, nextState, iteration, tag)
-        # reward scaling
-        # if tag == "DDPG":
-        #     Result["Reward_{}".format(tag)] = Result["Reward_{}".format(tag)]*0.0001
 
         return nextState, Result, nextFactors
 
@@ -256,22 +240,15 @@ class MarketEnv(gym.Env):
         MV_action = OptNextHolding - CurrHolding
 
         nextRet = self.returns[iteration + 1]
-        # if tag == "DDPG":
-        #     shares_traded = unscale_action(self.action_limit, shares_traded)
         nextHolding = currState[-1] + MV_action * (1 - shares_traded)
-        if self.inp_type == "ret":
+        if self.inp_type == "ret" or self.inp_type == "alpha":
             nextState = np.array([nextRet, nextHolding], dtype=np.float32)
         elif self.inp_type == "f":
             nextState = np.append(nextFactors, nextHolding)
-        elif self.inp_type == "alpha":
-            nextState = np.array([nextRet, nextHolding], dtype=np.float32)
         
         Result = self._getreward(
             currState, nextState, iteration, tag, res_action=shares_traded
         )
-        # reward scaling
-        # if tag == "DDPG":
-        #     Result["Reward_{}".format(tag)] = Result["Reward_{}".format(tag)]*0.0001
 
         return nextState, Result
 
@@ -301,16 +278,10 @@ class MarketEnv(gym.Env):
         return discretenextState, Result
 
     def opt_reset(self) -> np.ndarray:
-        if self.inp_type == "alpha":
-            currOptState = np.array(
-                [self.returns[0], self.Startholding], dtype=object
-            )
-            return currOptState
-        else:
-            currOptState = np.array(
-                [self.returns[0], self.factors[0], self.Startholding], dtype=object
-            )
-            return currOptState
+        currOptState = np.array(
+            [self.returns[0], self.factors[0], self.Startholding], dtype=object
+        )
+        return currOptState
 
     def opt_step(
         self,
@@ -321,25 +292,15 @@ class MarketEnv(gym.Env):
         tag: str = "Opt",
     ) -> Tuple[np.ndarray, dict]:
 
-        
         OptCurrHolding = currOptState[-1]
-        if self.inp_type == 'alpha':
-            Curralpha = currOptState[0]
-            # Optimal traded quantity between period
-            OptNextHolding = (1 - OptRate) * OptCurrHolding + OptRate * (
-                1 / (self.kappa * (self.sigma) ** 2)
-            ) * np.sum(DiscFactorLoads * Curralpha)
-            nextReturns = self.returns[iteration + 1]
-            nextOptState = (nextReturns, OptNextHolding)
-        else:
-            CurrFactors = currOptState[1]
-            # Optimal traded quantity between period
-            OptNextHolding = (1 - OptRate) * OptCurrHolding + OptRate * (
-                1 / (self.kappa * (self.sigma) ** 2)
-            ) * np.sum(DiscFactorLoads * CurrFactors)
-            nextFactors = self.factors[iteration + 1]
-            nextReturns = self.returns[iteration + 1]
-            nextOptState = (nextReturns, nextFactors, OptNextHolding)
+        CurrFactors = currOptState[1]
+        # Optimal traded quantity between period
+        OptNextHolding = (1 - OptRate) * OptCurrHolding + OptRate * (
+            1 / (self.kappa * (self.sigma) ** 2)
+        ) * np.sum(DiscFactorLoads * CurrFactors)
+        nextFactors = self.factors[iteration + 1]
+        nextReturns = self.returns[iteration + 1]
+        nextOptState = (nextReturns, nextFactors, OptNextHolding)
 
         OptResult = self._get_opt_reward(currOptState, nextOptState, tag)
 
@@ -432,14 +393,10 @@ class MarketEnv(gym.Env):
         a = (-num1 + num2) / den
 
         OptRate = a / self.CostMultiplier
-        if self.inp_type == "alpha":
-            DiscFactorLoads = 1 / (
-                1 + self.f_speed * ((OptRate * self.CostMultiplier) / self.kappa)
-            )
-        else:
-            DiscFactorLoads = self.f_param / (
-                1 + self.f_speed * ((OptRate * self.CostMultiplier) / self.kappa)
-            )
+
+        DiscFactorLoads = self.f_param / (
+            1 + self.f_speed * ((OptRate * self.CostMultiplier) / self.kappa)
+        )
 
         return OptRate, DiscFactorLoads
 
@@ -454,18 +411,14 @@ class MarketEnv(gym.Env):
         idx = (np.abs(array - value)).argmin()
         return array[idx]
 
-    def _totalcost(self, shares_traded: Union[float or int], GP: bool = False) -> Union[float or int]:
-        if GP:
+    def _totalcost(self, shares_traded: Union[float or int]) -> Union[float or int]:
+        if self.cost_type == 'quadratic':
             Lambda = self.CostMultiplier * self.sigma ** 2
             cost = 0.5 * (shares_traded ** 2) * Lambda
-        else:
-            if self.cost_type == 'quadratic':
-                Lambda = self.CostMultiplier * self.sigma ** 2
-                cost = 0.5 * (shares_traded ** 2) * Lambda
-            elif self.cost_type == 'nondiff':
-                #Kyle-Obizhaeva formulation
-                p, v = 40, 1E+6 
-                cost = self.cm1*np.abs(shares_traded) + (self.cm2 *shares_traded ** 2)/(0.01*p*v)
+        elif self.cost_type == 'nondiff':
+            #Kyle-Obizhaeva formulation
+            p, v = 40, 1E+6 
+            cost = self.cm1*np.abs(shares_traded) + (self.cm2 *shares_traded ** 2)/(0.01*p*v)
 
         return cost
 
@@ -526,7 +479,7 @@ class MarketEnv(gym.Env):
         # Risk
         OptRisk = 0.5 * self.kappa * ((OptNextHolding) ** 2 * (self.sigma) ** 2)
         # Transaction costs
-        OptCost = self._totalcost(OptNextAction,GP=True)
+        OptCost = self._totalcost(OptNextAction)
         # Portfolio Variation including costs
         OptNetPNL = OptGrossPNL - OptCost
         # Compute reward

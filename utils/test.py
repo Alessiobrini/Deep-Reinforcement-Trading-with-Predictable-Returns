@@ -87,19 +87,12 @@ class Out_sample_vs_gp:
                 # TODO check if these method really fit and change the parameters in the gin file
                 data_handler.estimate_parameters()
             
-            if data_handler.datatype  == 'alpha_term_structure':
-                self.test_env = self.env_cls(
-                    N_train=self.N_test,
-                    f_speed=data_handler.f_speed,
-                    returns=data_handler.returns,
-                )
-            else:
-                self.test_env = self.env_cls(
-                    N_train=self.N_test,
-                    f_speed=data_handler.f_speed,
-                    returns=data_handler.returns,
-                    factors=data_handler.factors,
-                )
+            self.test_env = self.env_cls(
+                N_train=self.N_test,
+                f_speed=data_handler.f_speed,
+                returns=data_handler.returns,
+                factors=data_handler.factors,
+            )
 
             CurrState, _ = self.test_env.reset()
 
