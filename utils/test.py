@@ -77,8 +77,10 @@ class Out_sample_vs_gp:
         avg_pdist = []
 
         for s in seeds:
-
-            data_handler = DataHandler(N_train=self.N_test, rng=self.rng_test)
+            if 'alpha' in gin.query_parameter('%INP_TYPE'):
+                data_handler = DataHandler(N_train=self.N_test, rng=self.rng_test)
+            else:
+                data_handler = DataHandler(N_train=self.N_test, rng=self.rng_test)
 
             if self.experiment_type == "GP":
                 data_handler.generate_returns()

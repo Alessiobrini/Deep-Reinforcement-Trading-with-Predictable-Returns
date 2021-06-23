@@ -190,7 +190,7 @@ class MarketEnv(gym.Env):
             currState = np.array([self.returns[0], self.Startholding])
             currFactor = self.factors[0]
             return currState, currFactor
-        elif self.inp_type == "f":
+        elif self.inp_type == "f" or self.inp_type == "alpha_f":
             currState = np.append(self.factors[0], self.Startholding)
             currRet = self.returns[0]
             return currState, currRet
@@ -243,7 +243,7 @@ class MarketEnv(gym.Env):
         nextHolding = currState[-1] + MV_action * (1 - shares_traded)
         if self.inp_type == "ret" or self.inp_type == "alpha":
             nextState = np.array([nextRet, nextHolding], dtype=np.float32)
-        elif self.inp_type == "f":
+        elif self.inp_type == "f" or self.inp_type == "alpha_f":
             nextState = np.append(nextFactors, nextHolding)
         
         Result = self._getreward(
@@ -417,8 +417,10 @@ class MarketEnv(gym.Env):
             cost = 0.5 * (shares_traded ** 2) * Lambda
         elif self.cost_type == 'nondiff':
             #Kyle-Obizhaeva formulation
-            p, v = 40, 1E+6 
-            cost = self.cm1*np.abs(shares_traded) + (self.cm2 *shares_traded ** 2)/(0.01*p*v)
+            # p, v = 40, 1E+6 
+            Lambda = self.cm2 * self.sigma ** 2
+            quadcost = 0.5 * (shares_traded ** 2) * Lambda
+            cost = self.cm1*np.abs(shares_traded) + quadcost
 
         return cost
 

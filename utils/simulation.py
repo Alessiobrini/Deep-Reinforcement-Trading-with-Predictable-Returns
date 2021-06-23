@@ -535,7 +535,9 @@ def alpha_term_structure_sampler(
     
 
     if rng:
-        initial_alpha = np.array([rng.uniform(val*(1-0.5),val*(1+0.5),1) for val in initial_alpha]).reshape(-1,)
+        # initial_alpha = np.array([rng.uniform(val*(1-0.5),val*(1+0.5),1) for val in initial_alpha]).reshape(-1,)
+        # HalfLife = np.array([rng.uniform(val*(1-0.5),val*(1+0.5),1) for val in HalfLife]).reshape(-1,)
+        initial_alpha = np.array([rng.uniform(-val,val,1) for val in initial_alpha]).reshape(-1,)
         HalfLife = np.array([rng.uniform(val*(1-0.5),val*(1+0.5),1) for val in HalfLife]).reshape(-1,)
 
     alpha_n = len(HalfLife)
