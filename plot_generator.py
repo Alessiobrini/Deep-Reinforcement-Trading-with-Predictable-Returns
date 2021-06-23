@@ -17,16 +17,17 @@ import pandas as pd
 import numpy as np
 import random
 import matplotlib.pyplot as plt
+from matplotlib.offsetbox import AnchoredText
 from mpl_toolkits.axes_grid1.inset_locator import inset_axes
 from matplotlib import gridspec
 import tensorflow as tf
+from scipy.stats import ks_2samp,kstest,ttest_ind
 import pdb
 import seaborn as sns
-
 sns.set_style("darkgrid")
 import gin
-
 gin.enter_interactive_mode()
+from joblib import Parallel, delayed
 
 from utils.plot import (
     plot_pct_metrics,
@@ -37,6 +38,7 @@ from utils.plot import (
     load_PPOmodel,
     plot_portfolio,
     plot_action,
+    plot_costs
 )
 from utils.test import Out_sample_vs_gp
 from utils.env import MarketEnv
@@ -170,7 +172,8 @@ def runplot_metrics(p):
                     # else:
                     #     value = dataframe_opt.iloc[0, 2]
                     #     std = 25000
-                    #     ax.set_ylim(value - std, value + std)
+                    #     # ax.set_ylim(value - 0.5*std, value + 0.5*std)
+                    #     ax.set_ylim(-3000, 3000)
 
 
                 else:
@@ -241,6 +244,7 @@ def runplot_value(p):
             model, actions = load_PPOmodel(data_dir, p['ep_ppo'])
         else:
             model, actions = load_PPOmodel(data_dir, gin.query_parameter("%EPISODES"))
+
         plot_vf(model, actions, p['holding'], ax=ax, optimal=p['optimal'])
 
         ax.set_xlabel("y")
@@ -337,6 +341,163 @@ def runplot_policy(p):
     # )
 
 
+def runplot_distribution(p):
+
+    query = gin.query_parameter
+    outputClass = p["outputClass"]
+    tag = p["algo"]
+    seed = p["seed"]
+    
+    if 'DQN' in tag:
+        hp_exp = p["hyperparams_exp_dqn"]
+        outputModel = p["outputModel_dqn"]
+        experiment = p["experiment_dqn"]
+    elif 'PPO' in tag:
+        hp_exp = p["hyperparams_exp_ppo"]
+        outputModel = p["outputModel_ppo"]
+        experiment = p["experiment_ppo"]
+
+    if hp_exp:
+        outputModel = outputModel.format(*hp_exp)
+        experiment = experiment.format(*hp_exp, seed)
+
+
+    modelpath = "outputs/{}/{}".format(outputClass, outputModel)
+    # get the latest created folder "length"
+    all_subdirs = [
+        os.path.join(modelpath, d)
+        for d in os.listdir(modelpath)
+        if os.path.isdir(os.path.join(modelpath, d))
+    ]
+    latest_subdir = max(all_subdirs, key=os.path.getmtime)
+    length = os.path.split(latest_subdir)[-1]
+    data_dir = "outputs/{}/{}/{}/{}".format(
+        outputClass, outputModel, length, experiment
+    )
+
+
+    gin.parse_config_file(os.path.join(data_dir, "config.gin"), skip_unknown=True)
+    gin.bind_parameter('alpha_term_structure_sampler.generate_plot', p['generate_plot'])
+    p['N_test'] = gin.query_parameter('%LEN_SERIES')
+    
+    # gin.bind_parameter('Out_sample_vs_gp.rnd_state',p['random_state'])
+    rng = np.random.RandomState(query("%SEED"))
+
+    if query("%MV_RES"):
+        action_space = ResActionSpace()
+    else:
+        action_space = ActionSpace()
+
+    if query("%INP_TYPE") == "f" or query("%INP_TYPE") == "alpha_f":
+        input_shape = (len(query('%F_PARAM')) + 1,)
+    else:
+        input_shape = (2,)
+
+
+    if "DQN" in tag:
+        train_agent = DQN(
+            input_shape=input_shape, action_space=action_space, rng=rng
+        )
+        if p['n_dqn']:
+            train_agent.model = load_DQNmodel(
+                data_dir, p['n_dqn'], model=train_agent.model
+            )
+        else:
+            train_agent.model = load_DQNmodel(
+                    data_dir, query("%N_TRAIN"), model=train_agent.model
+                )
+
+    elif "PPO" in tag:
+        train_agent = PPO(
+            input_shape=input_shape, action_space=action_space, rng=rng
+        )
+
+        if p['ep_ppo']:
+            train_agent.model = load_PPOmodel(data_dir, p['ep_ppo'], model=train_agent.model)
+        else:
+            train_agent.model = load_PPOmodel(data_dir, gin.query_parameter("%EPISODES"), model=train_agent.model)
+    else:
+        print("Choose proper algorithm.")
+        sys.exit()
+
+    oos_test = Out_sample_vs_gp(
+        savedpath=None,
+        tag=tag[0],
+        experiment_type=query("%EXPERIMENT_TYPE"),
+        env_cls=MarketEnv,
+        MV_res=query("%MV_RES"),
+        N_test=p['N_test']
+    )
+
+    def parallel_test(seed,test_class,train_agent,data_dir,fullpath=False):
+        gin.parse_config_file(os.path.join(data_dir, "config.gin"), skip_unknown=True)
+        test_class.rnd_state = seed
+        res_df = oos_test.run_test(train_agent, return_output=True)
+        if fullpath:
+            return res_df['Reward_PPO'],res_df['OptReward']
+        else:
+            return res_df['Reward_PPO'].cumsum().values[-1],res_df['OptReward'].cumsum().values[-1]
+    rng_seeds = np.random.RandomState(14)
+    seeds = rng_seeds.choice(1000,p['n_seeds'])
+    rewards = Parallel(n_jobs=5)(delayed(parallel_test)(
+            s, oos_test,train_agent,data_dir,p['fullpath']) for s in seeds)
+
+    if p['fullpath']:
+
+        rewards_ppo = pd.concat(list(map(list, zip(*rewards)))[0],axis=1).cumsum()
+        rewards_gp = pd.concat(list(map(list, zip(*rewards)))[1],axis=1).cumsum()
+        fig = plt.figure(figsize=set_size(width=1000.0))
+        ax = fig.add_subplot()
+        # rewards.loc[:,:].cumsum().plot(ax=ax)
+        # rewards.loc[:len(rewards)//2,:].cumsum().plot(ax=ax)
+        rewards_ppo.mean(axis=1).plot(ax=ax, label='ppo_mean')
+        # ci = 2 * rewards_ppo.std(axis=1)
+        # ax.fill_between(list(rewards_ppo.index),(rewards_ppo.mean(axis=1) - ci), (rewards_ppo.mean(axis=1) + ci), color='tab:blue', alpha=0.5)
+        rewards_gp.mean(axis=1).plot(ax=ax, label='gp_mean')
+        # ci = 2 * rewards_gp.std(axis=1)
+        # ax.fill_between(list(rewards_ppo.index),(rewards_gp.mean(axis=1) - ci), (rewards_gp.mean(axis=1) + ci), color='tab:orange', alpha=0.5)
+        ax.set_xlabel("Cumulative reward")
+        ax.set_ylabel("Frequency")
+        ax.legend()
+
+        # fig = plt.figure(figsize=set_size(width=1000.0))
+        # ax = fig.add_subplot()
+        # rewards.loc[:,:].plot(ax=ax)
+        # rewards.loc[:len(rewards)//2,:].plot(ax=ax)
+        # ax.set_xlabel("Cumulative reward")
+        # ax.set_ylabel("Frequency")
+        # ax.legend()
+    else:
+        rewards = pd.DataFrame(data=np.array(rewards), columns=['ppo','gp'])
+
+        fig = plt.figure(figsize=set_size(width=1000.0))
+        ax = fig.add_subplot()
+        rewards['gp'].plot(ax=ax, kind='hist', alpha=0.7,color='tab:orange',bins=50)
+        rewards['ppo'].plot(ax=ax, kind='hist', color='tab:blue',bins=50)
+        ax.set_xlabel("Cumulative reward")
+        ax.set_ylabel("Frequency")
+        ax.legend()
+        means, stds = rewards.mean().values, rewards.std().values
+        ax.set_title('Means: PPO {:.2f} GP {:.2f} \n Stds: PPO {:.2f} GP {:.2f}'.format(*means,*stds))
+    
+        fig = plt.figure(figsize=set_size(width=1000.0))
+        ax = fig.add_subplot()
+        sns.kdeplot(rewards['gp'].values, bw_method=0.2,ax=ax,color='tab:orange')
+        sns.kdeplot(rewards['ppo'].values, bw_method=0.2,ax=ax,color='tab:blue')
+        ax.set_xlabel("Cumulative reward")
+        ax.set_ylabel("KDE")
+        ax.legend()
+        means, stds = rewards.mean().values, rewards.std().values
+        ax.set_title('Means: PPO {:.2f} GP {:.2f} \n Stds: PPO {:.2f} GP {:.2f}'.format(*means,*stds))
+        ax.legend(labels=['gp','ppo'],loc=2)
+    
+        KS, p_V = ks_2samp(rewards.values[:,0], rewards.values[:,1])
+        t, p_t = ttest_ind(rewards.values[:,0], rewards.values[:,1])
+        ks_text = AnchoredText("Ks Test: pvalue {:.2f} \n T Test: pvalue {:.2f}".format(p_V,p_t),loc=1,prop=dict(size=10))
+        ax.add_artist(ks_text)
+
+
+
 def runplot_holding(p):
 
     query = gin.query_parameter
@@ -367,22 +528,30 @@ def runplot_holding(p):
     ax4 = fig.add_subplot(gs[3])
     axes = [ax1, ax2, ax3, ax4]
 
-    fig2 = plt.figure(figsize=set_size(width=1000.0, subplots=(2, 2)))
-    gs2 = gridspec.GridSpec(ncols=2, nrows=2, figure=fig2)
-    ax12 = fig2.add_subplot(gs2[0])
-    ax22 = fig2.add_subplot(gs2[1])
-    ax32 = fig2.add_subplot(gs2[2])
-    ax42 = fig2.add_subplot(gs2[3])
-    axes2 = [ax12, ax22, ax32, ax42]
+    # fig2 = plt.figure(figsize=set_size(width=1000.0, subplots=(2, 2)))
+    # gs2 = gridspec.GridSpec(ncols=2, nrows=2, figure=fig2)
+    # ax12 = fig2.add_subplot(gs2[0])
+    # ax22 = fig2.add_subplot(gs2[1])
+    # ax32 = fig2.add_subplot(gs2[2])
+    # ax42 = fig2.add_subplot(gs2[3])
+    # axes2 = [ax12, ax22, ax32, ax42]
     
 
     fig3 = plt.figure(figsize=set_size(width=1000.0, subplots=(2, 2)))
-    gs3 = gridspec.GridSpec(ncols=2, nrows=2, figure=fig2)
+    gs3 = gridspec.GridSpec(ncols=2, nrows=2, figure=fig3)
     ax13 = fig3.add_subplot(gs3[0])
     ax23 = fig3.add_subplot(gs3[1])
     ax33 = fig3.add_subplot(gs3[2])
     ax43 = fig3.add_subplot(gs3[3])
     axes3 = [ax13, ax23, ax33, ax43]
+
+    # fig4 = plt.figure(figsize=set_size(width=1000.0, subplots=(2, 2)))
+    # gs4 = gridspec.GridSpec(ncols=2, nrows=2, figure=fig4)
+    # ax14 = fig4.add_subplot(gs3[0])
+    # ax24 = fig4.add_subplot(gs3[1])
+    # ax34 = fig4.add_subplot(gs3[2])
+    # ax44 = fig4.add_subplot(gs3[3])
+    # axes4 = [ax14, ax24, ax34, ax44]
 
     for i, model in enumerate(outputModel):
         modelpath = "outputs/{}/{}".format(outputClass, model)
@@ -402,7 +571,10 @@ def runplot_holding(p):
         data_dir = "outputs/{}/{}/{}/{}".format(outputClass, model, length, experiment)
 
         gin.parse_config_file(os.path.join(data_dir, "config.gin"), skip_unknown=True)
-
+        gin.bind_parameter('alpha_term_structure_sampler.generate_plot', p['generate_plot'])
+        p['N_test'] = gin.query_parameter('%LEN_SERIES')
+        
+        # gin.bind_parameter('Out_sample_vs_gp.rnd_state',p['random_state'])
         rng = np.random.RandomState(query("%SEED"))
 
         if query("%MV_RES"):
@@ -410,10 +582,11 @@ def runplot_holding(p):
         else:
             action_space = ActionSpace()
 
-        if query("%INP_TYPE") == "f":
+        if query("%INP_TYPE") == "f" or query("%INP_TYPE") == "alpha_f":
             input_shape = (len(query('%F_PARAM')) + 1,)
         else:
             input_shape = (2,)
+
 
         if "DQN" in tag:
             train_agent = DQN(
@@ -432,6 +605,7 @@ def runplot_holding(p):
             train_agent = PPO(
                 input_shape=input_shape, action_space=action_space, rng=rng
             )
+
             if p['ep_ppo']:
                 train_agent.model = load_PPOmodel(data_dir, p['ep_ppo'], model=train_agent.model)
             else:
@@ -452,38 +626,34 @@ def runplot_holding(p):
         res_df = oos_test.run_test(train_agent, return_output=True)
 
         plot_portfolio(res_df, tag[0], axes[i])
-        plot_action(res_df, tag[0], axes2[i])
+        # plot_action(res_df, tag[0], axes2[i])
         split = model.split("mv_res")
-        if 'halflife' in model:
-            axes[i].set_title(
-                "_".join(["mv_res", split[-1]]).replace("_", " ") + 'halflife: {}'.format(model.split('halflife_')[1].split('_')[0]), fontsize=10
-            )
-            axes2[i].set_title(
-                "_".join(["mv_res", split[-1]]).replace("_", " ") + 'halflife: {}'.format(model.split('halflife_')[1].split('_')[0]), fontsize=10
-            )
-        else:
-            axes[i].set_title(
-                "_".join(["mv_res", split[-1]]).replace("_", " ") , fontsize=10
-            )
-            axes2[i].set_title(
-                "_".join(["mv_res", split[-1]]).replace("_", " "), fontsize=10
-            )
 
-        # if '18' not in model.split('_')[0]:
+        axes[i].set_title(
+            "_".join(["mv_res", split[-1]]).replace("_", " ") , fontsize=10
+        )
+        # axes2[i].set_title(
+        #     "_".join(["mv_res", split[-1]]).replace("_", " "), fontsize=10
+        # )
+
+
         plot_action(res_df, tag[0], axes3[i], hist=True)
-        if 'halflife' in model:
-            axes3[i].set_title(
-                "_".join(["mv_res", split[-1]]).replace("_", " ") + 'halflife: {}'.format(model.split('halflife_')[1].split('_')[0]), fontsize=10
-            )
-        else:
-            axes3[i].set_title(
-                "_".join(["mv_res", split[-1]]).replace("_", " "), fontsize=10
-            )
+
+        axes3[i].set_title(
+            "_".join(["mv_res", split[-1]]).replace("_", " "), fontsize=10
+        )
+        
+        # plot_costs(res_df, tag[0], axes4[i], hist=False)
+
+        # axes4[i].set_title(
+        #     "_".join(["mv_res", split[-1]]).replace("_", " "), fontsize=10
+        # )
+
 
     fig.suptitle('Holdings')
-    fig2.suptitle('Actions')
-    # if '18' not in model.split('_')[0]:  
+    # fig2.suptitle('Actions')
     fig3.suptitle('Res Actions')
+    # fig3.suptitle('Cumulative Costs')
     
 
 
@@ -587,3 +757,5 @@ if __name__ == "__main__":
         runplot_policy(p)
     elif p["plot_type"] == "diagnostics":
         runplot_diagnostics(p)
+    elif p["plot_type"] == "dist":
+        runplot_distribution(p)
