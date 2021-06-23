@@ -138,7 +138,7 @@ class PPO_runner(MixinCore):
             input_shape=input_shape, action_space=self.action_space, rng=self.rng
         )
 
-        self.train_agent.model.to(self.device)
+        self.train_agent.add_tb_diagnostics(self.savedpath,self.epochs)
 
         self.logging.debug("Instantiating Out of sample tester")
         self.oos_test = Out_sample_vs_gp(
@@ -188,7 +188,7 @@ class PPO_runner(MixinCore):
 
             self.collect_rollouts()
 
-            self.update()
+            self.update(e)
 
             if self.save_freq and ((e + 1) % self.save_freq == 0):  # TODO or e+1?
 
@@ -325,21 +325,20 @@ class PPO_runner(MixinCore):
             # compute the advantage estimate from the given rollout
             self.train_agent.compute_gae(self.next_value.detach().cpu().numpy().ravel())
 
-    def update(self):
-        for _ in range(self.epochs):  # run for more than one epochs
-
-            for (
+    def update(self,episode):
+        for i in range(self.epochs):  # run for more than one epochs
+            for j,(
                 state,
                 action,
                 old_log_probs,
                 return_,
                 advantage,
-            ) in self.train_agent.ppo_iter():
+            ) in enumerate(self.train_agent.ppo_iter()):
 
-                self.train_agent.train(state, action, old_log_probs, return_, advantage)
+                self.train_agent.train(state, action, old_log_probs, return_, advantage, iteration=j, epoch=i, episode=episode)
 
             # recompute gae to avoid stale advantages
-            if _ == len(range(self.epochs)) - 1:
+            if i == len(range(self.epochs)) - 1:
                 pass
             else:
                 self.train_agent.compute_gae(

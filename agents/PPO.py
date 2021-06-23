@@ -4,6 +4,7 @@ import torch.nn.functional as F
 import torch.optim as optim
 from torch.optim.lr_scheduler import StepLR, ExponentialLR
 from torch.distributions import Normal, Categorical
+from torch.utils.tensorboard import SummaryWriter
 import numpy as np
 from typing import Optional, Union
 import pdb
@@ -36,7 +37,7 @@ class PPOActorCritic(nn.Module):
     ):
 
         super(PPOActorCritic, self).__init__()
-
+        self.seed = seed
         torch.manual_seed(seed)
         self.modelname = modelname
         # set dimensionality of input/output depending on the model
@@ -131,9 +132,9 @@ class PPOActorCritic(nn.Module):
         # TODO insert here flag for cont/discrete
         if self.policy_type == "continuous":
             if self.std_transform == "exp":
-                self.log_std = nn.Parameter(torch.ones(1, out_dim) * 0.0)
+                self.log_std = nn.Parameter(torch.ones(1, out_dim) * init_std)
             elif self.std_transform == "softplus":
-                self.log_std = nn.Parameter(torch.ones(1, out_dim) * 0.0)
+                self.log_std = nn.Parameter(torch.ones(1, out_dim) * init_std)
                 self.softplus = nn.Softplus()
                 self.init_std = init_std
                 self.min_std = min_std
@@ -243,6 +244,7 @@ class PPO:
         std_transform: str = "softplus",
         init_last_layers: str = "rescaled",
         rng=None,
+        store_diagnostics: bool = False,
         modelname: str = "PPO act_crt",
     ):
 
@@ -265,6 +267,7 @@ class PPO:
         self.policy_type = policy_type
         self.num_actions = self.action_space.get_n_actions(policy_type=self.policy_type)
         self.batch_norm_input = batch_norm_input
+        self.store_diagnostics = store_diagnostics
 
         self.experience = {
             "state": [],
@@ -334,8 +337,18 @@ class PPO:
         elif self.policy_type == 'discrete':
             self.logits_hist = []
             self.entropy_hist = []
+        self.total_loss = []
+        self.policy_objective = []
+        self.value_objective = []
+        self.entropy_objective = []
+        self.total_loss_byepoch = []
+        self.policy_objective_byepoch = []
+        self.value_objective_byepoch = []
+        self.entropy_objective_byepoch = []
+        self.std_hist_byepoch = []
 
-    def train(self, state, action, old_log_probs, return_, advantage):
+
+    def train(self, state, action, old_log_probs, return_, advantage, iteration, epoch, episode):
         advantage = (advantage - advantage.mean()) / (advantage.std() + 1e-5)
 
         self.model.train()
@@ -364,13 +377,49 @@ class PPO:
         # the loss is negated in order to be maximized
         self.loss = self.vf_c * critic_loss + actor_loss - self.ent_c * entropy
 
+        if self.store_diagnostics:
+            self.total_loss.append(self.loss.detach().cpu())
+            self.policy_objective.append(actor_loss.detach().cpu())
+            self.value_objective.append(self.vf_c * critic_loss.detach().cpu())
+            self.entropy_objective.append(-self.ent_c * entropy.detach().cpu())
+            self.std_hist.append(self.model.log_std.exp().detach().cpu().numpy().ravel())
+            if iteration == (self.n_batches-1):
+                self.total_loss_byepoch.append(np.mean(self.total_loss))
+                self.policy_objective_byepoch.append(np.mean(self.policy_objective))
+                self.value_objective_byepoch.append(np.mean(self.value_objective))
+                self.entropy_objective_byepoch.append(np.mean(self.entropy_objective))
+                self.std_hist_byepoch.append(self.std_hist)
+                self.epoch_counter += 1
+                if epoch == (self.n_epochs - 1):
+                    self.writer.add_scalar("Train/total_loss", np.mean(self.total_loss_byepoch), 
+                    episode)
+                    self.writer.add_scalar("Train/policy_objective", np.mean(self.policy_objective_byepoch), 
+                    episode)
+                    self.writer.add_scalar("Train/value_objective", np.mean(self.value_objective_byepoch), 
+                    episode)
+                    self.writer.add_scalar("Train/entropy_objective", np.mean(self.entropy_objective_byepoch), 
+                    episode)
+                    self.writer.add_scalar("Train/policy_std", np.mean(self.std_hist_byepoch), 
+                                        episode)
+                    self.writer.flush()
+
+                    self.total_loss_byepoch = []
+                    self.policy_objective_byepoch = []
+                    self.value_objective_byepoch = []
+                    self.entropy_objective_byepoch = []
+            
+                self.total_loss = []
+                self.policy_objective = []
+                self.value_objective = []
+                self.entropy_objective = []
+
+
         self.optimizer.zero_grad()
         self.loss.backward()
         self.optimizer.step()
 
         if self.scheduler:
             self.scheduler.step()
-
 
     def act(self, states):
         # useful when the states are single dimensional
@@ -441,6 +490,7 @@ class PPO:
         len_rollout = states.shape[0]
         ids = self.rng.permutation(len_rollout)
         ids = np.array_split(ids, len_rollout // self.batch_size)
+        self.n_batches = len(ids)
         for i in range(len(ids)):
 
             yield (
@@ -450,6 +500,12 @@ class PPO:
                 torch.from_numpy(returns[ids[i], :]).float().to(self.device),
                 torch.from_numpy(advantage[ids[i], :]).float().to(self.device),
             )
+
+    def add_tb_diagnostics(self,path,n_epochs):
+        log_dir = os.path.join(path, "tb")
+        self.writer = SummaryWriter(log_dir)
+        self.epoch_counter = 0
+        self.n_epochs = n_epochs
 
     def getBack(self, var_grad_fn):
         print(var_grad_fn)
