@@ -174,6 +174,8 @@ def runplot_metrics(p):
                     #     std = 25000
                     #     # ax.set_ylim(value - 0.5*std, value + 0.5*std)
                     #     ax.set_ylim(-3000, 3000)
+                    
+                    ax.set_ylim(ymin=0)
 
 
                 else:
@@ -439,7 +441,7 @@ def runplot_distribution(p):
             return res_df['Reward_PPO'].cumsum().values[-1],res_df['OptReward'].cumsum().values[-1]
     rng_seeds = np.random.RandomState(14)
     seeds = rng_seeds.choice(1000,p['n_seeds'])
-    rewards = Parallel(n_jobs=5)(delayed(parallel_test)(
+    rewards = Parallel(n_jobs=p['cores'])(delayed(parallel_test)(
             s, oos_test,train_agent,data_dir,p['fullpath']) for s in seeds)
 
     if p['fullpath']:
@@ -478,7 +480,8 @@ def runplot_distribution(p):
         ax.set_ylabel("Frequency")
         ax.legend()
         means, stds = rewards.mean().values, rewards.std().values
-        ax.set_title('Means: PPO {:.2f} GP {:.2f} \n Stds: PPO {:.2f} GP {:.2f}'.format(*means,*stds))
+        ax.set_title('{} Obs \n Means: PPO {:.2f} GP {:.2f} \n Stds: PPO {:.2f} GP {:.2f}'.format(len(rewards),*means,*stds))
+        fig.savefig(os.path.join(data_dir, "cumreward_hist.png"), dpi=300)
     
         fig = plt.figure(figsize=set_size(width=1000.0))
         ax = fig.add_subplot()
@@ -488,15 +491,17 @@ def runplot_distribution(p):
         ax.set_ylabel("KDE")
         ax.legend()
         means, stds = rewards.mean().values, rewards.std().values
-        ax.set_title('Means: PPO {:.2f} GP {:.2f} \n Stds: PPO {:.2f} GP {:.2f}'.format(*means,*stds))
+        ax.set_title('{} Obs \n Means: PPO {:.2f} GP {:.2f} \n Stds: PPO {:.2f} GP {:.2f}'.format(len(rewards),*means,*stds))
         ax.legend(labels=['gp','ppo'],loc=2)
     
         KS, p_V = ks_2samp(rewards.values[:,0], rewards.values[:,1])
         t, p_t = ttest_ind(rewards.values[:,0], rewards.values[:,1])
         ks_text = AnchoredText("Ks Test: pvalue {:.2f} \n T Test: pvalue {:.2f}".format(p_V,p_t),loc=1,prop=dict(size=10))
         ax.add_artist(ks_text)
+        fig.savefig(os.path.join(data_dir, "cumreward_density.png"), dpi=300)
 
-
+    
+    
 
 def runplot_holding(p):
 

@@ -8,10 +8,11 @@
 # as long as the folder path in the list "outputModel" contains relevant experiment to plot
 # MULTI TEST OOS PARAMS
 ############################### LAUNCH SIMULATIONS ##############################
-N_test: 250 # Length of OOS test
-n_seeds : 500 # Number of OOS test to perform for each agent at each checkpoint
+N_test: 200 # Length of OOS test
+n_seeds : 1000 # Number of OOS test to perform for each agent at each checkpoint
+cores: 3
 random_state : 765  # Seed for experiment reproducibility OOS. Used to draw "n_seeds" for OOS testing
-use_GPU : True
+use_GPU : False
 varying_type : 'chunk'
 varying_pars: ['outputModel'] 
 #########################################################################################################
@@ -24,14 +25,14 @@ optimal : True
 holding: null #5000.0 # null #0.3e+5
 outputDir: 'outputs'
 outputClass: 'PPO'
-seed : '24'
+seed : '281'
 var_plots : [
     # "NetPnl_OOS_{}_{}.parquet.gzip",
     # "Reward_OOS_{}_{}.parquet.gzip",
     # "SR_OOS_{}_{}.parquet.gzip",
     # "PnLstd_OOS_{}_{}.parquet.gzip",
     # "Pdist_OOS_{}_GP.parquet.gzip",
-    # "AbsNetPnl_OOS_{}_{}.parquet.gzip",
+    "AbsNetPnl_OOS_{}_{}.parquet.gzip",
     'AbsRew_OOS_{}_{}.parquet.gzip',
     # "AbsHold_OOS_{}_{}.parquet.gzip",
     # 'AbsSR_OOS_{}_{}.parquet.gzip',
@@ -67,109 +68,20 @@ outputModels_dqn: ['20210508_GPGAUSS_mvres_sens_halflife_66_sigmaf_0.05',
 # '20210428_GPGAUSS_tot_sens_n_train_{}_halflife_{}_sigmaf_{}_mv_res_{}_inp_type_{}'
 
 ep_ppo: #'rnd'
-experiment_ppo: 'cm1_0.0005_initial_alpha_{}_seed_{}'
-hyperparams_model_ppo: [ 0.0004] #['500','0.98']  # only for metrics and holding type of plot
-hyperparams_exp_ppo: [ 0.0004] #['nondiff',0.005] #['500','0.98']# for policy and value type of plot
-outputModel_ppo: '20210623_nondiffcosts_cm1_0.0005_initial_alpha_{}'
-outputModels_ppo: ['20210623_nondiffcosts_cm1_0.0005_initial_alpha_{}', 
- '20210623_nondiffcosts_cm1_0.001_initial_alpha_{}', 
- '20210623_nondiffcosts_cm1_0.005_initial_alpha_{}', 
- '20210623_nondiffcosts_cm1_0.01_initial_alpha_{}']
+experiment_ppo: 'costmultiplier_0.001_kappa_{}_seed_{}'
+hyperparams_model_ppo: [ 0.0001] #['500','0.98']  # only for metrics and holding type of plot
+hyperparams_exp_ppo: [ 0.0001] #['nondiff',0.005] #['500','0.98']# for policy and value type of plot
+outputModel_ppo: '20210623_general_quadratic_costmultiplier_0.001_kappa_{}'
+outputModels_ppo:   ['20210623_general_quadratic_costmultiplier_0.0005_kappa_{}', 
+  '20210623_general_quadratic_costmultiplier_0.001_kappa_{}', 
+  '20210623_general_quadratic_costmultiplier_0.005_kappa_{}']
 
-
-
-# lenght rollouts sens batch [25,50], epochs [3,6] init [0.04, 0.004, 0.0004]
-# ['20210621_rollouts_len_series_100_initial_alpha_{}_batch_size_{}_epochs_{}', 
-#  '20210621_rollouts_len_series_200_initial_alpha_{}_batch_size_{}_epochs_{}', 
-#  '20210621_rollouts_len_series_350_initial_alpha_{}_batch_size_{}_epochs_{}', 
-#  '20210621_rollouts_len_series_500_initial_alpha_{}_batch_size_{}_epochs_{}']
-
-# sigma initalpha [0.0001, 0.001, 0.004, 0.04, 0.0025] cm [0.0005,0.001,0.005,0.0001,0.00005,0.00001] kappa [0.001,0.0005,0.005, 0.0001]
-# best example [ 0.004,0.0005,0.001] with sigma 0.05
-# ['20210620_sigma_ret_initial_alpha_{}_sigma_0.001_costmultiplier_{}_kappa_{}', 
-#   '20210620_sigma_ret_initial_alpha_{}_sigma_0.005_costmultiplier_{}_kappa_{}', 
-#   '20210620_sigma_ret_initial_alpha_{}_sigma_0.01_costmultiplier_{}_kappa_{}', 
-#   '20210620_sigma_ret_initial_alpha_{}_sigma_0.05_costmultiplier_{}_kappa_{}']
-
-# actions initalpha [0.0001, 0.001, 0.004, 0.04, 0.0025] cm [0.0005,0.001,0.005,0.0001,0.00005,0.00001] kappa [0.001,0.0005,0.005, 0.0001]
-# ['20210619_actions_initial_alpha_{}_action_range_res_-0.5_1.0_10_costmultiplier_{}_kappa_{}', 
-#  '20210619_actions_initial_alpha_{}_action_range_res_-1.0_1.0_10_costmultiplier_{}_kappa_{}', 
-#  '20210619_actions_initial_alpha_{}_action_range_res_-2.0_1.0_10_costmultiplier_{}_kappa_{}', 
-#  '20210619_actions_initial_alpha_{}_action_range_res_0.0_1.0_10_costmultiplier_{}_kappa_{}', ]
-
-#gen training cm [0.0005,0.001,0.005,0.0001,0.00005,0.00001] kappa [0.001,0.0005,0.005, 0.0001]  initalpha [0.0001, 0.001, 0.004, 0.04, 0.0025]
-# ['20210619_generalized_training_initial_alpha_{}_halflife_10_costmultiplier_{}_kappa_{}', 
-#   '20210619_generalized_training_initial_alpha_{}_halflife_50_costmultiplier_{}_kappa_{}', 
-#   '20210619_generalized_training_initial_alpha_{}_halflife_100_costmultiplier_{}_kappa_{}', 
-#   '20210619_generalized_training_initial_alpha_{}_halflife_200_costmultiplier_{}_kappa_{}']
-
-
-# nondiff costs cm [0.0005,0.001,0.005,0.0001,0.00005,0.00001] kappa [0.001,0.0005,0.005, 0.0001] 
-#[0.005,0.001] 
-# ['20210618_convergence_nondiff_gp_halflife_10_cm1_{}_kappa_{}'
-#  '20210618_convergence_nondiff_gp_halflife_25_cm1_{}_kappa_{}'
-#  '20210618_convergence_nondiff_gp_halflife_50_cm1_{}_kappa_{}'
-#  '20210618_convergence_nondiff_gp_halflife_200_cm1_{}_kappa_{}']
-
-
-# ['20210618_2hl_lenrollout_study2_halflife_10_5_cost_type_{}_kappa_{}', 
-#  '20210618_2hl_lenrollout_study2_halflife_30_15_cost_type_{}_kappa_{}', 
-#  '20210618_2hl_lenrollout_study2_halflife_100_50_cost_type_{}_kappa_{}', 
-#  '20210618_2hl_lenrollout_study2_halflife_200_100_cost_type_{}_kappa_{}']
-
-
-# CM1 and CM2 from 0.1 to 0.00005
-# ['20210616_nondiffcosts_study_halflife_5_cm1_{}_cm2_{}', 
-# '20210616_nondiffcosts_study_halflife_25_cm1_{}_cm2_{}', 
-# '20210616_nondiffcosts_study_halflife_50_cm1_{}_cm2_{}', 
-# '20210616_nondiffcosts_study_halflife_100_cm1_{}_cm2_{}', 
-# '20210616_nondiffcosts_study_halflife_200_cm1_{}_cm2_{}']
-
-# CM from 0.1 to 0.00005
-# the halflife 100 starts to track GP well with a cm belowe 0.01
-# ['20210616_quadratic_study_halflife_5_costmultiplier_{}', 
-# '20210616_quadratic_study_halflife_25_costmultiplier_{}',
-# '20210616_quadratic_study_halflife_100_costmultiplier_{}',
-# '20210616_quadratic_study_halflife_200_costmultiplier_{}',]
-
-
-# lenseries 250 or 500, clip_param 0.1 or 0.25, cm 0.001 or 0.0005 [250,0.0005,0.1] 
-# there is the effect I suspected. The convergence with lenseries 500 is hard when the halflife is small.
-# There are a lot of zeros in the training data
-# ['20210615_convergence_study_len_series_{}_halflife_5_costmultiplier_{}_clip_param_{}', 
-#   '20210615_convergence_study_len_series_{}_halflife_25_costmultiplier_{}_clip_param_{}', 
-#   '20210615_convergence_study_len_series_{}_halflife_50_costmultiplier_{}_clip_param_{}',
-#   '20210615_convergence_study_len_series_{}_halflife_100_costmultiplier_{}_clip_param_{}', 
-#   '20210615_convergence_study_len_series_{}_halflife_200_costmultiplier_{}_clip_param_{}']
-
-# costmultiplier 0.001 and lenseries 250 for halflife 5,295 with step of 510
-# with quadratic costs, after 90 halflife, RL trades more
-# wit nondiff costs, which I've put too high, the RL learns not to trade, to avoid costs
-# ['20210616_hl_lenrollout_study_halflife_5_cost_type_{}', 
-# '20210616_hl_lenrollout_study_halflife_15_cost_type_{}', 
-# '20210616_hl_lenrollout_study_halflife_25_cost_type_{}', 
-# '20210616_hl_lenrollout_study_halflife_35_cost_type_{}', ]
-
-# ['20210616_hl_lenrollout_study_halflife_45_cost_type_{}', 
-# '20210616_hl_lenrollout_study_halflife_55_cost_type_{}', 
-# '20210616_hl_lenrollout_study_halflife_65_cost_type_{}', 
-# '20210616_hl_lenrollout_study_halflife_75_cost_type_{}', ]
-
-# ['20210616_hl_lenrollout_study_halflife_85_cost_type_{}', 
-# '20210616_hl_lenrollout_study_halflife_95_cost_type_{}', 
-# '20210616_hl_lenrollout_study_halflife_105_cost_type_{}', 
-# '20210616_hl_lenrollout_study_halflife_115_cost_type_{}', ]
-
-# costmultiplier 0.01 and lenseries 500 for halflife 5,395 with step of 5
-# ['20210615_diagnostic_hl_study_halflife_5', 
-# '20210615_diagnostic_hl_study_halflife_10', 
-# '20210615_diagnostic_hl_study_halflife_15', 
-# '20210615_diagnostic_hl_study_halflife_20']
-
-# ['20210615_diagnostic_hl_study_halflife_25', 
-# '20210615_diagnostic_hl_study_halflife_30', 
-# '20210615_diagnostic_hl_study_halflife_35', 
-# '20210615_diagnostic_hl_study_halflife_40']
+# ['20210623_general_nondiff_costmultiplier_0.0005_kappa_{}', 
+#  '20210623_general_nondiff_costmultiplier_0.001_kappa_{}', 
+#  '20210623_general_nondiff_costmultiplier_0.005_kappa_{}']
+  # ['20210623_general_quadratic_costmultiplier_0.0005_kappa_{}', 
+  # '20210623_general_quadratic_costmultiplier_{}_kappa_{}', 
+  # '20210623_general_quadratic_costmultiplier_0.005_kappa_{}']
 
 #############################################################################################################
 # len rollouts
