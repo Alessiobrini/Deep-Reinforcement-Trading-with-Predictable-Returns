@@ -10,7 +10,8 @@ paramMisspecDQN.yaml
 paramMisspecPPO.yaml
 paramMultiTestOOS.yaml
 utils/variance_analysis.py
-
+data_generator.py
+exp_decay_test.py
 
 # Byte-compiled / optimized / DLL files
 __pycache__/
