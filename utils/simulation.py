@@ -529,22 +529,31 @@ def alpha_term_structure_sampler(
     HalfLife: Union[int or list or np.ndarray],
     initial_alpha: Union[int or list or np.ndarray],
     f_param: Union[int or list or np.ndarray],
+    sigmaf: Union[int or list or np.ndarray]= None,
     rng: np.random.mtrand.RandomState = None,
     offset: int = 2,
     generate_plot:bool = False):
     
 
     if rng:
-        # initial_alpha = np.array([rng.uniform(val*(1-0.5),val*(1+0.5),1) for val in initial_alpha]).reshape(-1,)
-        # HalfLife = np.array([rng.uniform(val*(1-0.5),val*(1+0.5),1) for val in HalfLife]).reshape(-1,)
         initial_alpha = np.array([rng.uniform(-val,val,1) for val in initial_alpha]).reshape(-1,)
-        # HalfLife = np.array([rng.uniform(val*(1-0.5),val*(1+0.5),1) for val in HalfLife]).reshape(-1,)
-        HalfLife = np.array([rng.uniform(5,int(N_train * 0.75),1) for _ in initial_alpha]).reshape(-1,)
+        if 'truncate' in HalfLife:
+            HalfLife = np.array([rng.uniform(int(N_train * 0.85),int(N_train * 1.25),1) for _ in initial_alpha]).reshape(-1,)
+        elif None in HalfLife:
+            HalfLife = np.array([rng.uniform(5,int(N_train * 0.75),1) for _ in initial_alpha]).reshape(-1,)
+        else:
+            HalfLife = np.array([rng.uniform(val*(1-0.5),val*(1+0.5),1) for val in HalfLife]).reshape(-1,)
 
     alpha_n = len(HalfLife)
     f_speed =  np.log(2)/HalfLife
     t = np.arange(0,N_train+offset).repeat(alpha_n).reshape(-1,alpha_n)
     alpha_terms = initial_alpha * np.e**(-f_speed*t)
+
+    if None not in sigmaf:
+        noise_magnitude = np.cumsum(sigmaf*t).reshape(-1,alpha_n)
+        noise = noise_magnitude * rng.normal(size=(len(t),alpha_n))
+        alpha_terms = alpha_terms + noise
+
     
     if sum(f_param) != 1.0:
         print('Factor loadings for term structure do not sum to one.')
