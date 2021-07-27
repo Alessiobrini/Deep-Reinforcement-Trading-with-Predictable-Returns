@@ -134,6 +134,7 @@ class PPO_runner(MixinCore):
             self.len_series / gin.query_parameter("PPO.batch_size")
         ) * gin.query_parameter("%EPOCHS")
         gin.bind_parameter("PPO.step_size", step_size)
+
         self.train_agent = PPO(
             input_shape=input_shape, action_space=self.action_space, rng=self.rng
         )
@@ -266,7 +267,7 @@ class PPO_runner(MixinCore):
         state, _ = self.env.reset()
         self.train_agent.reset_experience()
 
-        for i in range(len(self.env.returns) - 1):
+        for i in range(len(self.env.returns) - 2):
             dist, value = self.train_agent.act(state)
 
             if self.train_agent.policy_type == "continuous":
@@ -298,9 +299,14 @@ class PPO_runner(MixinCore):
                 sys.exit()
 
             if self.MV_res:
-                next_state, Result = self.env.MV_res_step(
-                    state, unscaled_action[0], i, tag="PPO"
-                )
+                if len(unscaled_action)>1:
+                    next_state, Result = self.env.MV_res_step(
+                        state, unscaled_action, i, tag="PPO"
+                    )
+                else:
+                    next_state, Result = self.env.MV_res_step(
+                        state, unscaled_action[0], i, tag="PPO"
+                    )
             else:
                 next_state, Result, _ = self.env.step(
                     state, unscaled_action[0], i, tag="PPO"

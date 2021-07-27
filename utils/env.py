@@ -4,6 +4,7 @@ import numpy as np
 import pdb, os
 import gym
 import gin
+import sys
 from utils.math_tools import unscale_action
 from utils.common import format_tousands
 
@@ -145,7 +146,11 @@ class MarketEnv(gym.Env):
         cost_type: str = 'quadratic',
         cm1: float = 2.89E-4,
         cm2: float = 7.91E-4,
+        reward_type: str = 'mean_var',
         dates: pd.DatetimeIndex = None,
+        cash : int = None,
+        multiasset: bool = False,
+        corr: int = None,
     ):
 
         # super(MarketEnv, self).__init__()
@@ -167,19 +172,65 @@ class MarketEnv(gym.Env):
         self.action_limit = action_limit
         self.inp_type = inp_type
         self.cost_type = cost_type
+        self.reward_type = reward_type
+        self.multiasset = multiasset
+        self.corr = corr
+        self.cash = cash
+        
+        if multiasset:
+            colnames = (["returns" + str(hl) for hl in HalfLife] + 
+            ["factor_" + str(h) for hl in HalfLife for h in hl])
+            
+            res_df = pd.DataFrame(
+                np.concatenate(
+                    [np.array(self.returns), np.array(self.factors)], axis=1
+                ),
+                columns=colnames,
+            )
+            self.n_assets = len(HalfLife)
+            self.n_factors = len(HalfLife[0])
+            if self.cash:
+    
+                self.holding_ts = [[self.Startholding]*self.n_assets]
+                self.cash_ts = [cash]
+                self.traded_amount = 0.0
+                self.costs = 0.0
+            
+            if isinstance(self.corr,float):
+                cov_matrix = np.eye(self.n_assets,self.n_assets) * self.sigma**2
+                cov_matrix[cov_matrix==0] = self.corr * self.sigma**2 
+            elif isinstance(self.corr,list):
+                cov_matrix = np.zeros((self.n_assets,self.n_assets))
+                cov_matrix[np.triu_indices(cov_matrix.shape[0], k = 1)] = np.array(self.corr) * self.sigma**2
+                cov_matrix = cov_matrix + cov_matrix.T
+                cov_matrix[np.where(cov_matrix==0)] = self.sigma**2
+            if np.allclose(cov_matrix, cov_matrix.T):
+                self.cov_matrix = cov_matrix
+            else:
+                print('Created a Covariance matrix which is not symmetric!')
+                sys.exit()
 
-        colnames = ["returns"] + ["factor_" + str(hl) for hl in HalfLife]
+        else:
 
-        res_df = pd.DataFrame(
-            np.concatenate(
-                [np.array(self.returns).reshape(-1, 1), np.array(self.factors)], axis=1
-            ),
-            columns=colnames,
-        )
+            colnames = ["returns"] + ["factor_" + str(hl) for hl in HalfLife]
+
+            res_df = pd.DataFrame(
+                np.concatenate(
+                    [np.array(self.returns).reshape(-1, 1), np.array(self.factors)], axis=1
+                ),
+                columns=colnames,
+            )
+            if cash:
+                self.cash = cash
+                self.holding_ts = [self.Startholding]
+                self.cash_ts = [cash]
+                self.traded_amount = 0.0
+                self.costs = 0.0
 
         self.dates = dates
         res_df = res_df.astype(np.float32)
         self.res_df = res_df
+        
 
     def get_state_dim(self):
         state, _ = self.reset()
@@ -245,7 +296,7 @@ class MarketEnv(gym.Env):
             nextState = np.array([nextRet, nextHolding], dtype=np.float32)
         elif self.inp_type == "f" or self.inp_type == "alpha_f":
             nextState = np.append(nextFactors, nextHolding)
-        
+
         Result = self._getreward(
             currState, nextState, iteration, tag, res_action=shares_traded
         )
@@ -326,15 +377,27 @@ class MarketEnv(gym.Env):
         return nextOptState, OptResult
 
     def store_results(self, Result: dict, iteration: int):
-
+        
         if iteration == 0:
             for key in Result.keys():
-                self.res_df[key] = 0.0
-                self.res_df.at[iteration, key] = Result[key]
+                if isinstance(Result[key],list) or isinstance(Result[key],np.ndarray):
+                    for i,k in enumerate(Result[key]):
+                        self.res_df[key+'_{}'.format(i)] = 0.0
+                        self.res_df.at[iteration, key+'_{}'.format(i)] = k
+                else:
+                    self.res_df[key] = 0.0
+                    self.res_df.at[iteration, key] = Result[key]
             self.res_df = self.res_df.astype(np.float32)
         else:
+
             for key in Result.keys():
-                self.res_df.at[iteration, key] = Result[key]
+                if isinstance(Result[key],list) or isinstance(Result[key],np.ndarray):
+                    name = key
+                    suffixes = ['_{}'.format(i) for i in range(len(Result[key]))] 
+                    names = [name + s for s in suffixes]
+                    self.res_df.loc[iteration,names] = Result[key]
+                else:
+                    self.res_df.at[iteration, key] = Result[key]
 
     def save_outputs(self, savedpath, test=None, iteration=None, include_dates=False):
 
@@ -442,10 +505,13 @@ class MarketEnv(gym.Env):
 
         shares_traded = nextHolding - currHolding
         GrossPNL = nextHolding * nextRet
-        Risk = 0.5 * self.kappa * ((nextHolding ** 2) * (self.sigma ** 2))
         Cost = self._totalcost(shares_traded)
         NetPNL = GrossPNL - Cost
-        Reward = GrossPNL - Risk - Cost
+        if self.reward_type == 'mean_var':
+            Risk = 0.5 * self.kappa * ((nextHolding ** 2) * (self.sigma ** 2))
+            Reward = GrossPNL - Risk - Cost
+        elif self.reward_type == 'cara':
+            Reward = (1 - np.e**(-self.kappa*NetPNL))/self.kappa
 
         Result = {
             "CurrHolding_{}".format(tag): currHolding,
@@ -453,12 +519,14 @@ class MarketEnv(gym.Env):
             "Action_{}".format(tag): shares_traded,
             "GrossPNL_{}".format(tag): GrossPNL,
             "NetPNL_{}".format(tag): NetPNL,
-            "Risk_{}".format(tag): Risk,
             "Cost_{}".format(tag): Cost,
             "Reward_{}".format(tag): Reward,
         }
         if res_action:
             Result["ResAction_{}".format(tag)] = res_action
+        
+        if self.reward_type == 'mean_var': 
+            Result["Risk_{}".format(tag)] = Risk
         return Result
 
     def _get_opt_reward(
@@ -499,3 +567,695 @@ class MarketEnv(gym.Env):
         }
 
         return Result
+
+
+@gin.configurable()
+class CashMarketEnv(MarketEnv):
+
+    def reset(self) -> Tuple[np.ndarray, np.ndarray]:
+        if self.inp_type == "ret" or self.inp_type == "alpha":
+            currState = np.array([self.returns[0], self.Startholding, self.cash])
+            currFactor = self.factors[0]
+            return currState, currFactor
+        elif self.inp_type == "f" or self.inp_type == "alpha_f":
+            currState = np.append(self.factors[0], [self.Startholding, self.cash])
+            currRet = self.returns[0]
+            return currState, currRet
+
+
+    def step(
+        self,
+        currState: Union[Tuple or np.ndarray],
+        action: float,
+        iteration: int,
+        tag: str = "DQN",
+    ) -> Tuple[np.ndarray, dict, np.ndarray]:
+        
+        nextFactors = self.factors[iteration + 1]
+        nextRet = self.returns[iteration + 1]
+        
+        # buy/sell here
+        if action > 0:
+            shares_traded = self._buy(index=iteration, cash=self.cash_ts[iteration], action=action)
+        elif action < 0:
+            shares_traded = self._sell(index=iteration, holding=self.holding_ts[iteration], action=action)
+        else:
+            shares_traded = 0.0
+            self.costs, self.traded_amount = 0.0, 0.0
+
+        # update rules
+        nextHolding = (1+nextRet) * self.holding_ts[iteration] + shares_traded
+        self.holding_ts.append(nextHolding)
+        nextCash = self.cash_ts[iteration] + self.traded_amount
+        self.cash_ts.append(nextCash)
+
+        if self.inp_type == "ret":
+            nextState = np.array([nextRet, nextHolding, nextCash], dtype=np.float32)
+        elif self.inp_type == "f":
+            nextState = np.append(nextFactors, [nextHolding, nextCash])
+
+        Result = self._getreward(currState, nextState, iteration, tag)
+
+        return nextState, Result, nextFactors
+
+    def MV_res_step(
+        self,
+        currState: Union[Tuple or np.ndarray],
+        shares_traded: int,
+        iteration: int,
+        tag: str = "DQN",
+    ) -> Tuple[np.ndarray, dict, np.ndarray]:
+
+        CurrHolding = self.holding_ts[iteration]
+        if self.inp_type == 'alpha':
+            curr_alpha = currState[0]
+            # Traded quantity as for the Markovitz framework  (Mean-Variance framework)
+            OptNextHolding = (1 / (self.kappa * (self.sigma) ** 2)) * curr_alpha
+        else:
+            CurrFactors = self.factors[iteration]
+            # Traded quantity as for the Markovitz framework  (Mean-Variance framework)
+            OptNextHolding = (1 / (self.kappa * (self.sigma) ** 2)) * np.sum(
+                self.f_param * CurrFactors
+            )
+            nextFactors = self.factors[iteration + 1]
+        # Compute optimal markovitz action
+        MV_action = OptNextHolding - CurrHolding
+
+        nextRet = self.returns[iteration + 1]
+
+        nextHolding = (1+nextRet) * CurrHolding + MV_action * (1 - shares_traded)
+        self.holding_ts.append(nextHolding)
+        nextCash = self.cash_ts[iteration] + self.traded_amount
+        self.cash_ts.append(nextCash)
+
+        if self.inp_type == "ret" or self.inp_type == "alpha":
+            nextState = np.array([nextRet, nextHolding,nextCash], dtype=np.float32)
+        elif self.inp_type == "f" or self.inp_type == "alpha_f":
+            nextState = np.append(nextFactors, [nextHolding,nextCash])
+
+        Result = self._getreward(
+            iteration, tag, res_action=shares_traded
+        )
+
+        return nextState, Result
+
+
+    def opt_reset(self) -> np.ndarray:
+        currOptState = [self.factors[0], self.Startholding, self.cash]
+        return currOptState
+
+    def opt_step(
+        self,
+        currOptState: Tuple,
+        OptRate: float,
+        DiscFactorLoads: np.ndarray,
+        iteration: int,
+        tag: str = "Opt",
+    ) -> Tuple[np.ndarray, dict]:
+
+        CurrFactors = currOptState[0]
+        OptCurrHolding = currOptState[1]
+        # Optimal traded quantity between period
+        OptNextHolding = (1 - OptRate) * OptCurrHolding + OptRate * (
+            1 / (self.kappa * (self.sigma) ** 2)
+        ) * np.sum(DiscFactorLoads * CurrFactors)
+
+        action = OptNextHolding - OptCurrHolding
+
+        # buy/sell here
+        OptNextHolding = self._opt_trade(
+            index=iteration, state=currOptState, action=action
+        )
+
+        nextCash = currOptState[-1] + self.traded_amount
+        nextReturn = self.returns[iteration + 1]
+        nextFactors = self.factors[iteration + 1]
+        nextOptState = [nextFactors, OptNextHolding, nextCash]
+
+        OptResult = self._get_opt_reward(
+            currOptState, nextOptState, nextReturn, iteration, tag
+        )
+
+        return nextOptState, OptResult
+
+
+    def _getreward(
+        self,
+        iteration: int,
+        tag: str,
+        res_action: float = None,
+    ) -> dict:
+
+        nextRet = self.returns[iteration+1]
+        currHolding = self.holding_ts[iteration]
+        nextHolding = self.holding_ts[iteration+1] 
+        nextCash = self.cash_ts[iteration+1] 
+
+        shares_traded = nextHolding - currHolding
+        NetPNL = nextHolding * nextRet - self.costs
+        Risk = 0.5 * self.kappa * ((nextHolding ** 2) * (self.sigma ** 2))
+        Reward = NetPNL - Risk
+        nextWealth = nextHolding + nextCash
+
+        Result = {
+            "CurrHolding_{}".format(tag): currHolding,
+            "NextHolding_{}".format(tag): nextHolding,
+            "Action_{}".format(tag): shares_traded,
+            "GrossPNL_{}".format(tag): NetPNL + self.costs,
+            "NetPNL_{}".format(tag): NetPNL,
+            "Risk_{}".format(tag): Risk,
+            "Cost_{}".format(tag): self.costs,
+            "Reward_{}".format(tag): Reward,
+            "TradedAmount_{}".format(tag): self.traded_amount,
+            "Cash_{}".format(tag): nextCash,
+            "Wealth_{}".format(tag): nextWealth,
+        }
+
+        if isinstance(res_action, float):
+            Result["ResAction_{}".format(tag)] = res_action
+        return Result
+
+    def _sell(self, index: int, holding: np.ndarray, action: float):
+
+        currholding = holding
+
+        if currholding > 0.0:
+            # Sell only if current asset is > 0
+            shares_traded = min(abs(action), currholding)
+            self.costs = self._totalcost(shares_traded)
+            self.traded_amount = shares_traded - self.costs
+            return -shares_traded
+
+        else:
+            shares_traded = 0.0
+
+            self.costs, self.traded_amount = 0.0, 0.0
+
+
+        return -shares_traded
+
+    def _buy(self, index: int, cash: np.ndarray, action: float):
+
+        max_tradable_amount = cash
+        shares_traded = min(max_tradable_amount, action)
+
+        self.costs = self._totalcost(shares_traded)
+        self.traded_amount = -shares_traded - self.costs
+
+
+        return shares_traded
+
+    def _get_opt_reward(
+        self,
+        currOptState: Tuple[Union[float or int], Union[float or int]],
+        nextOptState: Tuple[Union[float or int], Union[float or int]],
+        nextReturn: float,
+        iteration: int,
+        tag: str,
+    ) -> dict:
+
+        OptCurrHolding = currOptState[1]
+        OptNextHolding = nextOptState[1]
+        CurrOptcash = currOptState[-1]
+        NextOptcash = nextOptState[-1]
+
+        # Traded quantity between period
+        OptNextAction = OptNextHolding - OptCurrHolding
+        # Portfolio variation
+        OptNetPNL = OptNextHolding * nextReturn - self.costs
+        # Risk
+        OptRisk = 0.5 * self.kappa * ((OptNextHolding) ** 2 * (self.sigma) ** 2)
+        # Compute reward
+        OptReward = OptNetPNL - OptRisk
+        
+
+        nextWealth = OptNextHolding + NextOptcash #self.prices[iteration + 1] * 
+
+        # Store quantities
+        Result = {
+            "{}NextAction".format(tag): OptNextAction,
+            "{}NextHolding".format(tag): OptNextHolding,
+            "{}GrossPNL".format(tag): OptNetPNL + self.costs,
+            "{}NetPNL".format(tag): OptNetPNL,
+            "{}Risk".format(tag): OptRisk,
+            "{}Cost".format(tag): self.costs,
+            "{}Reward".format(tag): OptReward,
+            "{}TradedAmount".format(tag): self.traded_amount,
+            "{}Cash".format(tag): NextOptcash,
+            "{}Wealth".format(tag): nextWealth,
+        }
+
+        return Result
+
+    def _opt_trade(self, index: int, state: np.ndarray, action: float):
+
+        if action > 0.0:
+
+            max_tradable_amount = state[-1]
+            shares_traded = min(max_tradable_amount, action)
+
+            self.costs = self._totalcost(shares_traded)
+            self.traded_amount = -shares_traded - self.costs
+
+            return shares_traded + state[1]* (1 + self.returns[index+1])
+
+        elif action < 0.0:
+
+            currholding = state[1]
+
+            if currholding > 0.0:
+                # Sell only if current asset is > 0
+                shares_traded = min(abs(action), currholding)
+
+                self.costs = self._totalcost(shares_traded)
+                self.traded_amount = shares_traded - self.costs
+
+                return -shares_traded + state[1]* (1 + self.returns[index+1])
+
+            else:
+                shares_traded = 0.0
+                self.costs, self.traded_amount = 0.0, 0.0
+
+                return shares_traded + state[1]* (1 + self.returns[index+1])
+
+        else:
+            shares_traded = 0.0
+            self.costs, self.traded_amount = 0.0, 0.0
+
+            return shares_traded + state[1]* (1 + self.returns[index+1])
+
+
+
+@gin.configurable()
+class ShortCashMarketEnv(CashMarketEnv):
+
+    def _sell(self, index: int, holding: np.ndarray, action: float):
+
+        shares_traded = action
+        self.costs = self._totalcost(shares_traded)
+        # absolute quantity because now you can sell short and shares_traded can be negative
+        self.traded_amount = np.abs(shares_traded) - self.costs
+
+        return shares_traded
+
+    def _buy(self, index: int, cash: np.ndarray, action: float):
+
+        max_tradable_amount = cash 
+        shares_traded = min(max_tradable_amount, action)
+
+        self.costs = self._totalcost(shares_traded)
+        self.traded_amount = -shares_traded- self.costs
+
+        return shares_traded
+
+    def _opt_trade(self, index: int, state: np.ndarray, action: float):
+
+        if action > 0.0:
+            max_tradable_amount = state[-1] 
+
+            shares_traded = min(max_tradable_amount, action)
+
+            self.costs = self._totalcost(shares_traded)
+            self.traded_amount = -shares_traded - self.costs
+
+            return shares_traded + state[1]* (1 + self.returns[index+1])
+
+        elif action < 0.0:
+            # one could insert a stop to consider cost of short selling
+            shares_traded = -abs(action)
+
+            self.costs = self._totalcost(shares_traded)
+            self.traded_amount = np.abs(shares_traded) - self.costs
+            
+            return shares_traded + state[1]* (1 + self.returns[index+1])
+        else:
+            shares_traded = 0.0
+            self.costs, self.traded_amount = 0.0, 0.0
+
+            return shares_traded + state[1]* (1 + self.returns[index+1])
+
+@gin.configurable()
+class MultiAssetCashMarketEnv(CashMarketEnv):
+
+    def reset(self) -> Tuple[np.ndarray, np.ndarray]:
+
+        if self.inp_type == "ret" or self.inp_type == "alpha":
+            currState = np.append(self.factors[0], [self.Startholding]*self.n_assets + [self.cash])
+            currFactor = self.factors[0]
+            return currState, currFactor
+        elif self.inp_type == "f" or self.inp_type == "alpha_f":
+            currState = np.append(self.factors[0], [self.Startholding]*self.n_assets + [self.cash])
+            currRet = self.returns[0]
+            return currState, currRet
+
+
+    def step(
+        self,
+        currState: Union[Tuple or np.ndarray],
+        action: float,
+        iteration: int,
+        tag: str = "DQN",
+    ) -> Tuple[np.ndarray, dict, np.ndarray]:
+
+        nextFactors = self.factors[iteration + 1]
+        nextRet = self.returns[iteration + 1]
+        
+        # buy/sell here
+        if action > 0:
+            shares_traded = self._buy(index=iteration, cash=self.cash_ts[iteration], action=action)
+        elif action < 0:
+            shares_traded = self._sell(index=iteration, holding=self.holding_ts[iteration], action=action)
+        else:
+            shares_traded = 0.0
+            self.costs, self.traded_amount = 0.0, 0.0
+
+        # update rules
+        nextHolding = (1+nextRet) * self.holding_ts[iteration] + shares_traded
+        self.holding_ts.append(nextHolding)
+        nextCash = self.cash_ts[iteration] + self.traded_amount
+        self.cash_ts.append(nextCash)
+
+        if self.inp_type == "ret":
+            nextState = np.array([nextRet, nextHolding, nextCash], dtype=np.float32)
+        elif self.inp_type == "f":
+            nextState = np.append(nextFactors, [nextHolding, nextCash])
+
+        Result = self._getreward(currState, nextState, iteration, tag)
+
+        return nextState, Result, nextFactors
+
+    def MV_res_step(
+        self,
+        currState: Union[Tuple or np.ndarray],
+        shares_traded: int,
+        iteration: int,
+        tag: str = "DQN",
+    ) -> Tuple[np.ndarray, dict, np.ndarray]:
+        
+        CurrHolding = np.array(self.holding_ts[iteration])
+        if self.inp_type == 'alpha':
+            curr_alpha = np.array(currState[:self.n_assets])
+            # Traded quantity as for the Markovitz framework  (Mean-Variance framework)
+            OptNextHolding = np.dot(np.linalg.inv(self.cov_matrix** self.kappa), curr_alpha)
+        else:
+            CurrFactors = self.factors[iteration].reshape(self.n_assets,self.n_factors)
+            # Traded quantity as for the Markovitz framework  (Mean-Variance framework)
+            OptNextHolding = np.dot(np.linalg.inv(self.cov_matrix* self.kappa), np.dot(
+                CurrFactors,self.f_param[0]
+            ))
+            
+            nextFactors = self.factors[iteration + 1]
+        # Compute optimal markovitz action
+        MV_action = OptNextHolding - CurrHolding
+        MV_res_action = MV_action * (1-shares_traded)
+
+        # buy/sell here
+        res_shares_traded = []
+        for i,a in enumerate(MV_res_action):
+            if a > 0:
+                trade = self._buy(
+                    index=iteration, cash=currState[-1], action=a
+                )
+            elif a < 0:
+                trade = self._sell(
+                    index=iteration, holding=currState[-1+self.n_assets+i], action=a
+                )
+            else:
+                trade = 0.0
+                self.costs, self.traded_amount = 0.0, 0.0
+            res_shares_traded.append(trade)
+        res_shares_traded = np.array(res_shares_traded)
+        
+
+        nextRet = self.returns[iteration + 1]
+
+        nextHolding = (1+nextRet) * CurrHolding + res_shares_traded
+        self.holding_ts.append(nextHolding)
+        nextCash = self.cash_ts[iteration] + self.traded_amount
+        self.cash_ts.append(nextCash)
+
+        if self.inp_type == "ret" or self.inp_type == "alpha":
+            nextState = np.array([nextRet, nextHolding,nextCash], dtype=np.float32)
+        elif self.inp_type == "f" or self.inp_type == "alpha_f":
+            nextState = np.append(nextFactors, list(nextHolding)+[nextCash])
+
+        Result = self._getreward(
+            iteration, tag, res_action=res_shares_traded
+        )
+
+        return nextState, Result
+
+
+    def opt_reset(self) -> np.ndarray:
+        currOptState = list(self.factors[0]) + [self.Startholding]*self.n_assets + [self.cash]
+        return currOptState
+
+    def opt_step(
+        self,
+        currOptState: Tuple,
+        OptRate: float,
+        DiscFactorLoads: np.ndarray,
+        iteration: int,
+        tag: str = "Opt",
+    ) -> Tuple[np.ndarray, dict]:
+        
+        CurrFactors = self.factors[iteration].reshape(self.n_assets,self.n_factors)
+        OptCurrHolding = np.array(currOptState[-1-self.n_assets:-1])
+        # Optimal traded quantity between period
+        DiscFactors = CurrFactors/ (1+self.f_speed * ((OptRate * self.CostMultiplier) / self.kappa))
+        OptNextHolding = np.dot(np.linalg.inv(self.cov_matrix* self.kappa), np.dot(
+            DiscFactors,self.f_param[0]
+        ))
+        
+        action = OptNextHolding - OptCurrHolding
+
+        # buy/sell here
+        OptTrades = []
+        for i,a in enumerate(action):
+            opt_t = self._opt_trade(
+                index=iteration, holding=currOptState[-1+self.n_assets+i], cash=currOptState[-1], action=a
+            )
+            OptTrades.append(opt_t)
+        OptNextHolding = np.array(OptTrades)  + OptCurrHolding * (1 + self.returns[iteration+1])
+        
+        nextCash = currOptState[-1] + self.traded_amount
+        nextReturn = self.returns[iteration + 1]
+        nextFactors = self.factors[iteration + 1]
+        nextOptState = list(nextFactors) + list(OptNextHolding) + [nextCash]
+        
+        OptResult = self._get_opt_reward(
+            currOptState, nextOptState, nextReturn, iteration, tag
+        )
+
+        return nextOptState, OptResult
+
+    def opt_trading_rate_disc_loads(self) -> Tuple[float, np.ndarray]:
+
+        # 1 percent annualized discount rate (same rate of Ritter)
+        rho = 1 - np.exp(-self.discount_rate / 260)
+
+        # kappa is the risk aversion, CostMultiplier the parameter for trading cost
+        num1 = self.kappa * (1 - rho) + self.CostMultiplier * rho
+        num2 = np.sqrt(
+            num1 ** 2 + 4 * self.kappa * self.CostMultiplier * (1 - rho) ** 2
+        )
+        den = 2 * (1 - rho)
+        a = (-num1 + num2) / den
+
+        OptRate = a / self.CostMultiplier
+
+        DiscFactorLoads = self.f_param 
+
+        return OptRate, DiscFactorLoads
+
+    def _getreward(
+        self,
+        iteration: int,
+        tag: str,
+        res_action: float = None,
+    ) -> dict:
+
+        nextRet = self.returns[iteration+1]
+        currHolding = self.holding_ts[iteration]
+        nextHolding = self.holding_ts[iteration+1] 
+        nextCash = self.cash_ts[iteration+1] 
+
+        shares_traded = nextHolding - currHolding
+        NetPNL = np.dot(nextHolding,nextRet) - self.costs
+        Risk = 0.5 * self.kappa * np.dot(np.dot(nextHolding.T,self.cov_matrix),nextHolding)
+        Reward = NetPNL - Risk
+        nextWealth = nextHolding.sum() + nextCash
+
+        Result = {
+            "CurrHolding_{}".format(tag): currHolding,
+            "NextHolding_{}".format(tag): nextHolding,
+            "Action_{}".format(tag): shares_traded,
+            "GrossPNL_{}".format(tag): NetPNL + self.costs,
+            "NetPNL_{}".format(tag): NetPNL,
+            "Risk_{}".format(tag): Risk,
+            "Cost_{}".format(tag): self.costs,
+            "Reward_{}".format(tag): Reward,
+            "TradedAmount_{}".format(tag): self.traded_amount,
+            "Cash_{}".format(tag): nextCash,
+            "Wealth_{}".format(tag): nextWealth,
+        }
+
+        self.costs, self.traded_amount = 0.0, 0.0
+
+        if isinstance(res_action, float):
+            Result["ResAction_{}".format(tag)] = res_action
+        return Result
+
+    def _sell(self, index: int, holding: np.ndarray, action: float):
+
+        currholding = holding
+
+        if currholding > 0.0:
+            # Sell only if current asset is > 0
+            shares_traded = min(abs(action), currholding)
+            self.costs += self._totalcost(shares_traded)
+            self.traded_amount += shares_traded - self.costs
+            return -shares_traded
+
+        else:
+            shares_traded = 0.0
+
+            self.costs, self.traded_amount = 0.0, 0.0
+
+
+        return -shares_traded
+
+    def _buy(self, index: int, cash: np.ndarray, action: float):
+
+        max_tradable_amount = cash
+        shares_traded = min(max_tradable_amount, action)
+
+        self.costs += self._totalcost(shares_traded)
+        self.traded_amount += -shares_traded - self.costs
+
+
+        return shares_traded
+
+    def _get_opt_reward(
+        self,
+        currOptState: Tuple[Union[float or int], Union[float or int]],
+        nextOptState: Tuple[Union[float or int], Union[float or int]],
+        nextReturn: float,
+        iteration: int,
+        tag: str,
+    ) -> dict:
+        
+        OptCurrHolding = np.array(currOptState[-1-self.n_assets:-1])
+        OptNextHolding = np.array(nextOptState[-1-self.n_assets:-1])
+        CurrOptcash = currOptState[-1]
+        NextOptcash = nextOptState[-1]
+
+        # Traded quantity between period
+        OptNextAction = OptNextHolding - OptCurrHolding
+        # Portfolio variation
+        OptNetPNL = np.dot(OptNextHolding, nextReturn) - self.costs
+        # Risk
+        OptRisk = 0.5 * self.kappa * np.dot(np.dot(OptNextHolding.T,self.cov_matrix),OptNextHolding)
+        # Compute reward
+        OptReward = OptNetPNL - OptRisk
+
+        nextWealth = OptNextHolding.sum() + NextOptcash #self.prices[iteration + 1] * 
+        
+        # Store quantities
+        Result = {
+            "{}NextAction".format(tag): OptNextAction,
+            "{}NextHolding".format(tag): OptNextHolding,
+            "{}GrossPNL".format(tag): OptNetPNL + self.costs,
+            "{}NetPNL".format(tag): OptNetPNL,
+            "{}Risk".format(tag): OptRisk,
+            "{}Cost".format(tag): self.costs,
+            "{}Reward".format(tag): OptReward,
+            "{}TradedAmount".format(tag): self.traded_amount,
+            "{}Cash".format(tag): NextOptcash,
+            "{}Wealth".format(tag): nextWealth,
+        }
+
+        self.costs, self.traded_amount = 0.0, 0.0
+
+        return Result
+
+    def _opt_trade(self, index: int, holding: float, cash: float, action: float):
+        
+        if action > 0.0:
+
+            max_tradable_amount = cash
+            shares_traded = min(max_tradable_amount, action)
+
+            self.costs += self._totalcost(shares_traded)
+            self.traded_amount += -shares_traded - self.costs
+
+            return shares_traded
+
+        elif action < 0.0:
+
+            currholding = holding
+
+            if currholding > 0.0:
+                # Sell only if current asset is > 0
+                shares_traded = min(abs(action), currholding)
+
+                self.costs = self._totalcost(shares_traded)
+                self.traded_amount = shares_traded - self.costs
+
+                return -shares_traded
+
+            else:
+                shares_traded = 0.0
+                self.costs, self.traded_amount = 0.0, 0.0
+
+                return shares_traded
+
+        else:
+            shares_traded = 0.0
+            self.costs, self.traded_amount = 0.0, 0.0
+
+            return shares_traded
+
+
+
+@gin.configurable()
+class ShortMultiAssetCashMarketEnv(MultiAssetCashMarketEnv):
+
+
+    def _sell(self, index: int, holding: np.ndarray, action: float):
+
+        shares_traded = action
+        self.costs += self._totalcost(shares_traded)
+        # absolute quantity because now you can sell short and shares_traded can be negative
+        self.traded_amount += np.abs(shares_traded) - self.costs
+
+        return shares_traded
+
+
+    def _opt_trade(self, index: int, holding: float, cash: float, action: float):
+        
+        if action > 0.0:
+
+            max_tradable_amount = cash
+            shares_traded = min(max_tradable_amount, action)
+
+            self.costs += self._totalcost(shares_traded)
+            self.traded_amount += -shares_traded - self.costs
+
+            return shares_traded
+
+        elif action < 0.0:
+
+            # one could insert a stop to consider cost of short selling
+            shares_traded = -abs(action)
+
+            self.costs += self._totalcost(shares_traded)
+            self.traded_amount += np.abs(shares_traded) - self.costs
+
+            return shares_traded
+
+        else:
+            shares_traded = 0.0
+            self.costs, self.traded_amount = 0.0, 0.0
+
+            return shares_traded

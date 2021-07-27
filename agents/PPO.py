@@ -265,7 +265,11 @@ class PPO:
         self.eps_opt = eps_opt
         self.action_space = action_space
         self.policy_type = policy_type
-        self.num_actions = self.action_space.get_n_actions(policy_type=self.policy_type)
+
+        if gin.query_parameter('%MULTIASSET'):
+            self.num_actions = len(gin.query_parameter('%HALFLIFE'))
+        else:
+            self.num_actions = self.action_space.get_n_actions(policy_type=self.policy_type)
         self.batch_norm_input = batch_norm_input
         self.store_diagnostics = store_diagnostics
 

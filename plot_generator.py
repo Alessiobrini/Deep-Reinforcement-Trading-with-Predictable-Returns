@@ -39,10 +39,11 @@ from utils.plot import (
     load_PPOmodel,
     plot_portfolio,
     plot_action,
-    plot_costs
+    plot_costs,
+    plot_2asset_holding
 )
 from utils.test import Out_sample_vs_gp
-from utils.env import MarketEnv
+from utils.env import MarketEnv, CashMarketEnv, ShortCashMarketEnv, MultiAssetCashMarketEnv
 from agents.DQN import DQN
 from agents.PPO import PPO
 from utils.spaces import ActionSpace, ResActionSpace
@@ -137,7 +138,7 @@ def runplot_metrics(p):
                 dataframe = pd.concat(dfs)
                 dataframe.index = range(len(dfs))
                 
-                # pdb.set_trace()
+
 
                 if 'PPO' in tag and p['ep_ppo']:
                     dataframe = dataframe.iloc[:,:dataframe.columns.get_loc(p['ep_ppo'])]
@@ -167,14 +168,14 @@ def runplot_metrics(p):
                         i=it,
                     )                    
                     
-                    if 'Pdist' in v:
-                        std = 1e+10
-                        ax.set_ylim(0.0, 0.0 + std)
-                    else:
-                        import math
-                        value = dataframe_opt.iloc[0, 2]
-                        odm = math.floor(math.log(value, 10))
-                        ax.set_ylim(value - (10**(odm)), value + 0.5*(10**(odm)))
+                    # if 'Pdist' in v:
+                    #     std = 1e+10
+                    #     ax.set_ylim(0.0, 0.0 + std)
+                    # else:
+                    #     import math
+                    #     value = dataframe_opt.iloc[0, 2]
+                    #     odm = math.floor(math.log(value, 10))
+                    #     ax.set_ylim(value - (10**(odm)), value + 0.5*(10**(odm)))
 
 
                 else:
@@ -350,6 +351,15 @@ def parallel_test(seed,test_class,train_agent,data_dir,fullpath=False):
         return res_df['Reward_PPO'],res_df['OptReward']
     else:
         return res_df['Reward_PPO'].cumsum().values[-1],res_df['OptReward'].cumsum().values[-1]
+    
+def parallel_test_wealth(seed,test_class,train_agent,data_dir,fullpath=False):
+    gin.parse_config_file(os.path.join(data_dir, "config.gin"), skip_unknown=True)
+    test_class.rnd_state = seed
+    res_df = test_class.run_test(train_agent, return_output=True)
+    if fullpath:
+        return res_df['Wealth_PPO'],res_df['OptWealth']
+    else:
+        return res_df['Wealth_PPO'].values[-1],res_df['OptWealth'].values[-1]
 
 
 def runplot_distribution(p):
@@ -430,12 +440,18 @@ def runplot_distribution(p):
     else:
         print("Choose proper algorithm.")
         sys.exit()
-
+    
+    
+    if gin.query_parameter('%MULTIASSET'):
+        env = MultiAssetCashMarketEnv
+    else:
+        env = MarketEnv
+        
     oos_test = Out_sample_vs_gp(
         savedpath=None,
         tag=tag[0],
         experiment_type=query("%EXPERIMENT_TYPE"),
-        env_cls=MarketEnv,
+        env_cls=env,
         MV_res=query("%MV_RES"),
         N_test=p['N_test']
     )
@@ -443,8 +459,14 @@ def runplot_distribution(p):
 
     rng_seeds = np.random.RandomState(14)
     seeds = rng_seeds.choice(1000,p['n_seeds'])
-    rewards = Parallel(n_jobs=p['cores'])(delayed(parallel_test)(
-            s, oos_test,train_agent,data_dir,p['fullpath']) for s in seeds)
+    if p['disttoplot'] == 'r':
+        title = 'reward'
+        rewards = Parallel(n_jobs=p['cores'])(delayed(parallel_test)(
+                s, oos_test,train_agent,data_dir,p['fullpath']) for s in seeds)
+    elif p['disttoplot'] == 'w':
+        title= 'wealth'
+        rewards = Parallel(n_jobs=p['cores'])(delayed(parallel_test_wealth)(
+                s, oos_test,train_agent,data_dir,p['fullpath']) for s in seeds)
 
     if p['fullpath']:
 
@@ -478,18 +500,18 @@ def runplot_distribution(p):
         ax = fig.add_subplot()
         rewards['gp'].plot(ax=ax, kind='hist', alpha=0.7,color='tab:orange',bins=50)
         rewards['ppo'].plot(ax=ax, kind='hist', color='tab:blue',bins=50)
-        ax.set_xlabel("Cumulative reward")
+        ax.set_xlabel("Cumulative {}".format(title))
         ax.set_ylabel("Frequency")
         ax.legend()
         means, stds = rewards.mean().values, rewards.std().values
         ax.set_title('{} Obs \n Means: PPO {:.2f} GP {:.2f} \n Stds: PPO {:.2f} GP {:.2f}'.format(len(rewards),*means,*stds))
-        fig.savefig(os.path.join(data_dir, "cumreward_hist_{}.png".format(p['n_seeds'])), dpi=300)
+        fig.savefig(os.path.join(data_dir, "cum{}_hist_{}.png".format(title,p['n_seeds'])), dpi=300)
     
         fig = plt.figure(figsize=set_size(width=1000.0))
         ax = fig.add_subplot()
         sns.kdeplot(rewards['gp'].values, bw_method=0.2,ax=ax,color='tab:orange')
         sns.kdeplot(rewards['ppo'].values, bw_method=0.2,ax=ax,color='tab:blue')
-        ax.set_xlabel("Cumulative reward")
+        ax.set_xlabel("Cumulative {}".format(title))
         ax.set_ylabel("KDE")
         ax.legend()
         means, stds = rewards.mean().values, rewards.std().values
@@ -500,7 +522,7 @@ def runplot_distribution(p):
         t, p_t = ttest_ind(rewards.values[:,0], rewards.values[:,1])
         ks_text = AnchoredText("Ks Test: pvalue {:.2f} \n T Test: pvalue {:.2f}".format(p_V,p_t),loc=1,prop=dict(size=10))
         ax.add_artist(ks_text)
-        fig.savefig(os.path.join(data_dir, "cumreward_density_{}.png".format(p['n_seeds'])), dpi=300)
+        fig.savefig(os.path.join(data_dir, "cum{}_density_{}.png".format(title,p['n_seeds'])), dpi=300)
 
     
 
@@ -534,11 +556,19 @@ def runmultiplot_distribution(p):
                     action_space = ResActionSpace()
                 else:
                     action_space = ActionSpace()
-            
-                if query("%INP_TYPE") == "f" or query("%INP_TYPE") == "alpha_f":
-                    input_shape = (len(query('%F_PARAM')) + 1,)
+                    
+                if gin.query_parameter('%MULTIASSET'):
+                    n_assets = len(gin.query_parameter('%HALFLIFE'))
+                    n_factors = len(gin.query_parameter('%HALFLIFE')[0])
+                    if query("%INP_TYPE") == "f" or query("%INP_TYPE") == "alpha_f":
+                        input_shape = (n_factors*n_assets+n_assets+1,1)
+                    else:
+                        input_shape = (n_assets+n_assets+1,1)
                 else:
-                    input_shape = (2,)
+                    if query("%INP_TYPE") == "f" or query("%INP_TYPE") == "alpha_f":
+                        input_shape = (len(query('%F_PARAM')) + 1,)
+                    else:
+                        input_shape = (2,)
             
             
                 if "DQN" in tag:
@@ -566,12 +596,16 @@ def runmultiplot_distribution(p):
                 else:
                     print("Choose proper algorithm.")
                     sys.exit()
-            
+                    
+                if gin.query_parameter('%MULTIASSET'):
+                    env = MultiAssetCashMarketEnv
+                else:
+                    env = MarketEnv
                 oos_test = Out_sample_vs_gp(
                     savedpath=None,
                     tag=tag[0],
                     experiment_type=query("%EXPERIMENT_TYPE"),
-                    env_cls=MarketEnv,
+                    env_cls=env,
                     MV_res=query("%MV_RES"),
                     N_test=p['N_test']
                 )
@@ -619,7 +653,7 @@ def runmultiplot_distribution(p):
                     ax.set_ylabel("Frequency")
                     ax.legend()
                     means, stds = rewards.mean().values, rewards.std().values
-                    ax.set_title('{} Obs \n Means: PPO {:.2f} GP {:.2f} \n Stds: PPO {:.2f} GP {:.2f}'.format(len(rewards),*means,*stds))
+                    ax.set_title('{} Obs \n Means: PPO {:.2f} GP {:.2f} \n Stds: PPO {:.2f} GP {:.2f} Exp {}'.format(len(rewards),*means,*stds, f))
                     fig.savefig(os.path.join(data_dir, "cumreward_hist_{}_{}.png".format(p['n_seeds'], f)), dpi=300)
                     plt.close()
                 
@@ -631,7 +665,7 @@ def runmultiplot_distribution(p):
                     ax.set_ylabel("KDE")
                     ax.legend()
                     means, stds = rewards.mean().values, rewards.std().values
-                    ax.set_title('{} Obs \n Means: PPO {:.2f} GP {:.2f} \n Stds: PPO {:.2f} GP {:.2f}'.format(len(rewards),*means,*stds))
+                    ax.set_title('{} Obs \n Means: PPO {:.2f} GP {:.2f} \n Stds: PPO {:.2f} GP {:.2f} \n Exp {}'.format(len(rewards),*means,*stds, f))
                     ax.legend(labels=['gp','ppo'],loc=2)
                 
                     KS, p_V = ks_2samp(rewards.values[:,0], rewards.values[:,1])
@@ -727,10 +761,18 @@ def runplot_holding(p):
         else:
             action_space = ActionSpace()
 
-        if query("%INP_TYPE") == "f" or query("%INP_TYPE") == "alpha_f":
-            input_shape = (len(query('%F_PARAM')) + 1,)
+        if gin.query_parameter('%MULTIASSET'):
+            n_assets = len(gin.query_parameter('%HALFLIFE'))
+            n_factors = len(gin.query_parameter('%HALFLIFE')[0])
+            if query("%INP_TYPE") == "f" or query("%INP_TYPE") == "alpha_f":
+                input_shape = (n_factors*n_assets+n_assets+1,1)
+            else:
+                input_shape = (n_assets+n_assets+1,1)
         else:
-            input_shape = (2,)
+            if query("%INP_TYPE") == "f" or query("%INP_TYPE") == "alpha_f":
+                input_shape = (len(query('%F_PARAM')) + 1,)
+            else:
+                input_shape = (2,)
 
 
         if "DQN" in tag:
@@ -747,6 +789,7 @@ def runplot_holding(p):
                     )
 
         elif "PPO" in tag:
+            
             train_agent = PPO(
                 input_shape=input_shape, action_space=action_space, rng=rng
             )
@@ -758,47 +801,78 @@ def runplot_holding(p):
         else:
             print("Choose proper algorithm.")
             sys.exit()
-
+            
+        if gin.query_parameter('%MULTIASSET'):
+            env = MultiAssetCashMarketEnv
+        else:
+            env = MarketEnv
         oos_test = Out_sample_vs_gp(
             savedpath=None,
             tag=tag[0],
             experiment_type=query("%EXPERIMENT_TYPE"),
-            env_cls=MarketEnv,
+            env_cls=env,
             MV_res=query("%MV_RES"),
             N_test=p['N_test']
         )
 
         res_df = oos_test.run_test(train_agent, return_output=True)
 
-        plot_portfolio(res_df, tag[0], axes[i])
-        # plot_action(res_df, tag[0], axes2[i])
-        split = model.split("mv_res")
+        if gin.query_parameter('%MULTIASSET'):
 
-        axes[i].set_title(
-            "_".join(["mv_res", split[-1]]).replace("_", " ") , fontsize=10
-        )
-        # axes2[i].set_title(
-        #     "_".join(["mv_res", split[-1]]).replace("_", " "), fontsize=10
-        # )
+            plot_portfolio(res_df, tag[0], axes[i])
+            # plot_action(res_df, tag[0], axes2[i])
+            split = model.split("mv_res")
+    
+            axes[i].set_title(
+                "_".join([split[-1]]).replace("_", " ") , fontsize=8
+            )
 
-
-        plot_action(res_df, tag[0], axes3[i], hist=True)
-
-        axes3[i].set_title(
-            "_".join(["mv_res", split[-1]]).replace("_", " "), fontsize=10
-        )
+            fig.suptitle('Holdings')
+            
+            if len(gin.query_parameter('%HALFLIFE'))==2:
+    
+                plot_2asset_holding(res_df, tag[0], axes3[i])
         
-        plot_costs(res_df, tag[0], axes4[i], hist=False)
+                axes3[i].set_title(
+                    "_".join([split[-1]]).replace("_", " "), fontsize=8
+                )
+                fig3.suptitle('2 Asset Holdings')
+                plt.close(fig4)
+            else:
+                plt.close(fig3)
+                plt.close(fig4)
 
-        axes4[i].set_title(
-            "_".join(["mv_res", split[-1]]).replace("_", " "), fontsize=10
-        )
+        else:
 
-
-    fig.suptitle('Holdings')
-    # fig2.suptitle('Actions')
-    fig3.suptitle('Res Actions')
-    fig4.suptitle('Cumulative Costs')
+            plot_portfolio(res_df, tag[0], axes[i])
+            # plot_action(res_df, tag[0], axes2[i])
+            split = model.split("mv_res")
+    
+            axes[i].set_title(
+                "_".join([split[-1]]).replace("_", " ") , fontsize=8
+            )
+            # axes2[i].set_title(
+            #     "_".join(["mv_res", split[-1]]).replace("_", " "), fontsize=10
+            # )
+    
+    
+            plot_action(res_df, tag[0], axes3[i], hist=True)
+    
+            axes3[i].set_title(
+                "_".join([split[-1]]).replace("_", " "), fontsize=8
+            )
+            
+            plot_costs(res_df, tag[0], axes4[i], hist=False)
+    
+            axes4[i].set_title(
+                "_".join([split[-1]]).replace("_", " "), fontsize=8
+            )
+    
+    
+            fig.suptitle('Holdings')
+            # fig2.suptitle('Actions')
+            fig3.suptitle('Res Actions')
+            fig4.suptitle('Cumulative Costs')
     
 
 

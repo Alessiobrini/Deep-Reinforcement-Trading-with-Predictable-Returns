@@ -75,6 +75,8 @@ class Out_sample_vs_gp:
         abs_hold_gp = []
         avg_pnlstd = []
         avg_pdist = []
+        abs_wealth_rl = []
+        abs_wealth_gp = []
 
         for s in seeds:
             if 'alpha' in gin.query_parameter('%INP_TYPE'):
@@ -97,7 +99,7 @@ class Out_sample_vs_gp:
             )
 
             CurrState, _ = self.test_env.reset()
-
+            
             CurrOptState = self.test_env.opt_reset()
             OptRate, DiscFactorLoads = self.test_env.opt_trading_rate_disc_loads()
 
@@ -173,7 +175,7 @@ class Out_sample_vs_gp:
                         NextState, Result, _ = self.test_env.step(
                             CurrState.cpu(), action, i, tag="PPO"
                         )
-
+                    
                     self.test_env.store_results(Result, i)
 
                 CurrState = NextState
@@ -239,19 +241,19 @@ class Out_sample_vs_gp:
                 std = np.array(pnl[pnl_str]).std()
                 sr = (mean / std) * (252 ** 0.5)
 
-                # Holding
-                hold = self.test_env.res_df["NextHolding_{}".format(self.tag)].iloc[
-                    -2
-                ]  # avoid last observation
-                opthold = self.test_env.res_df["OptNextHolding"].iloc[-2]
+                # # Holding
+                # hold = self.test_env.res_df["NextHolding_{}".format(self.tag)].iloc[
+                #     -2
+                # ]  # avoid last observation
+                # opthold = self.test_env.res_df["OptNextHolding"].iloc[-2]
 
-                pdist_avg = (
-                    (
-                        self.test_env.res_df["NextHolding_{}".format(self.tag)].values
-                        - self.test_env.res_df["OptNextHolding"].values
-                    )
-                    ** 2
-                ).mean()
+                # pdist_avg = (
+                #     (
+                #         self.test_env.res_df["NextHolding_{}".format(self.tag)].values
+                #         - self.test_env.res_df["OptNextHolding"].values
+                #     )
+                #     ** 2
+                # ).mean()
 
                 opt_mean = np.array(pnl[opt_pnl_str]).mean()
                 opt_std = np.array(pnl[opt_pnl_str]).std()
@@ -259,7 +261,7 @@ class Out_sample_vs_gp:
 
                 perc_SR = (sr / optsr) * 100
                 pnl_std = (std / opt_std) * 100
-
+                
                 avg_pnls.append(ref_pnl[-1])
                 avg_rews.append(ref_rew[-1])
                 avg_srs.append(perc_SR)
@@ -269,10 +271,21 @@ class Out_sample_vs_gp:
                 abs_rew_gp.append(cum_rew.iloc[-1].values[1])
                 abs_sr_rl.append(sr)
                 abs_sr_gp.append(optsr)
-                abs_hold_rl.append(hold)
-                abs_hold_gp.append(opthold)
+                abs_hold_rl.append(0.0)
+                # abs_hold_rl.append(hold)
+                abs_hold_gp.append(0.0)
+                # abs_hold_gp.append(opthold)
                 avg_pnlstd.append(pnl_std)
-                avg_pdist.append(pdist_avg)
+                avg_pdist.append(0.0)
+                # avg_pdist.append(pdist_avg)
+
+                if self.test_env.cash:
+                    # Wealth
+                    wealth = self.test_env.res_df["Wealth_{}".format(self.tag)].iloc[:-1]  # avoid last observation
+                    abs_wealth_rl.append(wealth.iloc[-1])
+                    optwealth = self.test_env.res_df["OptWealth"].iloc[:-1] 
+                    abs_wealth_gp.append(optwealth.iloc[-1])
+
 
         self._collect_results(
             avg_pnls,
@@ -289,6 +302,8 @@ class Out_sample_vs_gp:
             avg_pnlstd,
             avg_pdist,
             it=it,
+            abs_wealthrl=abs_wealth_rl,
+            abs_wealthgp=abs_wealth_gp,
         )
 
     def init_series_to_fill(self, iterations):
@@ -310,6 +325,9 @@ class Out_sample_vs_gp:
         self.abs_series_hold_gp = pd.DataFrame(index=range(1), columns=iterations)
 
         self.mean_series_pdist = pd.DataFrame(index=range(1), columns=iterations)
+    
+        self.abs_series_wealth_rl = pd.DataFrame(index=range(1), columns=iterations)
+        self.abs_series_wealth_gp = pd.DataFrame(index=range(1), columns=iterations)
 
     def _collect_results(
         self,
@@ -327,6 +345,8 @@ class Out_sample_vs_gp:
         pnl_std,
         pdist_avg,
         it,
+        abs_wealthrl= None,
+        abs_wealthgp= None,
     ):
 
         self.mean_series_pnl.loc[0, str(it)] = np.mean(pnl)
@@ -347,6 +367,11 @@ class Out_sample_vs_gp:
         self.abs_series_hold_gp.loc[0, str(it)] = np.mean(abs_opthold)
 
         self.mean_series_pdist.loc[0, str(it)] = np.mean(pdist_avg)
+
+        if abs_wealthrl:
+            self.abs_series_wealth_rl.loc[0, str(it)] = np.mean(abs_wealthrl)
+            self.abs_series_wealth_gp.loc[0, str(it)] = np.mean(abs_wealthgp)
+
 
     def save_series(self):
 
@@ -460,3 +485,21 @@ class Out_sample_vs_gp:
             ),
             compression="gzip",
         )
+
+        if self.test_env.cash:
+            self.abs_series_wealth_rl.to_parquet(
+                os.path.join(
+                    self.savedpath,
+                    "AbsWealth_OOS_{}_{}.parquet.gzip".format(
+                        format_tousands(self.N_test), self.tag
+                    ),
+                ),
+                compression="gzip",
+            )
+            self.abs_series_wealth_gp.to_parquet(
+                os.path.join(
+                    self.savedpath,
+                    "AbsWealth_OOS_{}_GP.parquet.gzip".format(format_tousands(self.N_test)),
+                ),
+                compression="gzip",
+            )

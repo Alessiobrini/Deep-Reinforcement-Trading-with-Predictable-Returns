@@ -137,14 +137,20 @@ def load_PPOmodel(
         Array of possible actions
 
     """
-
     if not model:
         query = gin.query_parameter
-
-        if query("%INP_TYPE") == "f" or query("%INP_TYPE") == "alpha_f":
-            inp_shape = (len(query('%F_PARAM')) + 1,)
+        if gin.query_parameter('%MULTIASSET'):
+            n_assets = len(gin.query_parameter('%HALFLIFE'))
+            n_factors = len(gin.query_parameter('%HALFLIFE')[0])
+            if query("%INP_TYPE") == "f" or query("%INP_TYPE") == "alpha_f":
+                inp_shape = (n_factors*n_assets+n_assets+1,1)
+            else:
+                inp_shape = (n_assets+n_assets+1,1)
         else:
-            inp_shape = (2,)
+            if query("%INP_TYPE") == "f" or query("%INP_TYPE") == "alpha_f":
+                inp_shape = (len(query('%F_PARAM')) + 1,)
+            else:
+                inp_shape = (2,)
 
         if query("%MV_RES"):
             actions = ResActionSpace(
@@ -155,7 +161,10 @@ def load_PPOmodel(
                 query("%ACTION_RANGE"), query("%ZERO_ACTION"), query("%SIDE_ONLY")
             ).values
 
-        num_actions = actions.ndim
+        if gin.query_parameter('%MULTIASSET'):
+            num_actions = len(gin.query_parameter('%HALFLIFE'))
+        else:
+            num_actions = actions.ndim
 
         model = PPOActorCritic(
             query("%SEED"),
@@ -796,12 +805,49 @@ def plot_portfolio(r: pd.DataFrame, tag: str, ax2: object):
         Axes to draw in
 
     """
+    if gin.query_parameter('%MULTIASSET'):
+        ax2.plot(r.filter(like="NextHolding_{}".format(tag)).values[1:-1])
+        ax2.plot(r.filter(like="OptNextHolding").values[1:-1], alpha=0.65, ls='--')
 
-    ax2.plot(r["NextHolding_{}".format(tag)].values[1:-1], label=tag)
-    ax2.plot(r["OptNextHolding"].values[1:-1], label="benchmark", alpha=0.5)
-    mse = np.round(np.sum(r["OptNextHolding"].values[1:-1] - r["NextHolding_{}".format(tag)].values[1:-1]),decimals=0)
-    mse_text = AnchoredText("GP - PPO: {}".format(mse),loc=1,prop=dict(size=10))
-    ax2.add_artist(mse_text)
+        
+        n_lines = r.filter(like="NextHolding_{}".format(tag)).shape[-1]
+        for i in range(n_lines):
+            ax2.lines[-1-i].set_color(ax2.lines[n_lines-1-i].get_color())
+            
+        ax2.legend(list(r.filter(like="NextHolding_{}".format(tag)).columns) + 
+                   list(r.filter(like="OptNextHolding").columns),fontsize=9)
+
+    else:
+        ax2.plot(r["NextHolding_{}".format(tag)].values[1:-1], label=tag)
+        ax2.plot(r["OptNextHolding"].values[1:-1], label="benchmark", alpha=0.5)
+        mse = np.round(np.sum(r["OptNextHolding"].values[1:-1] - r["NextHolding_{}".format(tag)].values[1:-1]),decimals=0)
+        mse_text = AnchoredText("GP - PPO: {}".format(mse),loc=1,prop=dict(size=10))
+        ax2.add_artist(mse_text)
+
+def plot_2asset_holding(r: pd.DataFrame, tag: str, ax2: object):
+    """
+    Ploduce plots of portfolio holding
+
+    Parameters
+    ----------
+    r: pd.DataFrame
+        Dataframe containing the variables
+
+    tag: str
+        Name of the algorithm to plot result
+
+    ax2: matplotlib.axes.Axes
+        Axes to draw in
+
+    """
+
+    ax2.plot(r.filter(like="NextHolding_{}".format(tag)).iloc[:,0].values[1:-1],
+             r.filter(like="NextHolding_{}".format(tag)).iloc[:,1].values[1:-1])
+    ax2.plot(r.filter(like='OptNextHolding').iloc[:,0].values[1:-1],
+             r.filter(like='OptNextHolding').iloc[:,1].values[1:-1], alpha=0.5)
+    ax2.set_ylabel('Asset 2')
+    ax2.set_xlabel('Asset 1')
+
 
 
 def plot_action(r: pd.DataFrame, tag: str, ax2: object, hist=False):
