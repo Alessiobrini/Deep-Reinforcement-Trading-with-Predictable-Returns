@@ -9,7 +9,7 @@ import agents.PPO
 # Set up
 ALGO = 'PPO' # 'PPO', 'DQN' or 'DDPG'  
 
-ENV_CLS = @MarketEnv #ShortMultiAssetCash
+ENV_CLS = @ShortMultiAssetCashMarketEnv 
 
 
 EXPERIMENT_TYPE = 'GP' # GP or Misspec
@@ -22,14 +22,14 @@ LEN_SERIES = 200 #None # length of simulated series, if null the legth is N_trai
 EPOCHS = 3
 OUTPUTDIR = 'outputs' # main directory for the experiment
 OUTPUTCLASS = %ALGO # first subdirectory
-OUTPUTMODEL = '20210730_test3' # second subdirectory
+OUTPUTMODEL = '20210729_2assets_alphamagnitude' # second subdirectory
 SAVE_FREQ = 10  # number of checkpoints to save during training
-SEED = 546 #[765,  35, 654, 850] #[157, 466, 477,  24, 281]  # seed for reproducibility
+SEED = [765,  35, 654, 850] #[157, 466, 477,  24, 281]  # seed for reproducibility
 START_TRAIN = 300 # steps after which the training starts
 USE_GPU = True
-VARYING_PARS = None #['%REWARD_TYPE', '%HALFLIFE', '%SIGMAF', '%SEED']
+VARYING_PARS = ['%INITIAL_ALPHA', '%CORRELATION', '%SEED']
 VARYING_TYPE = 'chunk'
-NUM_CORES = 4
+NUM_CORES = 60
 
 # spaces
 ACTION_RANGE =  [None, 9] # action range for standard RL [boundary,number of actions]
@@ -55,18 +55,18 @@ DISCOUNT_RATE = 0.0 # discount rate for time value of money (not gamma in DQN)
 KAPPA = 0.001 #[0.001,0.005] # risk aversion
 INP_TYPE = 'alpha_f' #['f','ret'] # 'f', 'ret', 'alpha' or 'alpha_f'
 COST_TYPE = 'quadratic' # quadratic or nondiff
-REWARD_TYPE = 'cara' # 'mean_var' 'cara'
-CASH = None #1e+6
+REWARD_TYPE = 'mean_var' # 'mean_var' 'cara'
+CASH = 1e+9
 
 DT = 1.0
 ROLLOUT_PCT_NUM = 1.0
-MULTIASSET = False
-HALFLIFE =  [50]  # list of Halflives of mean reversion
-INITIAL_ALPHA = [0.004] # only for alpha term structure case
+MULTIASSET = True
+HALFLIFE = [[25],[125]] #[[2,5], [25,50], [50,100], [100,200], [None,None], ['truncate','truncate']]  # list of Halflives of mean reversion
+INITIAL_ALPHA = [[[0.05],[0.0125]],[[0.05],[0.04]],[[0.05],[0.005]],[[0.05],[0.025]]] # only for alpha term structure case
 SIGMA = 0.01 # return volatility
-SIGMAF = [0.0001] #0.0001,0.00001 [[0.2, 0.1] ,[0.1, 0.1]] #[[0.2, 0.1],[0.1, 0.1]] # list of factor volatilities 
-F_PARAM = [1.0] #, 0.005] # list of factor loadings
-CORRELATION = None
+SIGMAF = [None] #[[0.2, 0.1] ,[0.1, 0.1]] #[[0.2, 0.1],[0.1, 0.1]] # list of factor volatilities
+F_PARAM = [[1.0],[1.0]] #, 0.005] # list of factor loadings
+CORRELATION = [0.6, 0.8, 0.4, 0.2, -0.6, -0.8, -0.4, -0.2]
 QTS = [0.001,0.999] # quantile to select action boundaries
 ACTION_TYPE = 'MV' # GP or MV for selecting action boundaries
 UNCORRELATED = True # generate correlated or uncorrelated factors
