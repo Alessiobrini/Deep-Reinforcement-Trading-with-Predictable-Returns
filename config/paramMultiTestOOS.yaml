@@ -8,10 +8,10 @@
 # as long as the folder path in the list "outputModel" contains relevant experiment to plot
 # MULTI TEST OOS PARAMS
 ############################### LAUNCH SIMULATIONS ##############################
-N_test: 200 # Length of OOS test
-n_seeds : 1000 # Number of OOS test to perform for each agent at each checkpoint
+N_test: 6000 #200 # Length of OOS test
+n_seeds : 500 # Number of OOS test to perform for each agent at each checkpoint
 cores: 4
-random_state : 32 # 33  # Seed for experiment reproducibility OOS. Used to draw "n_seeds" for OOS testing
+random_state : 9071 #9071 seed for two pos # 556785 seed for two neg # 33  # Seed for experiment reproducibility OOS. Used to draw "n_seeds" for OOS testing
 use_GPU : False
 varying_type : 'chunk'
 varying_pars: ['outputModel'] 
@@ -32,8 +32,8 @@ var_plots : [
     # "SR_OOS_{}_{}.parquet.gzip",
     # "PnLstd_OOS_{}_{}.parquet.gzip",
     # "Pdist_OOS_{}_GP.parquet.gzip",
-    "AbsNetPnl_OOS_{}_{}.parquet.gzip",
-    # 'AbsRew_OOS_{}_{}.parquet.gzip',
+    # "AbsNetPnl_OOS_{}_{}.parquet.gzip",
+    'AbsRew_OOS_{}_{}.parquet.gzip',
     # 'AbsWealth_OOS_{}_{}.parquet.gzip',
     # "AbsHold_OOS_{}_{}.parquet.gzip",
     # 'AbsSR_OOS_{}_{}.parquet.gzip',
@@ -68,40 +68,85 @@ outputModels_dqn: ['20210508_GPGAUSS_mvres_sens_halflife_66_sigmaf_0.05',
 # '20210418_GPGAUSS_tot_sens_n_train_{}_halflife_{}_sigmaf_{}_mv_res_{}_inp_type_{}'
 # '20210428_GPGAUSS_tot_sens_n_train_{}_halflife_{}_sigmaf_{}_mv_res_{}_inp_type_{}'
 
-modeltag : '20210726_2assets_1f_signalstrength'
+modeltag : '20210730_alpha_term_noise'
 dist_to_plot: 'r' # r or w for reward or wealth
 ep_ppo: #'100'
 experiment_ppo: 'costmultiplier_{}_kappa_{}_action_range_res_{}_initial_alpha_0.004_seed_{}'
-hyperparams_model_ppo: ['[0.05]_[0.025]','[25]_[100]'] #['500','0.98']  # only for metrics and holding type of plot
+hyperparams_model_ppo: ['cara','50'] #['[0.05]_[0.0125]','[15]_[100]']  #['500','0.98']  # only for metrics and holding type of plot
 hyperparams_exp_ppo: [200, 'truncate',  0.004, 0.0005] #['nondiff',0.005] #['500','0.98']# for policy and value type of plot
 outputModel_ppo: '20210625_general_quad_sens_costmultiplier_{}_kappa_{}_action_range_res_{}_initial_alpha_0.004'
-outputModels_ppo:  ['20210726_2assets_1f_signalstrength_initial_alpha_{}_halflife_{}_correlation_0.2', 
- '20210726_2assets_1f_signalstrength_initial_alpha_{}_halflife_{}_correlation_0.4', 
- '20210726_2assets_1f_signalstrength_initial_alpha_{}_halflife_{}_correlation_0.6', 
- '20210726_2assets_1f_signalstrength_initial_alpha_{}_halflife_{}_correlation_0.8']
- 
+outputModels_ppo:  ['20210126_GAUSS_GP_1f_roll_len_len_series_6000_halflife_300', 
+'20210126_GAUSS_GP_1f_roll_len_len_series_6000_halflife_400']
+
+
+# alphamagnitude [[[0.05],[0.0125]],[[0.05],[0.04]],[[0.05],[0.005]],[[0.05],[0.025]]]
+# ['[0.05]_[0.0125]'] 
+# ['20210729_2assets_alphamagnitude_initial_alpha_{}_correlation_-0.2', 
+#  '20210729_2assets_alphamagnitude_initial_alpha_{}_correlation_-0.4', 
+#  '20210729_2assets_alphamagnitude_initial_alpha_{}_correlation_-0.6', 
+#  '20210729_2assets_alphamagnitude_initial_alpha_{}_correlation_-0.8']
  
  
 
-# 2 assets init [[[0.05],[0.025]],[[0.008],[0.004]],[[0.01],[0.005]]] hl [[[25],[50]],[[25],[100]],[[5],[25]],[[50],[150]],[[15],[150]]]
-# ['20210726_2assets_1f_signalstrength_initial_alpha_{}_halflife_{}_correlation_0.2', 
-#  '20210726_2assets_1f_signalstrength_initial_alpha_{}_halflife_{}_correlation_0.4', 
-#  '20210726_2assets_1f_signalstrength_initial_alpha_{}_halflife_{}_correlation_0.6', 
-#  '20210726_2assets_1f_signalstrength_initial_alpha_{}_halflife_{}_correlation_0.8']
- 
- 
+# alpha noise
+# ['20210730_alpha_term_noise_reward_type_{}_halflife_{}_sigmaf_0.0001', 
+#   '20210730_alpha_term_noise_reward_type_{}_halflife_{}_sigmaf_1e-05', 
+#   '20210730_alpha_term_noise_reward_type_{}_halflife_{}_sigmaf_5e-05', 
+#   '20210730_alpha_term_noise_reward_type_{}_halflife_{}_sigmaf_None']
 
-# 2 assets halflife [[[25],[50]],[[25],[100]],[[5],[25]],[[50],[150]],[[15],[150]]]
-# ['20210726_2assets_1f_halflife_{}_correlation_0.2', 
-#  '20210726_2assets_1f_halflife_{}_correlation_0.4',  
-#  '20210726_2assets_1f_halflife_{}_correlation_0.6',  
-#  '20210726_2assets_1f_halflife_{}_correlation_0.8']
+# 2 assets kappa
+# kappa [0.001, 0.0005, 0.0001, 0.01]
+# inits [[[0.05],[0.0125]],[[0.008],[0.002]],[[0.01],[0.0025]]]
+# ['20210728_2assets_kappa_kappa_{}_initial_alpha_{}_correlation_-0.2'
+#  '20210728_2assets_kappa_kappa_{}_initial_alpha_{}_correlation_-0.4'
+#  '20210728_2assets_kappa_kappa_{}_initial_alpha_{}_correlation_-0.6'
+#  '20210728_2assets_kappa_kappa_{}_initial_alpha_{}_correlation_-0.8'
 
-# 2 assets correlation
-# ['20210726_test_2assets_1factors_correlation_{}', 
-#  '20210726_test_2assets_1factors_correlation_{}', 
-#  '20210726_test_2assets_1factors_correlation_{}', 
-#  '20210726_test_2assets_1factors_correlation_{}']
+
+# 2 assets diff inits
+ # hl [[[100],[200]],[[50],[150]],[[25],[75]],[[10],[30]],[[15],[100]]]
+# inits [[[0.05],[0.0125]],[[0.008],[0.002]],[[0.01],[0.0025]]]
+# ['20210728_2assets_different_inits_initial_alpha_{}_halflife_{}_correlation_-0.2', 
+#   '20210728_2assets_different_inits_initial_alpha_{}_halflife_{}_correlation_-0.4', 
+#   '20210728_2assets_different_inits_initial_alpha_{}_halflife_{}_correlation_-0.6', 
+#   '20210728_2assets_different_inits_initial_alpha_{}_halflife_{}_correlation_-0.8']
+
+
+ # 2 assets
+ # hl [[[100],[200]],[[50],[150]],[[25],[75]],[[10],[30]],[[15],[100]]]
+ # alphas [[[0.05],[0.025]],[[0.008],[0.004]],[[0.01],[0.008]], [[0.004],[0.002]]]
+  # ['20210728_2assets_initial_alpha_{}_halflife_{}_correlation_-0.2', 
+  # '20210728_2assets_initial_alpha_{}_halflife_{}_correlation_-0.4', 
+  # '20210728_2assets_initial_alpha_{}_halflife_{}_correlation_-0.6', 
+  # '20210728_2assets_initial_alpha_{}_halflife_{}_correlation_-0.8']
+ 
+ #  mv ut hl 50 or 100
+# ['20210727_mv_utility_halflife_{}_sigma_0.0005', 
+#  '20210727_mv_utility_halflife_{}_sigma_0.001', 
+#  '20210727_mv_utility_halflife_{}_sigma_0.0025', 
+#  '20210727_mv_utility_halflife_{}_sigma_0.005']
+ 
+# exp ut hl 50 or 100
+# ['20210727_exp_utility_halflife_{}_sigma_0.0005', 
+#   '20210727_exp_utility_halflife_{}_sigma_0.001', 
+#   '20210727_exp_utility_halflife_{}_sigma_0.0025', 
+#   '20210727_exp_utility_halflife_{}_sigma_0.005']
+
+
+# 2 assets no cov matrix as input ['@ShortMultiAssetCashMarketEnv', '[0.008]_[0.004]','[5]_[25]']
+# env cls [@MultiAssetCashMarketEnv,@ShortMultiAssetCashMarketEnv ]
+# init alpha [[[0.05],[0.025]],[[0.008],[0.004]],[[0.01],[0.005]]]
+# hl [[[25],[50]],[[25],[100]],[[5],[25]],[[50],[150]],[[15],[150]]]
+# ['20210727_2assets_env_cls_{}_initial_alpha_{}_halflife_{}_correlation_0.2', 
+#   '20210727_2assets_env_cls_{}_initial_alpha_{}_halflife_{}_correlation_0.4', 
+#   '20210727_2assets_env_cls_{}_initial_alpha_{}_halflife_{}_correlation_0.6', 
+#   '20210727_2assets_env_cls_{}_initial_alpha_{}_halflife_{}_correlation_0.8']
+ 
+ # 2 asset input cov matrix
+# ['20210727_test_short_with_corr_correlation_0.2', 
+# '20210727_test_short_with_corr_correlation_0.4', 
+# '20210727_test_short_with_corr_correlation_0.6', 
+# '20210727_test_short_with_corr_correlation_0.8']
 
 #exp utility sigma [0.005, 0.001, 0.01, 0.1, 0.5]
 # ['20210720_exp_utility_kappa_0.0005_sigma_{}', 

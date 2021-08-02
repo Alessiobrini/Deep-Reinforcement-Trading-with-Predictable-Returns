@@ -27,6 +27,7 @@ import matplotlib.pyplot as plt
 from matplotlib.ticker import FuncFormatter, ScalarFormatter
 from matplotlib import cm
 from matplotlib.offsetbox import AnchoredText
+import seaborn as sns
 import torch
 from agents.PPO import PPOActorCritic
 
@@ -816,6 +817,7 @@ def plot_portfolio(r: pd.DataFrame, tag: str, ax2: object):
             
         ax2.legend(list(r.filter(like="NextHolding_{}".format(tag)).columns) + 
                    list(r.filter(like="OptNextHolding").columns),fontsize=9)
+        # pdb.set_trace()
 
     else:
         ax2.plot(r["NextHolding_{}".format(tag)].values[1:-1], label=tag)
@@ -841,12 +843,20 @@ def plot_2asset_holding(r: pd.DataFrame, tag: str, ax2: object):
 
     """
 
-    ax2.plot(r.filter(like="NextHolding_{}".format(tag)).iloc[:,0].values[1:-1],
-             r.filter(like="NextHolding_{}".format(tag)).iloc[:,1].values[1:-1])
-    ax2.plot(r.filter(like='OptNextHolding').iloc[:,0].values[1:-1],
-             r.filter(like='OptNextHolding').iloc[:,1].values[1:-1], alpha=0.5)
-    ax2.set_ylabel('Asset 2')
-    ax2.set_xlabel('Asset 1')
+    # ax2.hist(r.filter(like="NextHolding_{}".format(tag)).values[1:-1], edgecolor = 'black',color=['b','y'])
+    # ax2.hist(r.filter(like='OptNextHolding').values[1:-1], alpha=0.65,color=['b','y'])
+    
+    sns.kdeplot(r.filter(like="NextHolding_{}".format(tag)).iloc[:,0].values[1:-1], bw_method=0.2,ax=ax2,color='b')
+    sns.kdeplot(r.filter(like="NextHolding_{}".format(tag)).iloc[:,1].values[1:-1], bw_method=0.2,ax=ax2,color='y')
+    sns.kdeplot(r.filter(like='OptNextHolding').iloc[:,0].values[1:-1], bw_method=0.2,ax=ax2,color='b', alpha=0.5, ls='--')
+    sns.kdeplot(r.filter(like='OptNextHolding').iloc[:,1].values[1:-1], bw_method=0.2,ax=ax2,color='y', alpha=0.5, ls='--')
+
+    ax2.set_xlabel('Position amount')
+    ax2.set_ylabel('Frequency')
+        
+
+    ax2.legend(list(r.filter(like="NextHolding_{}".format(tag)).columns) + 
+               list(r.filter(like="OptNextHolding").columns),fontsize=9)
 
 
 
@@ -867,7 +877,6 @@ def plot_action(r: pd.DataFrame, tag: str, ax2: object, hist=False):
 
     """
     if hist:
-
         if "ResAction_{}".format(tag) in r.columns:
             ax2.hist(r["ResAction_{}".format(tag)].values[1:-1], label=tag)
         else:

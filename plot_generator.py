@@ -43,7 +43,7 @@ from utils.plot import (
     plot_2asset_holding
 )
 from utils.test import Out_sample_vs_gp
-from utils.env import MarketEnv, CashMarketEnv, ShortCashMarketEnv, MultiAssetCashMarketEnv
+from utils.env import MarketEnv, CashMarketEnv, ShortCashMarketEnv, MultiAssetCashMarketEnv, ShortMultiAssetCashMarketEnv
 from agents.DQN import DQN
 from agents.PPO import PPO
 from utils.spaces import ActionSpace, ResActionSpace
@@ -137,9 +137,8 @@ def runplot_metrics(p):
 
                 dataframe = pd.concat(dfs)
                 dataframe.index = range(len(dfs))
-                
 
-
+                # pdb.set_trace()
                 if 'PPO' in tag and p['ep_ppo']:
                     dataframe = dataframe.iloc[:,:dataframe.columns.get_loc(p['ep_ppo'])]
 
@@ -168,14 +167,14 @@ def runplot_metrics(p):
                         i=it,
                     )                    
                     
-                    # if 'Pdist' in v:
-                    #     std = 1e+10
-                    #     ax.set_ylim(0.0, 0.0 + std)
-                    # else:
-                    #     import math
-                    #     value = dataframe_opt.iloc[0, 2]
-                    #     odm = math.floor(math.log(value, 10))
-                    #     ax.set_ylim(value - (10**(odm)), value + 0.5*(10**(odm)))
+                    if 'Pdist' in v:
+                        std = 1e+10
+                        ax.set_ylim(0.0, 0.0 + std)
+                    else:
+                        import math
+                        value = dataframe_opt.iloc[0, 2]
+                        odm = math.floor(math.log(value, 10))
+                        ax.set_ylim(value - (10**(odm)), value + 0.5*(10**(odm)))
 
 
                 else:
@@ -345,6 +344,9 @@ def runplot_policy(p):
 
 def parallel_test(seed,test_class,train_agent,data_dir,fullpath=False):
     gin.parse_config_file(os.path.join(data_dir, "config.gin"), skip_unknown=True)
+    # change reward function in order to evaluate in the same way
+    if gin.query_parameter('%REWARD_TYPE') == 'cara':
+        gin.bind_parameter('%REWARD_TYPE', 'mean_var')
     test_class.rnd_state = seed
     res_df = test_class.run_test(train_agent, return_output=True)
     if fullpath:
@@ -354,6 +356,9 @@ def parallel_test(seed,test_class,train_agent,data_dir,fullpath=False):
     
 def parallel_test_wealth(seed,test_class,train_agent,data_dir,fullpath=False):
     gin.parse_config_file(os.path.join(data_dir, "config.gin"), skip_unknown=True)
+    # change reward function in order to evaluate in the same way
+    if gin.query_parameter('%REWARD_TYPE') == 'cara':
+        gin.bind_parameter('%REWARD_TYPE', 'mean_var')
     test_class.rnd_state = seed
     res_df = test_class.run_test(train_agent, return_output=True)
     if fullpath:
@@ -443,7 +448,10 @@ def runplot_distribution(p):
     
     
     if gin.query_parameter('%MULTIASSET'):
-        env = MultiAssetCashMarketEnv
+        if 'Short' in str(gin.query_parameter('%ENV_CLS')):
+            env = ShortMultiAssetCashMarketEnv
+        else:
+            env = MultiAssetCashMarketEnv
     else:
         env = MarketEnv
         
@@ -547,6 +555,9 @@ def runmultiplot_distribution(p):
                 
                 gin.parse_config_file(os.path.join(data_dir, "config.gin"), skip_unknown=True)
                 gin.bind_parameter('alpha_term_structure_sampler.generate_plot', p['generate_plot'])
+                # change reward function in order to evaluate in the same way
+                if query('%REWARD_TYPE') == 'cara':
+                    gin.bind_parameter('%REWARD_TYPE', 'mean_var')
                 p['N_test'] = gin.query_parameter('%LEN_SERIES')
                 
                 # gin.bind_parameter('Out_sample_vs_gp.rnd_state',p['random_state'])
@@ -561,7 +572,8 @@ def runmultiplot_distribution(p):
                     n_assets = len(gin.query_parameter('%HALFLIFE'))
                     n_factors = len(gin.query_parameter('%HALFLIFE')[0])
                     if query("%INP_TYPE") == "f" or query("%INP_TYPE") == "alpha_f":
-                        input_shape = (n_factors*n_assets+n_assets+1,1)
+                        # input_shape = (n_factors*n_assets+n_assets+1,1)
+                        input_shape = (int(n_factors*n_assets+1+ (n_assets**2 - n_assets)/2+n_assets+1),1)
                     else:
                         input_shape = (n_assets+n_assets+1,1)
                 else:
@@ -598,7 +610,10 @@ def runmultiplot_distribution(p):
                     sys.exit()
                     
                 if gin.query_parameter('%MULTIASSET'):
-                    env = MultiAssetCashMarketEnv
+                    if 'Short' in str(gin.query_parameter('%ENV_CLS')):
+                        env = ShortMultiAssetCashMarketEnv
+                    else:
+                        env = MultiAssetCashMarketEnv
                 else:
                     env = MarketEnv
                 oos_test = Out_sample_vs_gp(
@@ -609,7 +624,7 @@ def runmultiplot_distribution(p):
                     MV_res=query("%MV_RES"),
                     N_test=p['N_test']
                 )
-            
+                
             
                 rng_seeds = np.random.RandomState(14)
                 seeds = rng_seeds.choice(1000,p['n_seeds'])
@@ -765,9 +780,11 @@ def runplot_holding(p):
             n_assets = len(gin.query_parameter('%HALFLIFE'))
             n_factors = len(gin.query_parameter('%HALFLIFE')[0])
             if query("%INP_TYPE") == "f" or query("%INP_TYPE") == "alpha_f":
-                input_shape = (n_factors*n_assets+n_assets+1,1)
+                # input_shape = (n_factors*n_assets+n_assets+1,1)
+                input_shape = (int(n_factors*n_assets+1+ (n_assets**2 - n_assets)/2+n_assets+1),1)
             else:
                 input_shape = (n_assets+n_assets+1,1)
+                # input_shape = (int(n_assets+1+ (n_assets**2 - n_assets)/2+n_assets+1),1)
         else:
             if query("%INP_TYPE") == "f" or query("%INP_TYPE") == "alpha_f":
                 input_shape = (len(query('%F_PARAM')) + 1,)
@@ -801,9 +818,12 @@ def runplot_holding(p):
         else:
             print("Choose proper algorithm.")
             sys.exit()
-            
+
         if gin.query_parameter('%MULTIASSET'):
-            env = MultiAssetCashMarketEnv
+            if 'Short' in str(gin.query_parameter('%ENV_CLS')):
+                env = ShortMultiAssetCashMarketEnv
+            else:
+                env = MultiAssetCashMarketEnv
         else:
             env = MarketEnv
         oos_test = Out_sample_vs_gp(
@@ -816,6 +836,7 @@ def runplot_holding(p):
         )
 
         res_df = oos_test.run_test(train_agent, return_output=True)
+
 
         if gin.query_parameter('%MULTIASSET'):
 
