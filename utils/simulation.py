@@ -573,13 +573,7 @@ def alpha_term_structure_sampler(
             term_structures.append(alpha_structure)
             speeds.append(f_speed)
             alpha_factor_terms.append(alpha_terms)
-            if generate_plot:
-                fig,ax = plt.subplots()
-                ax.plot(alpha_terms)
-                ax.plot(alpha_structure, ls='--')
-                # ax.plot(alpha_terms.sum(axis=1), ls='--')
-                ax.set_title('Alpha term structure')
-                # plt.show()
+
  
         alpha_structure = np.transpose(np.array(term_structures,dtype='float')) 
         alpha_factor_terms = np.array(alpha_factor_terms,dtype='float')
@@ -590,7 +584,12 @@ def alpha_term_structure_sampler(
         else:
             alpha_terms = np.transpose(np.squeeze(alpha_factor_terms))
         f_speed = np.array(speeds, dtype='float')
-
+        if generate_plot:
+            fig,ax = plt.subplots()
+            ax.plot(alpha_structure)
+            # ax.plot(alpha_terms.sum(axis=1), ls='--')
+            ax.set_title('Alpha term structure')
+            # plt.show()
         return alpha_structure, alpha_terms, f_speed
     else:
         # single asset case where different alpha term structure can be combined in 
@@ -610,11 +609,10 @@ def alpha_term_structure_sampler(
         alpha_terms = initial_alpha * np.e**(-f_speed*t)
 
         if None not in sigmaf:
-            noise_magnitude = np.cumsum(sigmaf*t).reshape(-1,alpha_n)
+            noise_magnitude = (np.array(sigmaf) * np.sqrt(t)).reshape(-1,alpha_n)
             noise = noise_magnitude * rng.normal(size=(len(t),alpha_n))
             alpha_terms = alpha_terms + noise
 
-        
         if sum(f_param) != 1.0:
             print('Factor loadings for term structure do not sum to one.')
             sys.exit()
@@ -626,6 +624,7 @@ def alpha_term_structure_sampler(
             # ax.plot(alpha_terms.sum(axis=1), ls='--')
             ax.set_title('Alpha term structure')
             # plt.show()
+
 
         return alpha_structure, alpha_terms, f_speed
 
