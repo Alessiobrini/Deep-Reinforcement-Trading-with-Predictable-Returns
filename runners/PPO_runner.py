@@ -96,6 +96,10 @@ class PPO_runner(MixinCore):
     def set_up_training(self):
 
         self.logging.debug("Simulating Data")
+        # Modify hyperparams to deal with a large cross section
+        n_assets = gin.query_parameter('%N_ASSETS')
+        if n_assets:
+            self._get_hyperparams_n_assets(n_assets,self.rng)
 
         self.data_handler = DataHandler(N_train=self.len_series, rng=self.rng)
         if self.experiment_type == "GP":
@@ -272,6 +276,7 @@ class PPO_runner(MixinCore):
 
             if self.train_agent.policy_type == "continuous":
                 action = dist.sample()
+
                 log_prob = dist.log_prob(action)
                 clipped_action = nn.Tanh()(action).cpu().numpy().ravel()
                 action = action.cpu().numpy().ravel()
@@ -350,3 +355,9 @@ class PPO_runner(MixinCore):
                 self.train_agent.compute_gae(
                     self.next_value.detach().cpu().numpy().ravel(), recompute_value=True
                 )
+
+    def _get_hyperparams_n_assets(self,n_assets,rng):
+        gin.bind_parameter('%HALFLIFE',[[rng.randint(low=5,high=150)] for _ in range(n_assets)])
+        gin.bind_parameter('%INITIAL_ALPHA',[[np.round(rng.uniform(low=0.0,high=0.004),5)] for _ in range(n_assets)])
+        gin.bind_parameter('%F_PARAM',[[1.0] for _ in range(n_assets)])
+        gin.bind_parameter('%CORRELATION',list(np.round(rng.uniform(size=(int((n_assets**2 - n_assets)/2))),5)))

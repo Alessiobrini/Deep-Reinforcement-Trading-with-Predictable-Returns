@@ -900,11 +900,18 @@ class MultiAssetCashMarketEnv(CashMarketEnv):
     def reset(self) -> Tuple[np.ndarray, np.ndarray]:
 
         if self.inp_type == "ret" or self.inp_type == "alpha":
-            currState = np.append(self.factors[0], [self.Startholding]*self.n_assets + [self.cash])
+            if isinstance(self.corr,float):
+                currState = np.append(self.returns[0], [self.sigma**2,self.corr] + [self.Startholding]*self.n_assets + [self.cash])
+            elif isinstance(self.corr,list):
+                currState = np.append(self.returns[0], [self.sigma**2] + [self.corr] + [self.Startholding]*self.n_assets + [self.cash])
             currFactor = self.factors[0]
             return currState, currFactor
         elif self.inp_type == "f" or self.inp_type == "alpha_f":
-            currState = np.append(self.factors[0], [self.Startholding]*self.n_assets + [self.cash])
+            # currState = np.append(self.factors[0], [self.Startholding]*self.n_assets + [self.cash])
+            if isinstance(self.corr,float):
+                currState = np.append(self.factors[0], [self.sigma**2,self.corr] + [self.Startholding]*self.n_assets + [self.cash])
+            elif isinstance(self.corr,list):
+                currState = np.append(self.factors[0], [self.sigma**2] + [self.corr] + [self.Startholding]*self.n_assets + [self.cash])
             currRet = self.returns[0]
             return currState, currRet
 
@@ -916,7 +923,7 @@ class MultiAssetCashMarketEnv(CashMarketEnv):
         iteration: int,
         tag: str = "DQN",
     ) -> Tuple[np.ndarray, dict, np.ndarray]:
-
+        # TODO Adapt to multi asset. I adapted only Mv_res step
         nextFactors = self.factors[iteration + 1]
         nextRet = self.returns[iteration + 1]
         
@@ -962,8 +969,7 @@ class MultiAssetCashMarketEnv(CashMarketEnv):
             # Traded quantity as for the Markovitz framework  (Mean-Variance framework)
             OptNextHolding = np.dot(np.linalg.inv(self.cov_matrix* self.kappa), np.dot(
                 CurrFactors,self.f_param[0]
-            ))
-            
+            )) 
             nextFactors = self.factors[iteration + 1]
         # Compute optimal markovitz action
         MV_action = OptNextHolding - CurrHolding
@@ -978,7 +984,7 @@ class MultiAssetCashMarketEnv(CashMarketEnv):
                 )
             elif a < 0:
                 trade = self._sell(
-                    index=iteration, holding=currState[-1+self.n_assets+i], action=a
+                    index=iteration, holding=currState[-1-self.n_assets+i], action=a
                 )
             else:
                 trade = 0.0
@@ -995,9 +1001,17 @@ class MultiAssetCashMarketEnv(CashMarketEnv):
         self.cash_ts.append(nextCash)
 
         if self.inp_type == "ret" or self.inp_type == "alpha":
-            nextState = np.array([nextRet, nextHolding,nextCash], dtype=np.float32)
+            if isinstance(self.corr,float):
+                nextState = np.append(nextRet, [self.sigma**2,self.corr] + list(nextHolding)+[nextCash])
+            elif isinstance(self.corr,list):
+                nextState = np.append(nextRet, [self.sigma**2] + self.corr + list(nextHolding)+[nextCash])
         elif self.inp_type == "f" or self.inp_type == "alpha_f":
-            nextState = np.append(nextFactors, list(nextHolding)+[nextCash])
+            # nextState = np.append(nextFactors, list(nextHolding)+[nextCash])
+            if isinstance(self.corr,float):
+                nextState = np.append(nextFactors, [self.sigma**2,self.corr] + list(nextHolding)+[nextCash])
+            elif isinstance(self.corr,list):
+                nextState = np.append(nextFactors, [self.sigma**2] + self.corr + list(nextHolding)+[nextCash])
+            
 
         Result = self._getreward(
             iteration, tag, res_action=res_shares_traded
@@ -1033,7 +1047,7 @@ class MultiAssetCashMarketEnv(CashMarketEnv):
         OptTrades = []
         for i,a in enumerate(action):
             opt_t = self._opt_trade(
-                index=iteration, holding=currOptState[-1+self.n_assets+i], cash=currOptState[-1], action=a
+                index=iteration, holding=currOptState[-1-self.n_assets+i], cash=currOptState[-1], action=a
             )
             OptTrades.append(opt_t)
         OptNextHolding = np.array(OptTrades)  + OptCurrHolding * (1 + self.returns[iteration+1])
@@ -1223,7 +1237,7 @@ class ShortMultiAssetCashMarketEnv(MultiAssetCashMarketEnv):
 
 
     def _sell(self, index: int, holding: np.ndarray, action: float):
-
+ 
         shares_traded = action
         self.costs += self._totalcost(shares_traded)
         # absolute quantity because now you can sell short and shares_traded can be negative
@@ -1247,7 +1261,7 @@ class ShortMultiAssetCashMarketEnv(MultiAssetCashMarketEnv):
         elif action < 0.0:
 
             # one could insert a stop to consider cost of short selling
-            shares_traded = -abs(action)
+            shares_traded = action
 
             self.costs += self._totalcost(shares_traded)
             self.traded_amount += np.abs(shares_traded) - self.costs

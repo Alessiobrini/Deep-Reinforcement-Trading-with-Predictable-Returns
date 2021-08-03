@@ -533,8 +533,9 @@ def alpha_term_structure_sampler(
     rng: np.random.mtrand.RandomState = None,
     offset: int = 2,
     generate_plot:bool = False,
-    multiasset: bool = False):
-    
+    multiasset: bool = False,):
+
+
     
     if multiasset:
         term_structures = []
