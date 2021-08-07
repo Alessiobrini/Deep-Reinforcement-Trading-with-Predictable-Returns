@@ -98,7 +98,8 @@ class Out_sample_vs_gp:
                 factors=data_handler.factors,
             )
 
-            CurrState, _ = self.test_env.reset()
+            CurrState = self.test_env.reset()
+
             
             CurrOptState = self.test_env.opt_reset()
             OptRate, DiscFactorLoads = self.test_env.opt_trading_rate_disc_loads()

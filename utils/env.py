@@ -151,6 +151,7 @@ class MarketEnv(gym.Env):
         cash : int = None,
         multiasset: bool = False,
         corr: int = None,
+        inputs: list = None,
     ):
 
         # super(MarketEnv, self).__init__()
@@ -176,6 +177,7 @@ class MarketEnv(gym.Env):
         self.multiasset = multiasset
         self.corr = corr
         self.cash = cash
+        self.inputs = inputs
         
         if multiasset:
             colnames = (["returns" + str(hl) for hl in HalfLife] + 
@@ -233,18 +235,16 @@ class MarketEnv(gym.Env):
         
 
     def get_state_dim(self):
-        state, _ = self.reset()
+        state = self.reset()
         return state.shape
 
     def reset(self) -> Tuple[np.ndarray, np.ndarray]:
         if self.inp_type == "ret" or self.inp_type == "alpha":
             currState = np.array([self.returns[0], self.Startholding])
-            currFactor = self.factors[0]
-            return currState, currFactor
+            return currState
         elif self.inp_type == "f" or self.inp_type == "alpha_f":
             currState = np.append(self.factors[0], self.Startholding)
-            currRet = self.returns[0]
-            return currState, currRet
+            return currState
 
     def step(
         self,
@@ -377,7 +377,6 @@ class MarketEnv(gym.Env):
         return nextOptState, OptResult
 
     def store_results(self, Result: dict, iteration: int):
-        
         if iteration == 0:
             for key in Result.keys():
                 if isinstance(Result[key],list) or isinstance(Result[key],np.ndarray):
@@ -569,18 +568,61 @@ class MarketEnv(gym.Env):
         return Result
 
 
+    def _get_inputs(self,reset,iteration=None):
+
+        # could be rewritten better https://stackoverflow.com/questions/25211924/check-every-condition-in-python-if-else-even-if-one-evaluates-to-true
+        input_list = []
+        input_type= self.inputs
+        if reset:
+            if self.inp_type == "ret" or self.inp_type == "alpha":
+                input_list.extend(list(self.returns[0]))
+            elif self.inp_type == "f" or self.inp_type == "alpha_f":
+                input_list.extend(list(self.factors[0]))
+
+            if "sigma" in input_type:
+                input_list.append(self.sigma**2)
+            if "corr" in input_type:
+                if isinstance(self.corr,float):
+                    input_list.append(self.corr)
+                elif isinstance(self.corr,list):
+                    input_list.extend(self.corr)
+            if "holding" in input_type:
+                input_list.extend([self.Startholding]*self.n_assets)
+            # entire arrays
+            if "cash" in input_type:
+                input_list.append(self.cash)
+        else:
+            if self.inp_type == "ret" or self.inp_type == "alpha":
+                input_list.extend(list(self.returns[iteration+1]))
+            elif self.inp_type == "f" or self.inp_type == "alpha_f":
+                input_list.extend(list(self.factors[iteration+1]))
+
+            if "sigma" in input_type:
+                input_list.append(self.sigma**2)
+            if "corr" in input_type:
+                if isinstance(self.corr,float):
+                    input_list.append(self.corr)
+                elif isinstance(self.corr,list):
+                    input_list.extend(self.corr)
+            if "holding" in input_type:
+                input_list.extend(self.holding_ts[iteration+1])
+            # entire arrays
+            if "cash" in input_type:
+                input_list.append(self.cash_ts[iteration+1])
+
+        return input_list
+
+
 @gin.configurable()
 class CashMarketEnv(MarketEnv):
 
     def reset(self) -> Tuple[np.ndarray, np.ndarray]:
         if self.inp_type == "ret" or self.inp_type == "alpha":
             currState = np.array([self.returns[0], self.Startholding, self.cash])
-            currFactor = self.factors[0]
-            return currState, currFactor
+            return currState
         elif self.inp_type == "f" or self.inp_type == "alpha_f":
             currState = np.append(self.factors[0], [self.Startholding, self.cash])
-            currRet = self.returns[0]
-            return currState, currRet
+            return currState
 
 
     def step(
@@ -898,22 +940,9 @@ class ShortCashMarketEnv(CashMarketEnv):
 class MultiAssetCashMarketEnv(CashMarketEnv):
 
     def reset(self) -> Tuple[np.ndarray, np.ndarray]:
-
-        if self.inp_type == "ret" or self.inp_type == "alpha":
-            if isinstance(self.corr,float):
-                currState = np.append(self.returns[0], [self.sigma**2,self.corr] + [self.Startholding]*self.n_assets + [self.cash])
-            elif isinstance(self.corr,list):
-                currState = np.append(self.returns[0], [self.sigma**2] + [self.corr] + [self.Startholding]*self.n_assets + [self.cash])
-            currFactor = self.factors[0]
-            return currState, currFactor
-        elif self.inp_type == "f" or self.inp_type == "alpha_f":
-            # currState = np.append(self.factors[0], [self.Startholding]*self.n_assets + [self.cash])
-            if isinstance(self.corr,float):
-                currState = np.append(self.factors[0], [self.sigma**2,self.corr] + [self.Startholding]*self.n_assets + [self.cash])
-            elif isinstance(self.corr,list):
-                currState = np.append(self.factors[0], [self.sigma**2] + [self.corr] + [self.Startholding]*self.n_assets + [self.cash])
-            currRet = self.returns[0]
-            return currState, currRet
+        input_list = self._get_inputs(reset=True)
+        currState = np.array(input_list).reshape(-1,)  # long vector
+        return currState
 
 
     def step(
@@ -1000,19 +1029,10 @@ class MultiAssetCashMarketEnv(CashMarketEnv):
         nextCash = self.cash_ts[iteration] + self.traded_amount
         self.cash_ts.append(nextCash)
 
-        if self.inp_type == "ret" or self.inp_type == "alpha":
-            if isinstance(self.corr,float):
-                nextState = np.append(nextRet, [self.sigma**2,self.corr] + list(nextHolding)+[nextCash])
-            elif isinstance(self.corr,list):
-                nextState = np.append(nextRet, [self.sigma**2] + self.corr + list(nextHolding)+[nextCash])
-        elif self.inp_type == "f" or self.inp_type == "alpha_f":
-            # nextState = np.append(nextFactors, list(nextHolding)+[nextCash])
-            if isinstance(self.corr,float):
-                nextState = np.append(nextFactors, [self.sigma**2,self.corr] + list(nextHolding)+[nextCash])
-            elif isinstance(self.corr,list):
-                nextState = np.append(nextFactors, [self.sigma**2] + self.corr + list(nextHolding)+[nextCash])
-            
 
+        input_list = self._get_inputs(reset=False,iteration=iteration)
+        nextState = np.array(input_list).reshape(-1,)  # long vector
+            
         Result = self._getreward(
             iteration, tag, res_action=res_shares_traded
         )

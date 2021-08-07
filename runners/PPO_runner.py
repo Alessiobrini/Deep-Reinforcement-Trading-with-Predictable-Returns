@@ -205,10 +205,12 @@ class PPO_runner(MixinCore):
                 )
 
                 self.logging.debug("Testing...")
-                self.oos_test.run_test(it=e + 1, test_agent=self.train_agent)
-
-        self.oos_test.save_series()
-        # self.train_agent.save_diagnostics(path=self.savedpath)
+                n_assets = gin.query_parameter('%N_ASSETS')
+                if n_assets<3 or n_assets == None:
+                    self.oos_test.run_test(it=e + 1, test_agent=self.train_agent)
+        if n_assets<3 or n_assets == None:
+            self.oos_test.save_series()
+            # self.train_agent.save_diagnostics(path=self.savedpath)
 
 
         save_gin(os.path.join(self.savedpath, "config.gin"))
@@ -268,7 +270,8 @@ class PPO_runner(MixinCore):
 
     def collect_rollouts(self):
 
-        state, _ = self.env.reset()
+        state = self.env.reset()
+
         self.train_agent.reset_experience()
 
         for i in range(len(self.env.returns) - 2):
