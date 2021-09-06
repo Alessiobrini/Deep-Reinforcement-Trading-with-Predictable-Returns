@@ -298,6 +298,7 @@ def return_sampler_garch(
     seed: int = None,
     seed_param: int = None,
     p_arg: list = None,
+    disable_tqdm: bool = False,
 ) -> Tuple[np.ndarray, pd.Series]:
     # https://stats.stackexchange.com/questions/61824/how-to-interpret-garch-parameters
     # https://arch.readthedocs.io/en/latest/univariate/introduction.html
@@ -529,11 +530,13 @@ def alpha_term_structure_sampler(
     HalfLife: Union[int or list or np.ndarray],
     initial_alpha: Union[int or list or np.ndarray],
     f_param: Union[int or list or np.ndarray],
+    sigma: Union[int or list or np.ndarray]= None,
     sigmaf: Union[int or list or np.ndarray]= None,
     rng: np.random.mtrand.RandomState = None,
     offset: int = 2,
     generate_plot:bool = False,
-    multiasset: bool = False,):
+    multiasset: bool = False,
+    double_noise: bool = False):
 
 
     
@@ -557,12 +560,16 @@ def alpha_term_structure_sampler(
             alpha_n = len(hl)
             f_speed =  np.log(2)/hl
             t = np.arange(0,N_train+offset).repeat(alpha_n).reshape(-1,alpha_n)
-            alpha_terms = init_a * np.e**(-f_speed*t)
-
+            if double_noise:
+                alpha_terms = init_a * np.e**(-f_speed*t) + sigma * rng.normal(size=(len(t),alpha_n))
+            else:
+                alpha_terms = init_a * np.e**(-f_speed*t)
             if None not in sigmaf:
-                noise_magnitude = np.cumsum(sigmaf*t).reshape(-1,alpha_n)
+                # noise_magnitude = np.cumsum(sigmaf*t).reshape(-1,alpha_n)
+                noise_magnitude = (np.array(sigmaf) * np.sqrt(t)).reshape(-1,alpha_n)
                 noise = noise_magnitude * rng.normal(size=(len(t),alpha_n))
                 alpha_terms = alpha_terms + noise
+
 
             
             if sum(fp) != 1.0:
@@ -607,7 +614,11 @@ def alpha_term_structure_sampler(
         alpha_n = len(HalfLife)
         f_speed =  np.log(2)/HalfLife
         t = np.arange(0,N_train+offset).repeat(alpha_n).reshape(-1,alpha_n)
-        alpha_terms = initial_alpha * np.e**(-f_speed*t)
+        
+        if double_noise:
+            alpha_terms = initial_alpha * np.e**(-f_speed*t) + sigma * rng.normal(size=(len(t),alpha_n))
+        else:
+            alpha_terms = initial_alpha * np.e**(-f_speed*t)
 
         if None not in sigmaf:
             noise_magnitude = (np.array(sigmaf) * np.sqrt(t)).reshape(-1,alpha_n)

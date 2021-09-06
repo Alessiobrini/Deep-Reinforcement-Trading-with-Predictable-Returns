@@ -191,6 +191,7 @@ class MarketEnv(gym.Env):
             )
             self.n_assets = len(HalfLife)
             self.n_factors = len(HalfLife[0])
+  
             if self.cash:
     
                 self.holding_ts = [[self.Startholding]*self.n_assets]
@@ -213,7 +214,7 @@ class MarketEnv(gym.Env):
                 sys.exit()
 
         else:
-
+            
             colnames = ["returns"] + ["factor_" + str(hl) for hl in HalfLife]
 
             res_df = pd.DataFrame(
@@ -222,6 +223,10 @@ class MarketEnv(gym.Env):
                 ),
                 columns=colnames,
             )
+
+            self.n_assets = 1
+            self.n_factors = len(HalfLife)
+
             if cash:
                 self.cash = cash
                 self.holding_ts = [self.Startholding]

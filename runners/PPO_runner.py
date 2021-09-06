@@ -206,9 +206,9 @@ class PPO_runner(MixinCore):
 
                 self.logging.debug("Testing...")
                 n_assets = gin.query_parameter('%N_ASSETS')
-                if n_assets<3 or n_assets == None:
+                if n_assets == None:
                     self.oos_test.run_test(it=e + 1, test_agent=self.train_agent)
-        if n_assets<3 or n_assets == None:
+        if n_assets == None:
             self.oos_test.save_series()
             # self.train_agent.save_diagnostics(path=self.savedpath)
 
