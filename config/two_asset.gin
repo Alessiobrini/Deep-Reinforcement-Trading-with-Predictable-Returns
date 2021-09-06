@@ -16,20 +16,20 @@ EXPERIMENT_TYPE = 'GP' # GP or Misspec
 MV_RES = True  # Decide which actions to take (trading quantity or MVresiduals)
 UNIVERSAL_TRAIN = True
 
-EPISODES = 400  #None # episode to run the algorithm. Put None if you want to train DQN online
+EPISODES = 500  #None # episode to run the algorithm. Put None if you want to train DQN online
 N_TRAIN = None
 LEN_SERIES = 200 #None # length of simulated series, if null the legth is N_train
 EPOCHS = 3
 OUTPUTDIR = 'outputs' # main directory for the experiment
 OUTPUTCLASS = %ALGO # first subdirectory
-OUTPUTMODEL = '20210819_multi_alphaterm' # second subdirectory
-SAVE_FREQ = 10  # number of checkpoints to save during training
-SEED = [765,  35, 157, 466, 477,  24, 281]  # seed for reproducibility
+OUTPUTMODEL = '20210823_2_alpha_term_negcorr' # second subdirectory
+SAVE_FREQ = 25  # number of checkpoints to save during training
+SEED = [765,  35] #[157, 466, 477,  24, 281]  # seed for reproducibility
 START_TRAIN = 300 # steps after which the training starts
 USE_GPU = True
-VARYING_PARS = ['%DOUBLE_NOISE','%SIGMA','%SIGMAF', '%N_ASSETS', '%SEED']
+VARYING_PARS = ['%DOUBLE_NOISE', '%SIGMA',  '%SIGMAF', '%CORRELATION',  '%SEED']
 VARYING_TYPE = 'chunk'
-NUM_CORES = 60
+NUM_CORES = 20
 
 # spaces
 ACTION_RANGE =  [None, 9] # action range for standard RL [boundary,number of actions]
@@ -45,7 +45,7 @@ ZERO_ACTION = True # include the zero action (hold) in the action space
 
 # env and data simulation
 DATATYPE = 'alpha_term_structure' # type of data to simulate # 'garch','t_stud','t_stud_mfit', 'garch_mr', 'alpha_term_structure'
-INPUTS = ['sigma', 'corr', 'holding', 'cash'] # [['sigma', 'corr', 'holding', 'cash'],['holding', 'cash']]
+INPUTS = ['sigma', 'corr', 'holding', 'cash'] #[['sigma', 'corr', 'holding', 'cash'],['holding', 'cash']]
 
 FACTOR_LB = [2, 50] # list of lags for fitting autoregressive vairables of the return series
 COSTMULTIPLIER = 0.001 #[0.0005,0.001,0.0001,0.00005,0.00001] # Cost multiplier to make the cost proportional to the risk
@@ -62,11 +62,11 @@ CASH = 1e+9
 DT = 1.0
 ROLLOUT_PCT_NUM = 1.0
 MULTIASSET = True
-N_ASSETS = [3,4]
-HALFLIFE = [[137], [78]]
-INITIAL_ALPHA =  [[0.0022], [0.00185]] #, [0.00017], [0.00116], [0.00156], [0.00362], [0.00115], [0.00332], [0.00176], [0.00383], [0.00308], [0.00241], [0.00297], [0.00172], [0.00157], [0.00085], [0.00048], [0.00272], [0.0002], [0.00231], [0.00154], [0.00326], [0.00069], [0.00151], [0.00048]]
+N_ASSETS = None
+HALFLIFE = [[25], [100]]
+INITIAL_ALPHA =  [[0.004], [0.0015]] #, [0.00017], [0.00116], [0.00156], [0.00362], [0.00115], [0.00332], [0.00176], [0.00383], [0.00308], [0.00241], [0.00297], [0.00172], [0.00157], [0.00085], [0.00048], [0.00272], [0.0002], [0.00231], [0.00154], [0.00326], [0.00069], [0.00151], [0.00048]]
 F_PARAM =  [[1.0], [1.0]] #, [1.0], [1.0], [1.0], [1.0], [1.0], [1.0], [1.0], [1.0], [1.0], [1.0], [1.0], [1.0], [1.0], [1.0], [1.0], [1.0], [1.0], [1.0], [1.0], [1.0], [1.0], [1.0], [1.0]]
-CORRELATION =  0.6
+CORRELATION =  [-0.2,-0.4,-0.6,-0.8]
 SIGMA = [1e-04, 5e-04, 2e-04] # return volatility
 SIGMAF = [[None],[1e-05], [2e-05]] #0.0001,0.00001 [[0.2, 0.1] ,[0.1, 0.1]] #[[0.2, 0.1],[0.1, 0.1]] # list of factor volatilities 
 DOUBLE_NOISE = [ False,True]

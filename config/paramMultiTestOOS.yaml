@@ -8,32 +8,32 @@
 # as long as the folder path in the list "outputModel" contains relevant experiment to plot
 # MULTI TEST OOS PARAMS
 ############################### LAUNCH SIMULATIONS ##############################
-N_test: 6000 #200 # Length of OOS test
+N_test: 2000 #200 # Length of OOS test
 n_seeds : 500 # Number of OOS test to perform for each agent at each checkpoint
 cores: 4
-random_state : 9071 #9071 seed for two pos # 556785 seed for two neg # 33  # Seed for experiment reproducibility OOS. Used to draw "n_seeds" for OOS testing
+random_state : 9071 #9071 #9071 seed for two pos # 556785 seed for two neg # 33  # Seed for experiment reproducibility OOS. Used to draw "n_seeds" for OOS testing
 use_GPU : False
 varying_type : 'chunk'
 varying_pars: ['outputModel'] 
 #########################################################################################################
 # FOLDER PARAMETERS
 algo :  ['PPO']
-plot_type: 'distmulti' 
+plot_type: 'holding' 
 fullpath : False
-generate_plot : False
+generate_plot : True
 optimal : True
 holding: null #5000.0 # null #0.3e+5
 outputDir: 'outputs'
 outputClass: 'PPO'
-seed : '35' #'281'
+seed : '765' #'765' #'35'
 var_plots : [
-    # "NetPnl_OOS_{}_{}.parquet.gzip",
-    # "Reward_OOS_{}_{}.parquet.gzip",
-    # "SR_OOS_{}_{}.parquet.gzip",
+    "NetPnl_OOS_{}_{}.parquet.gzip",
+    "Reward_OOS_{}_{}.parquet.gzip",
+    "SR_OOS_{}_{}.parquet.gzip",
     # "PnLstd_OOS_{}_{}.parquet.gzip",
     # "Pdist_OOS_{}_GP.parquet.gzip",
     # "AbsNetPnl_OOS_{}_{}.parquet.gzip",
-    'AbsRew_OOS_{}_{}.parquet.gzip',
+    # 'AbsRew_OOS_{}_{}.parquet.gzip',
     # 'AbsWealth_OOS_{}_{}.parquet.gzip',
     # "AbsHold_OOS_{}_{}.parquet.gzip",
     # 'AbsSR_OOS_{}_{}.parquet.gzip',
@@ -68,15 +68,86 @@ outputModels_dqn: ['20210508_GPGAUSS_mvres_sens_halflife_66_sigmaf_0.05',
 # '20210418_GPGAUSS_tot_sens_n_train_{}_halflife_{}_sigmaf_{}_mv_res_{}_inp_type_{}'
 # '20210428_GPGAUSS_tot_sens_n_train_{}_halflife_{}_sigmaf_{}_mv_res_{}_inp_type_{}'
 
-modeltag : '20210730_alpha_term_noise'
+modeltag : '20210823_2_alpha_term_negcorr'
 dist_to_plot: 'r' # r or w for reward or wealth
-ep_ppo: #'100'
+ep_ppo: #'10'
 experiment_ppo: 'costmultiplier_{}_kappa_{}_action_range_res_{}_initial_alpha_0.004_seed_{}'
-hyperparams_model_ppo: ['cara','50'] #['[0.05]_[0.0125]','[15]_[100]']  #['500','0.98']  # only for metrics and holding type of plot
+hyperparams_model_ppo: [True, 1e-04,2e-05] #['sigma_corr_holding_cash'] #['mean_var', None]  # only for metrics and holding type of plot
 hyperparams_exp_ppo: [200, 'truncate',  0.004, 0.0005] #['nondiff',0.005] #['500','0.98']# for policy and value type of plot
 outputModel_ppo: '20210625_general_quad_sens_costmultiplier_{}_kappa_{}_action_range_res_{}_initial_alpha_0.004'
-outputModels_ppo:  ['20210126_GAUSS_GP_1f_roll_len_len_series_6000_halflife_300', 
-'20210126_GAUSS_GP_1f_roll_len_len_series_6000_halflife_400']
+outputModels_ppo: ['20210813_2_alpha_term_double_noise_{}_sigma_{}_sigmaf_{}_correlation_0.2', 
+    '20210813_2_alpha_term_double_noise_{}_sigma_{}_sigmaf_{}_correlation_0.4', 
+    '20210813_2_alpha_term_double_noise_{}_sigma_{}_sigmaf_{}_correlation_0.6', 
+    '20210813_2_alpha_term_double_noise_{}_sigma_{}_sigmaf_{}_correlation_0.8']
+
+
+# mlti assets  [ 2e-04,None]
+# sigma [1e-04, 5e-04, 2e-04]
+# sigmaf [[None],[1e-05], [2e-05]]
+# ['20210819_multi_alphaterm_double_noise_False_sigma_{}_sigmaf_{}_n_assets_3', 
+#   '20210819_multi_alphaterm_double_noise_True_sigma_{}_sigmaf_{}_n_assets_3', 
+#   '20210819_multi_alphaterm_double_noise_False_sigma_{}_sigmaf_{}_n_assets_4', 
+#   '20210819_multi_alphaterm_double_noise_True_sigma_{}_sigmaf_{}_n_assets_4']
+  
+# double assets [True, 2e-04,None]
+# sigma [1e-04, 5e-04, 2e-04]
+# sigmaf [[None],[1e-05], [2e-05]]
+# ['20210813_2_alpha_term_double_noise_{}_sigma_{}_sigmaf_{}_correlation_0.2', 
+#     '20210813_2_alpha_term_double_noise_{}_sigma_{}_sigmaf_{}_correlation_0.4', 
+#     '20210813_2_alpha_term_double_noise_{}_sigma_{}_sigmaf_{}_correlation_0.6', 
+#     '20210813_2_alpha_term_double_noise_{}_sigma_{}_sigmaf_{}_correlation_0.8']
+
+# ['20210823_2_alpha_term_negcorr_double_noise_{}_sigma_{}_sigmaf_{}_correlation_-0.2', 
+#     '20210823_2_alpha_term_negcorr_double_noise_{}_sigma_{}_sigmaf_{}_correlation_-0.4', 
+#     '20210823_2_alpha_term_negcorr_double_noise_{}_sigma_{}_sigmaf_{}_correlation_-0.6', 
+#     '20210823_2_alpha_term_negcorr_double_noise_{}_sigma_{}_sigmaf_{}_correlation_-0.8']
+    
+# 20210810_single_alpha_term
+# sigma [0.01, 0.0001, 0.0005, 0.001, 5e-05]
+# sigmaf [[None], [0.001],[0.0005], [0.0001],[0.00005],[0.00001]]
+# ['20210810_single_alpha_term_double_noise_false_reward_type_mean_var_sigma_{}_sigmaf_{}',
+# '20210810_single_alpha_term_double_noise_false_reward_type_cara_sigma_{}_sigmaf_{}',
+# '20210810_single_alpha_term_double_noise_true_reward_type_mean_var_sigma_{}_sigmaf_{}',
+# '20210810_single_alpha_term_double_noise_true_reward_type_cara_sigma_{}_sigmaf_{}',]
+
+
+ # two asset sigma [0.01,0.0001] inputs ['sigma_corr_holding_cash', holding_cash']
+ #[True, 0.01, 'holding_cash']
+# ['20210812_2_alpha_term_double_noise_{}_sigma_{}_correlation_0.2', 
+#     '20210812_2_alpha_term_double_noise_{}_sigma_{}_correlation_0.4', 
+#     '20210812_2_alpha_term_double_noise_{}_sigma_{}_correlation_0.6', 
+#     '20210812_2_alpha_term_double_noise_{}_sigma_{}_correlation_0.8']
+ 
+# multi asset sigma [0.01,0.0001] inputs ['sigma_corr_holding_cash', holding_cash']
+# ['20210810_multi_alphaterm_double_noise_{}_sigma_{}_inputs_{}_n_assets_3', 
+#   '20210810_multi_alphaterm_double_noise_{}_sigma_{}_inputs_{}_n_assets_4', 
+#   '20210810_multi_alphaterm_double_noise_{}_sigma_{}_inputs_{}_n_assets_5']
+
+# double noise cara or mean var sigmaf [0.0001,0.0005, 0.001, 1e-05, 5e-05, None]
+# ['20210810_alpha_term_double_noise_reward_type_{}_sigma_0.0001_sigmaf_{}',  
+#   '20210810_alpha_term_double_noise_reward_type_{}_sigma_0.0005_sigmaf_{}', 
+#   '20210810_alpha_term_double_noise_reward_type_{}_sigma_0.001_sigmaf_{}', 
+#   '20210810_alpha_term_double_noise_reward_type_{}_sigma_5e-05_sigmaf_{}',]
+ 
+
+
+
+# cross section [5,10,20,50,100,200,400,1000]
+# ['20210804_test_cross_section_inputs_holding_cash_n_assets_{}', 
+#  '20210804_test_cross_section_inputs_sigma_corr_holding_cash_n_assets_{}']
+# alpha noise
+# ['20210802_alpha_term_noise_reward_type_cara_sigmaf_0.0001', 
+#  '20210802_alpha_term_noise_reward_type_cara_sigmaf_0.0005', 
+#  '20210802_alpha_term_noise_reward_type_cara_sigmaf_0.001', 
+#  '20210802_alpha_term_noise_reward_type_cara_sigmaf_1e-05', 
+#  '20210802_alpha_term_noise_reward_type_cara_sigmaf_5e-05', 
+#  '20210802_alpha_term_noise_reward_type_cara_sigmaf_None', 
+#  '20210802_alpha_term_noise_reward_type_mean_var_sigmaf_0.0001', 
+#  '20210802_alpha_term_noise_reward_type_mean_var_sigmaf_0.0005', 
+#  '20210802_alpha_term_noise_reward_type_mean_var_sigmaf_0.001', 
+#  '20210802_alpha_term_noise_reward_type_mean_var_sigmaf_1e-05', 
+#  '20210802_alpha_term_noise_reward_type_mean_var_sigmaf_5e-05', 
+#  '20210802_alpha_term_noise_reward_type_mean_var_sigmaf_None']
 
 
 # alphamagnitude [[[0.05],[0.0125]],[[0.05],[0.04]],[[0.05],[0.005]],[[0.05],[0.025]]]

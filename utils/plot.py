@@ -16,6 +16,7 @@ from utils.spaces import (
     ActionSpace,
     ResActionSpace,
 )
+from utils.common import set_size
 from utils.math_tools import unscale_action, unscale_asymmetric_action
 from utils.simulation import DataHandler
 # from utils.env import MarketEnv
@@ -30,6 +31,7 @@ from matplotlib.offsetbox import AnchoredText
 import seaborn as sns
 import torch
 from agents.PPO import PPOActorCritic
+from sklearn.preprocessing import MinMaxScaler
 
 # # LOAD UTILS
 def load_DQNmodel(
@@ -806,6 +808,7 @@ def plot_portfolio(r: pd.DataFrame, tag: str, ax2: object):
         Axes to draw in
 
     """
+
     if gin.query_parameter('%MULTIASSET'):
         ax2.plot(r.filter(like="NextHolding_{}".format(tag)).values[1:-1])
         ax2.plot(r.filter(like="OptNextHolding").values[1:-1], alpha=0.65, ls='--')
@@ -817,13 +820,17 @@ def plot_portfolio(r: pd.DataFrame, tag: str, ax2: object):
             
         ax2.legend(list(r.filter(like="NextHolding_{}".format(tag)).columns) + 
                    list(r.filter(like="OptNextHolding").columns),fontsize=9)
-        # pdb.set_trace()
+
+        hold_diff = r.filter(like="OptNextHolding").values[1:-1] -  r.filter(like="NextHolding_{}".format(tag)).values[1:-1] 
+        norm = np.linalg.norm(hold_diff)
+        norm_text = AnchoredText("Norm diff: {:e}".format(norm),loc= 'upper left',prop=dict(size=10))
+        ax2.add_artist(norm_text)
 
     else:
         ax2.plot(r["NextHolding_{}".format(tag)].values[1:-1], label=tag)
         ax2.plot(r["OptNextHolding"].values[1:-1], label="benchmark", alpha=0.5)
         mse = np.round(np.sum(r["OptNextHolding"].values[1:-1] - r["NextHolding_{}".format(tag)].values[1:-1]),decimals=0)
-        mse_text = AnchoredText("GP - PPO: {}".format(mse),loc=1,prop=dict(size=10))
+        mse_text = AnchoredText("GP - PPO: {:e}".format(mse),loc=1,prop=dict(size=10))
         ax2.add_artist(mse_text)
 
 def plot_2asset_holding(r: pd.DataFrame, tag: str, ax2: object):
@@ -857,6 +864,38 @@ def plot_2asset_holding(r: pd.DataFrame, tag: str, ax2: object):
 
     ax2.legend(list(r.filter(like="NextHolding_{}".format(tag)).columns) + 
                list(r.filter(like="OptNextHolding").columns),fontsize=9)
+
+def plot_heatmap_holding(r: pd.DataFrame, tag: str, title):
+    """
+    Ploduce plots of portfolio holding
+
+    Parameters
+    ----------
+    r: pd.DataFrame
+        Dataframe containing the variables
+
+    tag: str
+        Name of the algorithm to plot result
+
+    ax2: matplotlib.axes.Axes
+        Axes to draw in
+
+    """
+
+    # pdb.set_trace()
+    fig,ax = plt.subplots(figsize=set_size(width=1000.0))
+    
+    hold_diff = r.filter(like="OptNextHolding").values[1:-1] -  r.filter(like="NextHolding_{}".format(tag)).values[1:-1] 
+    scaler = MinMaxScaler((-1,1))
+    hold_diff = scaler.fit_transform(hold_diff)
+
+    sns.heatmap(hold_diff, ax=ax, cmap='viridis')
+    
+    ax.set_title(title,fontsize=9)
+    
+    ax.set_xlabel('Assets')
+    ax.set_ylabel('Time')
+        
 
 
 

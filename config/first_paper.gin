@@ -1,3 +1,4 @@
+
 import utils.env
 import utils.spaces
 import utils.simulation
@@ -9,31 +10,31 @@ import agents.PPO
 # Set up
 ALGO = 'PPO' # 'PPO', 'DQN' or 'DDPG'  
 
-ENV_CLS = @ShortMultiAssetCashMarketEnv 
+ENV_CLS = @MarketEnv 
 
 
 EXPERIMENT_TYPE = 'GP' # GP or Misspec
-MV_RES = True  # Decide which actions to take (trading quantity or MVresiduals)
+MV_RES = False  # Decide which actions to take (trading quantity or MVresiduals)
 UNIVERSAL_TRAIN = True
 
-EPISODES = 400  #None # episode to run the algorithm. Put None if you want to train DQN online
+EPISODES = 100  #None # episode to run the algorithm. Put None if you want to train DQN online
 N_TRAIN = None
-LEN_SERIES = 200 #None # length of simulated series, if null the legth is N_train
+LEN_SERIES = 4000 #None # length of simulated series, if null the legth is N_train
 EPOCHS = 3
 OUTPUTDIR = 'outputs' # main directory for the experiment
 OUTPUTCLASS = %ALGO # first subdirectory
-OUTPUTMODEL = '20210819_multi_alphaterm' # second subdirectory
-SAVE_FREQ = 10  # number of checkpoints to save during training
-SEED = [765,  35, 157, 466, 477,  24, 281]  # seed for reproducibility
+OUTPUTMODEL = '20210815_GAUSS_GP_1f_tstud_8dgr' # second subdirectory
+SAVE_FREQ = 5  # number of checkpoints to save during training
+SEED = [87, 49, 15, 92] # 119, 348, 920, 988,  62, 317]  # seed for reproducibility
 START_TRAIN = 300 # steps after which the training starts
 USE_GPU = True
-VARYING_PARS = ['%DOUBLE_NOISE','%SIGMA','%SIGMAF', '%N_ASSETS', '%SEED']
+VARYING_PARS = ['%DATATYPE', '%HALFLIFE','%FACTOR_LB', '%SEED']
 VARYING_TYPE = 'chunk'
-NUM_CORES = 60
+NUM_CORES = 12
 
 # spaces
 ACTION_RANGE =  [None, 9] # action range for standard RL [boundary,number of actions]
-ACTION_RANGE_RES = [0.0, 1.0, 10] #[[-0.5, 1.0, 10],[-1.0, 1.0, 10],[0.0, 1.0, 10],[0.5, 1.0, 10]] # action range for residual RL [LB,UB,number of actions]
+ACTION_RANGE_RES = [-0.5, 1.0, 10] #[[-0.5, 1.0, 10],[-1.0, 1.0, 10],[0.0, 1.0, 10],[0.5, 1.0, 10]] # action range for residual RL [LB,UB,number of actions]
 SIDE_ONLY = False # set the action space so that only the side of the bet is captured by the algorithm
 ZERO_ACTION = True # include the zero action (hold) in the action space
 
@@ -42,39 +43,37 @@ ZERO_ACTION = True # include the zero action (hold) in the action space
 #bcm : False # allow behavioral cloning module
 #bcm_scale :  #[0.001,0.0001]
 
-
 # env and data simulation
-DATATYPE = 'alpha_term_structure' # type of data to simulate # 'garch','t_stud','t_stud_mfit', 'garch_mr', 'alpha_term_structure'
-INPUTS = ['sigma', 'corr', 'holding', 'cash'] # [['sigma', 'corr', 'holding', 'cash'],['holding', 'cash']]
+DATATYPE = ['t_stud','t_stud_mfit'] # type of data to simulate # 'gauss', 'garch','t_stud','t_stud_mfit', 'garch_mr', 'alpha_term_structure'
 
-FACTOR_LB = [2, 50] # list of lags for fitting autoregressive vairables of the return series
-COSTMULTIPLIER = 0.001 #[0.0005,0.001,0.0001,0.00005,0.00001] # Cost multiplier to make the cost proportional to the risk
+FACTOR_LB = [[200],[300]] # list of lags for fitting autoregressive vairables of the return series
+COSTMULTIPLIER = 0.001 # Cost multiplier to make the cost proportional to the risk
 CM1 = 0.001 #[0.01, 0.05, 0.005] #[0.01,0.001, 0.0005, 0.005] #[0.0005,0.001,0.0001,0.00005,0.00001] #[2.89E-4, 0.0]  
 CM2 = 0.001 #7.91E-4
 STARTHOLDING = 0.0 # initial portfolio holding
 DISCOUNT_RATE = 0.0 # discount rate for time value of money (not gamma in DQN)
-KAPPA = 0.001 #[0.001,0.005] # risk aversion
-INP_TYPE = 'alpha_f' #['f','ret'] # 'f', 'ret', 'alpha' or 'alpha_f'
+KAPPA = 0.001 # risk aversion
+INP_TYPE = 'ret' # 'f', 'ret', 'alpha' or 'alpha_f'
 COST_TYPE = 'quadratic' # quadratic or nondiff
 REWARD_TYPE = 'mean_var' # 'mean_var' 'cara'
-CASH = 1e+9
+CASH = None # 1e+6
+
 
 DT = 1.0
 ROLLOUT_PCT_NUM = 1.0
-MULTIASSET = True
-N_ASSETS = [3,4]
-HALFLIFE = [[137], [78]]
-INITIAL_ALPHA =  [[0.0022], [0.00185]] #, [0.00017], [0.00116], [0.00156], [0.00362], [0.00115], [0.00332], [0.00176], [0.00383], [0.00308], [0.00241], [0.00297], [0.00172], [0.00157], [0.00085], [0.00048], [0.00272], [0.0002], [0.00231], [0.00154], [0.00326], [0.00069], [0.00151], [0.00048]]
-F_PARAM =  [[1.0], [1.0]] #, [1.0], [1.0], [1.0], [1.0], [1.0], [1.0], [1.0], [1.0], [1.0], [1.0], [1.0], [1.0], [1.0], [1.0], [1.0], [1.0], [1.0], [1.0], [1.0], [1.0], [1.0], [1.0], [1.0]]
-CORRELATION =  0.6
-SIGMA = [1e-04, 5e-04, 2e-04] # return volatility
-SIGMAF = [[None],[1e-05], [2e-05]] #0.0001,0.00001 [[0.2, 0.1] ,[0.1, 0.1]] #[[0.2, 0.1],[0.1, 0.1]] # list of factor volatilities 
-DOUBLE_NOISE = [ False,True]
+MULTIASSET = False
+N_ASSETS = None
+HALFLIFE = [[250],[400],[350]] # list of Halflives of mean reversion
+INITIAL_ALPHA = [0.005] #[[0.001],[0.004],[0.012],[0.008]] # only for alpha term structure case
+SIGMA = 0.01 # return volatility
+SIGMAF = [0.1] # list of factor volatilities
+F_PARAM = [0.01] #, 0.005] # list of factor loadings
+CORRELATION = None
 QTS = [0.001,0.999] # quantile to select action boundaries
-ACTION_TYPE = 'MV' # GP or MV for selecting action boundaries
+ACTION_TYPE = 'GP' # GP or MV for selecting action boundaries
 UNCORRELATED = True # generate correlated or uncorrelated factors
-T_STUD = False # Student's T noise in the simulation for GP factors
-DEGREES = 6 # degrees of freedom for Student's T
+T_STUD = True # Student's T noise in the simulation for GP factors
+DEGREES = 8 # degrees of freedom for Student's T
 VOL = 'omosk' #'omosk' or 'eterosk' to simulate GP-like return with stoch vol
 
 MEAN_PROCESS = 'AR' # choice for mean process ['AR', 'Constant']
@@ -179,16 +178,16 @@ PPO.gamma = 0.99 #0.8 # discounting factor for the Q target
 PPO.tau = 0.98 # lambda in the original GAE paper
 PPO.clip_param = 0.25 # clipping of objective function
 PPO.vf_c = 0.5 # coefficient for the value error
-PPO.ent_c = 0.001 # coefficient for entropy
+PPO.ent_c = 0.0 # coefficient for entropy
 PPO.hidden_units_value = [128,64]
 PPO.hidden_units_actor = [128,64]
-PPO.batch_size =  50
-PPO.lr = 0.0003 # initial learning rate
+PPO.batch_size =  500
+PPO.lr = 0.001 # initial learning rate
 PPO.activation = 'tanh'
 PPO.batch_norm_input = True # batch norm at input layer level
 PPO.batch_norm_value_out = False # normalize value function output
 PPO.policy_type = 'continuous' #discrete or continuous
-PPO.init_pol_std = 0.0 # initial policy std dev for stochasticity
+PPO.init_pol_std = 0.5 # initial policy std dev for stochasticity
 PPO.min_pol_std = 0.003 # minimum policy std dev for stochasticity
 PPO.std_transform = 'exp'
 PPO.init_last_layers = 'normal'
@@ -245,7 +244,7 @@ MarketEnv.reward_type = %REWARD_TYPE
 MarketEnv.cash = %CASH
 MarketEnv.multiasset = %MULTIASSET
 MarketEnv.corr = %CORRELATION
-MarketEnv.inputs = %INPUTS
+
 
 
 # Parameters for DataHandler and its related functions:
@@ -273,12 +272,10 @@ return_sampler_garch.seed = %SEED
 alpha_term_structure_sampler.HalfLife = %HALFLIFE
 alpha_term_structure_sampler.initial_alpha = %INITIAL_ALPHA
 alpha_term_structure_sampler.f_param = %F_PARAM
-alpha_term_structure_sampler.generate_plot = False
 alpha_term_structure_sampler.sigma = %SIGMA
+alpha_term_structure_sampler.generate_plot = False
 alpha_term_structure_sampler.sigmaf = %SIGMAF
 alpha_term_structure_sampler.multiasset = %MULTIASSET
-alpha_term_structure_sampler.double_noise = %DOUBLE_NOISE
-
 
 # Parameters for Out_sample_vs_gp:
 # ==============================================================================

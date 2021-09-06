@@ -40,7 +40,8 @@ from utils.plot import (
     plot_portfolio,
     plot_action,
     plot_costs,
-    plot_2asset_holding
+    plot_2asset_holding,
+    plot_heatmap_holding
 )
 from utils.test import Out_sample_vs_gp
 from utils.env import MarketEnv, CashMarketEnv, ShortCashMarketEnv, MultiAssetCashMarketEnv, ShortMultiAssetCashMarketEnv
@@ -112,7 +113,6 @@ def runplot_metrics(p):
                 length = os.path.split(latest_subdir)[-1]
 
                 data_dir = "outputs/{}/{}/{}".format(outputClass, out_mode, length)
-
                 # Recover and plot generated multi test OOS ----------------------------------------------------------------
                 filtered_dir = [
                     dirname
@@ -167,14 +167,14 @@ def runplot_metrics(p):
                         i=it,
                     )                    
                     
-                    if 'Pdist' in v:
-                        std = 1e+10
-                        ax.set_ylim(0.0, 0.0 + std)
-                    else:
-                        import math
-                        value = dataframe_opt.iloc[0, 2]
-                        odm = math.floor(math.log(value, 10))
-                        ax.set_ylim(value - (10**(odm)), value + 0.5*(10**(odm)))
+                    # if 'Pdist' in v:
+                    #     std = 1e+10
+                    #     ax.set_ylim(0.0, 0.0 + std)
+                    # else:
+                    #     import math
+                    #     value = dataframe_opt.iloc[0, 2]
+                    #     odm = math.floor(math.log(value, 5))
+                    #     ax.set_ylim(value - (10**(odm)), value + 0.5*(10**(odm)))
 
 
                 else:
@@ -187,7 +187,7 @@ def runplot_metrics(p):
                         colors=colors[k],
                         params_path=filenamep,
                     )
-                    ax.set_ylim(-20, 150)
+                    ax.set_ylim(20, 150)
                 logging.info("Plot saved successfully...")
 
 
@@ -545,14 +545,14 @@ def runmultiplot_distribution(p):
     
     folders = [p for p in glob.glob(os.path.join('outputs',outputClass,'{}*'.format(modeltag)))]
     length = os.listdir(folders[0])[0]
+    # pdb.set_trace()
 
     for main_f in folders:    
         length = os.listdir(main_f)[0]
         for f in os.listdir(os.path.join(main_f,length)):
             if 'seed_{}'.format(p['seed']) in f:
                 data_dir = os.path.join(main_f,length,f)
-                # pdb.set_trace()
-                
+  
                 gin.parse_config_file(os.path.join(data_dir, "config.gin"), skip_unknown=True)
                 gin.bind_parameter('alpha_term_structure_sampler.generate_plot', p['generate_plot'])
                 # change reward function in order to evaluate in the same way
@@ -571,9 +571,12 @@ def runmultiplot_distribution(p):
                 if gin.query_parameter('%MULTIASSET'):
                     n_assets = len(gin.query_parameter('%HALFLIFE'))
                     n_factors = len(gin.query_parameter('%HALFLIFE')[0])
+                    inputs = gin.query_parameter('%INPUTS')
                     if query("%INP_TYPE") == "f" or query("%INP_TYPE") == "alpha_f":
-                        # input_shape = (n_factors*n_assets+n_assets+1,1)
-                        input_shape = (int(n_factors*n_assets+1+ (n_assets**2 - n_assets)/2+n_assets+1),1)
+                        if 'sigma' in inputs and 'corr' in inputs:
+                            input_shape = (int(n_factors*n_assets+1+ (n_assets**2 - n_assets)/2+n_assets+1),1)
+                        else:
+                            input_shape = (int(n_factors*n_assets+n_assets+1),1)
                     else:
                         input_shape = (n_assets+n_assets+1,1)
                 else:
@@ -630,7 +633,7 @@ def runmultiplot_distribution(p):
                 seeds = rng_seeds.choice(1000,p['n_seeds'])
                 rewards = Parallel(n_jobs=p['cores'])(delayed(parallel_test)(
                         s, oos_test,train_agent,data_dir,p['fullpath']) for s in seeds)
-            
+               
                 if p['fullpath']:
             
                     rewards_ppo = pd.concat(list(map(list, zip(*rewards)))[0],axis=1).cumsum()
@@ -668,7 +671,8 @@ def runmultiplot_distribution(p):
                     ax.set_ylabel("Frequency")
                     ax.legend()
                     means, stds = rewards.mean().values, rewards.std().values
-                    ax.set_title('{} Obs \n Means: PPO {:.2f} GP {:.2f} \n Stds: PPO {:.2f} GP {:.2f} Exp {}'.format(len(rewards),*means,*stds, f))
+                    srs = means/stds
+                    ax.set_title('{} Obs \n Means: PPO {:.2f} GP {:.2f} \n Stds: PPO {:.2f} GP {:.2f} \n SR:  PPO {:.2f} GP {:.2f} \n Exp {}'.format(len(rewards),*means,*stds, *srs, f))
                     fig.savefig(os.path.join(data_dir, "cumreward_hist_{}_{}.png".format(p['n_seeds'], f)), dpi=300)
                     plt.close()
                 
@@ -680,7 +684,8 @@ def runmultiplot_distribution(p):
                     ax.set_ylabel("KDE")
                     ax.legend()
                     means, stds = rewards.mean().values, rewards.std().values
-                    ax.set_title('{} Obs \n Means: PPO {:.2f} GP {:.2f} \n Stds: PPO {:.2f} GP {:.2f} \n Exp {}'.format(len(rewards),*means,*stds, f))
+                    srs = means/stds
+                    ax.set_title('{} Obs \n Means: PPO {:.2f} GP {:.2f} \n Stds: PPO {:.2f} GP {:.2f} \n SR:  PPO {:.2f} GP {:.2f} \n Exp {}'.format(len(rewards),*means,*stds, *srs, f))
                     ax.legend(labels=['gp','ppo'],loc=2)
                 
                     KS, p_V = ks_2samp(rewards.values[:,0], rewards.values[:,1])
@@ -730,21 +735,21 @@ def runplot_holding(p):
     # axes2 = [ax12, ax22, ax32, ax42]
     
 
-    fig3 = plt.figure(figsize=set_size(width=1000.0, subplots=(2, 2)))
-    gs3 = gridspec.GridSpec(ncols=2, nrows=2, figure=fig3)
-    ax13 = fig3.add_subplot(gs3[0])
-    ax23 = fig3.add_subplot(gs3[1])
-    ax33 = fig3.add_subplot(gs3[2])
-    ax43 = fig3.add_subplot(gs3[3])
-    axes3 = [ax13, ax23, ax33, ax43]
+    # fig3 = plt.figure(figsize=set_size(width=1000.0, subplots=(2, 2)))
+    # gs3 = gridspec.GridSpec(ncols=2, nrows=2, figure=fig3)
+    # ax13 = fig3.add_subplot(gs3[0])
+    # ax23 = fig3.add_subplot(gs3[1])
+    # ax33 = fig3.add_subplot(gs3[2])
+    # ax43 = fig3.add_subplot(gs3[3])
+    # axes3 = [ax13, ax23, ax33, ax43]
 
-    fig4 = plt.figure(figsize=set_size(width=1000.0, subplots=(2, 2)))
-    gs4 = gridspec.GridSpec(ncols=2, nrows=2, figure=fig4)
-    ax14 = fig4.add_subplot(gs3[0])
-    ax24 = fig4.add_subplot(gs3[1])
-    ax34 = fig4.add_subplot(gs3[2])
-    ax44 = fig4.add_subplot(gs3[3])
-    axes4 = [ax14, ax24, ax34, ax44]
+    # fig4 = plt.figure(figsize=set_size(width=1000.0, subplots=(2, 2)))
+    # gs4 = gridspec.GridSpec(ncols=2, nrows=2, figure=fig4)
+    # ax14 = fig4.add_subplot(gs3[0])
+    # ax24 = fig4.add_subplot(gs3[1])
+    # ax34 = fig4.add_subplot(gs3[2])
+    # ax44 = fig4.add_subplot(gs3[3])
+    # axes4 = [ax14, ax24, ax34, ax44]
 
     for i, model in enumerate(outputModel):
         modelpath = "outputs/{}/{}".format(outputClass, model)
@@ -779,9 +784,12 @@ def runplot_holding(p):
         if gin.query_parameter('%MULTIASSET'):
             n_assets = len(gin.query_parameter('%HALFLIFE'))
             n_factors = len(gin.query_parameter('%HALFLIFE')[0])
+            inputs = gin.query_parameter('%INPUTS')
             if query("%INP_TYPE") == "f" or query("%INP_TYPE") == "alpha_f":
-                # input_shape = (n_factors*n_assets+n_assets+1,1)
-                input_shape = (int(n_factors*n_assets+1+ (n_assets**2 - n_assets)/2+n_assets+1),1)
+                if 'sigma' in inputs and 'corr' in inputs:
+                    input_shape = (int(n_factors*n_assets+1+ (n_assets**2 - n_assets)/2+n_assets+1),1)
+                else:
+                    input_shape = (int(n_factors*n_assets+n_assets+1),1)
             else:
                 input_shape = (n_assets+n_assets+1,1)
                 # input_shape = (int(n_assets+1+ (n_assets**2 - n_assets)/2+n_assets+1),1)
@@ -840,6 +848,7 @@ def runplot_holding(p):
 
         if gin.query_parameter('%MULTIASSET'):
 
+
             plot_portfolio(res_df, tag[0], axes[i])
             # plot_action(res_df, tag[0], axes2[i])
             split = model.split("mv_res")
@@ -848,20 +857,25 @@ def runplot_holding(p):
                 "_".join([split[-1]]).replace("_", " ") , fontsize=8
             )
 
+            if len(gin.query_parameter('%HALFLIFE'))>2:
+                axes[i].get_legend().remove()
+            
             fig.suptitle('Holdings')
             
-            if len(gin.query_parameter('%HALFLIFE'))==2:
+            plot_heatmap_holding(res_df,tag[0],title=model)
+            
+            # if len(gin.query_parameter('%HALFLIFE'))==2:
     
-                plot_2asset_holding(res_df, tag[0], axes3[i])
+            #     plot_2asset_holding(res_df, tag[0], axes3[i])
         
-                axes3[i].set_title(
-                    "_".join([split[-1]]).replace("_", " "), fontsize=8
-                )
-                fig3.suptitle('2 Asset Holdings')
-                plt.close(fig4)
-            else:
-                plt.close(fig3)
-                plt.close(fig4)
+            #     axes3[i].set_title(
+            #         "_".join([split[-1]]).replace("_", " "), fontsize=8
+            #     )
+            #     fig3.suptitle('2 Asset Holdings')
+            #     plt.close(fig4)
+            # else:
+            #     plt.close(fig3)
+            #     plt.close(fig4)
 
         else:
 
@@ -875,25 +889,24 @@ def runplot_holding(p):
             # axes2[i].set_title(
             #     "_".join(["mv_res", split[-1]]).replace("_", " "), fontsize=10
             # )
+
+            # plot_action(res_df, tag[0], axes3[i], hist=True)
     
-    
-            plot_action(res_df, tag[0], axes3[i], hist=True)
-    
-            axes3[i].set_title(
-                "_".join([split[-1]]).replace("_", " "), fontsize=8
-            )
+            # axes3[i].set_title(
+            #     "_".join([split[-1]]).replace("_", " "), fontsize=8
+            # )
             
-            plot_costs(res_df, tag[0], axes4[i], hist=False)
+            # plot_costs(res_df, tag[0], axes4[i], hist=False)
     
-            axes4[i].set_title(
-                "_".join([split[-1]]).replace("_", " "), fontsize=8
-            )
+            # axes4[i].set_title(
+            #     "_".join([split[-1]]).replace("_", " "), fontsize=8
+            # )
     
     
             fig.suptitle('Holdings')
             # fig2.suptitle('Actions')
-            fig3.suptitle('Res Actions')
-            fig4.suptitle('Cumulative Costs')
+            # fig3.suptitle('Res Actions')
+            # fig4.suptitle('Cumulative Costs')
     
 
 
