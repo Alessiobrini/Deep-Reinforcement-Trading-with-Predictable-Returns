@@ -258,14 +258,16 @@ class MarketEnv(gym.Env):
         iteration: int,
         tag: str = "DQN",
     ) -> Tuple[np.ndarray, dict, np.ndarray]:
+        # This is the only environment in which we can run tests with alpha decay inputs in a model free setting
+        # It is not implemented in the enviroment with cash because we focused on Res RL setting
 
         nextFactors = self.factors[iteration + 1]
         nextRet = self.returns[iteration + 1]
 
         nextHolding = currState[-1] + shares_traded
-        if self.inp_type == "ret":
+        if self.inp_type == "ret" or self.inp_type == "alpha":
             nextState = np.array([nextRet, nextHolding], dtype=np.float32)
-        elif self.inp_type == "f":
+        elif self.inp_type == "f" or self.inp_type == "alpha_f":
             nextState = np.append(nextFactors, nextHolding)
 
         Result = self._getreward(currState, nextState, iteration, tag)
