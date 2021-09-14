@@ -13,24 +13,24 @@ ALGO = 'PPO' # 'PPO', 'DQN' or 'DDPG'
 ENV_CLS = @MarketEnv 
 
 
-EXPERIMENT_TYPE = 'GP' # GP or Misspec
-MV_RES = False  # Decide which actions to take (trading quantity or MVresiduals)
+EXPERIMENT_TYPE = 'Misspec' # GP or Misspec
+MV_RES = True  # Decide which actions to take (trading quantity or MVresiduals)
 UNIVERSAL_TRAIN = True
 
-EPISODES = 100  #None # episode to run the algorithm. Put None if you want to train DQN online
+EPISODES = 300 #None # episode to run the algorithm. Put None if you want to train DQN online
 N_TRAIN = None
-LEN_SERIES = 4000 #None # length of simulated series, if null the legth is N_train
+LEN_SERIES = 2000 #None # length of simulated series, if null the legth is N_train
 EPOCHS = 3
 OUTPUTDIR = 'outputs' # main directory for the experiment
 OUTPUTCLASS = %ALGO # first subdirectory
-OUTPUTMODEL = '20210815_GAUSS_GP_1f_tstud_8dgr' # second subdirectory
-SAVE_FREQ = 5  # number of checkpoints to save during training
-SEED = [87, 49, 15, 92] # 119, 348, 920, 988,  62, 317]  # seed for reproducibility
+OUTPUTMODEL = '20210914_test4' # second subdirectory
+SAVE_FREQ = 1  # number of checkpoints to save during training
+SEED = 11 #[[977, 288,  16, 711, 572, 757, 872,  93, 952, 481, 234, 348, 170, 474, 985, 702, 8475, 9387, 9806, 2387]  # seed for reproducibility
 START_TRAIN = 300 # steps after which the training starts
 USE_GPU = True
-VARYING_PARS = ['%DATATYPE', '%HALFLIFE','%FACTOR_LB', '%SEED']
+VARYING_PARS = None #['%DISTR_NOISE', '%SEED'] 
 VARYING_TYPE = 'chunk'
-NUM_CORES = 12
+NUM_CORES = 40
 
 # spaces
 ACTION_RANGE =  [None, 9] # action range for standard RL [boundary,number of actions]
@@ -44,9 +44,9 @@ ZERO_ACTION = True # include the zero action (hold) in the action space
 #bcm_scale :  #[0.001,0.0001]
 
 # env and data simulation
-DATATYPE = ['t_stud','t_stud_mfit'] # type of data to simulate # 'gauss', 'garch','t_stud','t_stud_mfit', 'garch_mr', 'alpha_term_structure'
+DATATYPE = 't_stud' # type of data to simulate # 'gauss', 'garch','t_stud','t_stud_mfit', 'garch_mr', 'alpha_term_structure'
 
-FACTOR_LB = [[200],[300]] # list of lags for fitting autoregressive vairables of the return series
+FACTOR_LB = [100] # list of lags for fitting autoregressive vairables of the return series
 COSTMULTIPLIER = 0.001 # Cost multiplier to make the cost proportional to the risk
 CM1 = 0.001 #[0.01, 0.05, 0.005] #[0.01,0.001, 0.0005, 0.005] #[0.0005,0.001,0.0001,0.00005,0.00001] #[2.89E-4, 0.0]  
 CM2 = 0.001 #7.91E-4
@@ -63,7 +63,7 @@ DT = 1.0
 ROLLOUT_PCT_NUM = 1.0
 MULTIASSET = False
 N_ASSETS = None
-HALFLIFE = [[250],[400],[350]] # list of Halflives of mean reversion
+HALFLIFE = [300] # [[100,200],[150,300],[200,400]] # list of Halflives of mean reversion
 INITIAL_ALPHA = [0.005] #[[0.001],[0.004],[0.012],[0.008]] # only for alpha term structure case
 SIGMA = 0.01 # return volatility
 SIGMAF = [0.1] # list of factor volatilities
@@ -73,13 +73,13 @@ QTS = [0.001,0.999] # quantile to select action boundaries
 ACTION_TYPE = 'GP' # GP or MV for selecting action boundaries
 UNCORRELATED = True # generate correlated or uncorrelated factors
 T_STUD = True # Student's T noise in the simulation for GP factors
-DEGREES = 8 # degrees of freedom for Student's T
+DEGREES = 6 # degrees of freedom for Student's T
 VOL = 'omosk' #'omosk' or 'eterosk' to simulate GP-like return with stoch vol
 
 MEAN_PROCESS = 'AR' # choice for mean process ['AR', 'Constant']
 LAGS_MEAN_PROCESS = 1 # lag or list of lags for the autoregressive component in the mean return
 VOL_PROCESS = 'GARCH' # choice for volatility process ['GARCH', 'TGARCH', 'EGARCH', 'Constant']
-DISTR_NOISE = 'normal' # choice for noise distribution ['normal', 'studt', 'skewstud', 'ged']
+DISTR_NOISE = 'normal' #['normal','studt'] # choice for noise distribution ['normal', 'studt', 'skewstud', 'ged']
 
 
 
@@ -176,13 +176,13 @@ PPO_runner.universal_train = %UNIVERSAL_TRAIN
 PPO.seed = %SEED
 PPO.gamma = 0.99 #0.8 # discounting factor for the Q target
 PPO.tau = 0.98 # lambda in the original GAE paper
-PPO.clip_param = 0.25 # clipping of objective function
+PPO.clip_param = 0.2 # clipping of objective function
 PPO.vf_c = 0.5 # coefficient for the value error
 PPO.ent_c = 0.0 # coefficient for entropy
 PPO.hidden_units_value = [128,64]
-PPO.hidden_units_actor = [128,64]
+PPO.hidden_units_actor = [64,64]
 PPO.batch_size =  500
-PPO.lr = 0.001 # initial learning rate
+PPO.lr = 0.005 # initial learning rate
 PPO.activation = 'tanh'
 PPO.batch_norm_input = True # batch norm at input layer level
 PPO.batch_norm_value_out = False # normalize value function output

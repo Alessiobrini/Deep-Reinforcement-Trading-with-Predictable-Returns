@@ -187,7 +187,7 @@ def runplot_metrics(p):
                         colors=colors[k],
                         params_path=filenamep,
                     )
-                    ax.set_ylim(20, 150)
+                    # ax.set_ylim(20, 150)
                 logging.info("Plot saved successfully...")
 
 
@@ -504,33 +504,57 @@ def runplot_distribution(p):
     else:
         rewards = pd.DataFrame(data=np.array(rewards), columns=['ppo','gp'])
 
-        fig = plt.figure(figsize=set_size(width=1000.0))
-        ax = fig.add_subplot()
-        rewards['gp'].plot(ax=ax, kind='hist', alpha=0.7,color='tab:orange',bins=50)
-        rewards['ppo'].plot(ax=ax, kind='hist', color='tab:blue',bins=50)
-        ax.set_xlabel("Cumulative {}".format(title))
-        ax.set_ylabel("Frequency")
-        ax.legend()
-        means, stds = rewards.mean().values, rewards.std().values
-        ax.set_title('{} Obs \n Means: PPO {:.2f} GP {:.2f} \n Stds: PPO {:.2f} GP {:.2f}'.format(len(rewards),*means,*stds))
-        fig.savefig(os.path.join(data_dir, "cum{}_hist_{}.png".format(title,p['n_seeds'])), dpi=300)
+        # fig = plt.figure(figsize=set_size(width=1000.0))
+        # ax = fig.add_subplot()
+        # rewards['gp'].plot(ax=ax, kind='hist', alpha=0.7,color='tab:orange',bins=50)
+        # rewards['ppo'].plot(ax=ax, kind='hist', color='tab:blue',bins=50)
+        # ax.set_xlabel("Cumulative {}".format(title))
+        # ax.set_ylabel("Frequency")
+        # ax.legend()
+        # means, stds = rewards.mean().values, rewards.std().values
+        # ax.set_title('{} Obs \n Means: PPO {:.2f} GP {:.2f} \n Stds: PPO {:.2f} GP {:.2f}'.format(len(rewards),*means,*stds))
+        # fig.savefig(os.path.join(data_dir, "cum{}_hist_{}.png".format(title,p['n_seeds'])), dpi=300)
+        
+        if p['cumdiff']:
+            pdb.set_trace()
+            
+            cumdiff = rewards['ppo'].values - rewards['gp'].values
+            
+            fig = plt.figure(figsize=set_size(width=1000.0))
+            ax = fig.add_subplot()
+            # sns.kdeplot(rewards['gp'].values, bw_method=0.2,ax=ax,color='tab:orange')
+            sns.kdeplot(cumdiff, bw_method=0.2,ax=ax,color='tab:blue')
+            ax.set_xlabel("Cumulative {}".format(title))
+            ax.set_ylabel("KDE")
+            ax.legend()
+            means, stds = rewards.mean().values, rewards.std().values
+            ax.set_title('{} Obs \n Means: PPO {:.2f} GP {:.2f} \n Stds: PPO {:.2f} GP {:.2f}'.format(len(rewards),*means,*stds))
+            ax.legend(labels=['gp','ppo'],loc=2)
+            
+            KS, p_V = ks_2samp(rewards.values[:,0], rewards.values[:,1])
+            t, p_t = ttest_ind(rewards.values[:,0], rewards.values[:,1])
+            ks_text = AnchoredText("Ks Test: pvalue {:.2f} \n T Test: pvalue {:.2f}".format(p_V,p_t),loc=1,prop=dict(size=10))
+            ax.add_artist(ks_text)
+            fig.savefig(os.path.join(data_dir, "cum{}_diff_density_{}.png".format(title,p['n_seeds'])), dpi=300)
+            
+        else:
     
-        fig = plt.figure(figsize=set_size(width=1000.0))
-        ax = fig.add_subplot()
-        sns.kdeplot(rewards['gp'].values, bw_method=0.2,ax=ax,color='tab:orange')
-        sns.kdeplot(rewards['ppo'].values, bw_method=0.2,ax=ax,color='tab:blue')
-        ax.set_xlabel("Cumulative {}".format(title))
-        ax.set_ylabel("KDE")
-        ax.legend()
-        means, stds = rewards.mean().values, rewards.std().values
-        ax.set_title('{} Obs \n Means: PPO {:.2f} GP {:.2f} \n Stds: PPO {:.2f} GP {:.2f}'.format(len(rewards),*means,*stds))
-        ax.legend(labels=['gp','ppo'],loc=2)
+            fig = plt.figure(figsize=set_size(width=1000.0))
+            ax = fig.add_subplot()
+            sns.kdeplot(rewards['gp'].values, bw_method=0.2,ax=ax,color='tab:orange')
+            sns.kdeplot(rewards['ppo'].values, bw_method=0.2,ax=ax,color='tab:blue')
+            ax.set_xlabel("Cumulative {}".format(title))
+            ax.set_ylabel("KDE")
+            ax.legend()
+            means, stds = rewards.mean().values, rewards.std().values
+            ax.set_title('{} Obs \n Means: PPO {:.2f} GP {:.2f} \n Stds: PPO {:.2f} GP {:.2f}'.format(len(rewards),*means,*stds))
+            ax.legend(labels=['gp','ppo'],loc=2)
     
-        KS, p_V = ks_2samp(rewards.values[:,0], rewards.values[:,1])
-        t, p_t = ttest_ind(rewards.values[:,0], rewards.values[:,1])
-        ks_text = AnchoredText("Ks Test: pvalue {:.2f} \n T Test: pvalue {:.2f}".format(p_V,p_t),loc=1,prop=dict(size=10))
-        ax.add_artist(ks_text)
-        fig.savefig(os.path.join(data_dir, "cum{}_density_{}.png".format(title,p['n_seeds'])), dpi=300)
+            KS, p_V = ks_2samp(rewards.values[:,0], rewards.values[:,1])
+            t, p_t = ttest_ind(rewards.values[:,0], rewards.values[:,1])
+            ks_text = AnchoredText("Ks Test: pvalue {:.2f} \n T Test: pvalue {:.2f}".format(p_V,p_t),loc=1,prop=dict(size=10))
+            ax.add_artist(ks_text)
+            fig.savefig(os.path.join(data_dir, "cum{}_density_{}.png".format(title,p['n_seeds'])), dpi=300)
 
     
 
@@ -663,18 +687,40 @@ def runmultiplot_distribution(p):
                 else:
                     rewards = pd.DataFrame(data=np.array(rewards), columns=['ppo','gp'])
             
-                    fig = plt.figure(figsize=set_size(width=1000.0))
-                    ax = fig.add_subplot()
-                    rewards['gp'].plot(ax=ax, kind='hist', alpha=0.7,color='tab:orange',bins=50)
-                    rewards['ppo'].plot(ax=ax, kind='hist', color='tab:blue',bins=50)
-                    ax.set_xlabel("Cumulative reward")
-                    ax.set_ylabel("Frequency")
-                    ax.legend()
+                    # fig = plt.figure(figsize=set_size(width=1000.0))
+                    # ax = fig.add_subplot()
+                    # rewards['gp'].plot(ax=ax, kind='hist', alpha=0.7,color='tab:orange',bins=50)
+                    # rewards['ppo'].plot(ax=ax, kind='hist', color='tab:blue',bins=50)
+                    # ax.set_xlabel("Cumulative reward")
+                    # ax.set_ylabel("Frequency")
+                    # ax.legend()
+                    # means, stds = rewards.mean().values, rewards.std().values
+                    # srs = means/stds
+                    # ax.set_title('{} Obs \n Means: PPO {:.2f} GP {:.2f} \n Stds: PPO {:.2f} GP {:.2f} \n SR:  PPO {:.2f} GP {:.2f} \n Exp {}'.format(len(rewards),*means,*stds, *srs, f))
+                    # fig.savefig(os.path.join(data_dir, "cumreward_hist_{}_{}.png".format(p['n_seeds'], f)), dpi=300)
+                    # plt.close()
+                
+                        
+                    cumdiff = rewards['ppo'].values - rewards['gp'].values
                     means, stds = rewards.mean().values, rewards.std().values
                     srs = means/stds
+                    KS, p_V = ks_2samp(rewards.values[:,0], rewards.values[:,1])
+                    t, p_t = ttest_ind(rewards.values[:,0], rewards.values[:,1])
+                    
+                    fig = plt.figure(figsize=set_size(width=1000.0))
+                    ax = fig.add_subplot()
+                    # sns.kdeplot(rewards['gp'].values, bw_method=0.2,ax=ax,color='tab:orange')
+                    sns.kdeplot(cumdiff, bw_method=0.2,ax=ax,color='tab:blue')
+                    ax.set_xlabel("Cumulative reward diff")
+                    ax.set_ylabel("KDE")
+                    ax.legend()
                     ax.set_title('{} Obs \n Means: PPO {:.2f} GP {:.2f} \n Stds: PPO {:.2f} GP {:.2f} \n SR:  PPO {:.2f} GP {:.2f} \n Exp {}'.format(len(rewards),*means,*stds, *srs, f))
-                    fig.savefig(os.path.join(data_dir, "cumreward_hist_{}_{}.png".format(p['n_seeds'], f)), dpi=300)
+                    ax.legend(labels=['gp','ppo'],loc=2)
+                    ks_text = AnchoredText("Ks Test: pvalue {:.2f} \n T Test: pvalue {:.2f}".format(p_V,p_t),loc=1,prop=dict(size=10))
+                    ax.add_artist(ks_text)
+                    fig.savefig(os.path.join(data_dir, "cumreward_diff_density_{}_{}.png".format(p['n_seeds'], f)), dpi=300)
                     plt.close()
+                        
                 
                     fig = plt.figure(figsize=set_size(width=1000.0))
                     ax = fig.add_subplot()
@@ -683,16 +729,11 @@ def runmultiplot_distribution(p):
                     ax.set_xlabel("Cumulative reward")
                     ax.set_ylabel("KDE")
                     ax.legend()
-                    means, stds = rewards.mean().values, rewards.std().values
-                    srs = means/stds
                     ax.set_title('{} Obs \n Means: PPO {:.2f} GP {:.2f} \n Stds: PPO {:.2f} GP {:.2f} \n SR:  PPO {:.2f} GP {:.2f} \n Exp {}'.format(len(rewards),*means,*stds, *srs, f))
-                    ax.legend(labels=['gp','ppo'],loc=2)
-                
-                    KS, p_V = ks_2samp(rewards.values[:,0], rewards.values[:,1])
-                    t, p_t = ttest_ind(rewards.values[:,0], rewards.values[:,1])
+                    ax.legend(labels=['gp','ppo'],loc=2)        
                     ks_text = AnchoredText("Ks Test: pvalue {:.2f} \n T Test: pvalue {:.2f}".format(p_V,p_t),loc=1,prop=dict(size=10))
                     ax.add_artist(ks_text)
-                    fig.savefig(os.path.join(data_dir, "cumreward_density_{}_{}.png".format(p['n_seeds'],f)), dpi=300)
+                    fig.savefig(os.path.join(data_dir, "cumreward_density_{}_{}.png".format(p['n_seeds'], f)), dpi=300)
                     plt.close()
 
 
@@ -842,8 +883,9 @@ def runplot_holding(p):
             MV_res=query("%MV_RES"),
             N_test=p['N_test']
         )
-
+ 
         res_df = oos_test.run_test(train_agent, return_output=True)
+        # pdb.set_trace()
 
 
         if gin.query_parameter('%MULTIASSET'):
@@ -862,7 +904,7 @@ def runplot_holding(p):
             
             fig.suptitle('Holdings')
             
-            plot_heatmap_holding(res_df,tag[0],title=model)
+            # plot_heatmap_holding(res_df,tag[0],title=model)
             
             # if len(gin.query_parameter('%HALFLIFE'))==2:
     

@@ -13,7 +13,7 @@ ENV_CLS = @MarketEnv #ShortMultiAssetCash
 
 
 EXPERIMENT_TYPE = 'GP' # GP or Misspec
-MV_RES = True  # Decide which actions to take (trading quantity or MVresiduals)
+MV_RES = False #[ False,True]  # Decide which actions to take (trading quantity or MVresiduals)
 UNIVERSAL_TRAIN = True
 
 EPISODES = 400  #None # episode to run the algorithm. Put None if you want to train DQN online
@@ -22,14 +22,14 @@ LEN_SERIES = 200 #None # length of simulated series, if null the legth is N_trai
 EPOCHS = 3
 OUTPUTDIR = 'outputs' # main directory for the experiment
 OUTPUTCLASS = %ALGO # first subdirectory
-OUTPUTMODEL = '20210823_single_alpha_riskav' # second subdirectory
-SAVE_FREQ = 50  # number of checkpoints to save during training
-SEED = [765,  35, 654, 850] #[157, 466, 477,  24, 281]  # seed for reproducibility
+OUTPUTMODEL = '20210909_test3' # second subdirectory
+SAVE_FREQ = 10  # number of checkpoints to save during training
+SEED = 22 #765,  35, 654, 850, 153, 195, 594, 913, 822, 602, 423, 356, 149, 945, 6545] #[157, 466, 477,  24, 281]  # seed for reproducibility
 START_TRAIN = 300 # steps after which the training starts
 USE_GPU = True
-VARYING_PARS = ['%DOUBLE_NOISE', '%REWARD_TYPE', '%SIGMAF', '%SEED']
+VARYING_PARS = None #['%MV_RES', '%SEED']
 VARYING_TYPE = 'chunk'
-NUM_CORES = 30
+NUM_CORES = 60
 
 # spaces
 ACTION_RANGE =  [None, 9] # action range for standard RL [boundary,number of actions]
@@ -52,10 +52,10 @@ CM1 = 0.001 #[0.01, 0.05, 0.005] #[0.01,0.001, 0.0005, 0.005] #[0.0005,0.001,0.0
 CM2 = 0.001 #7.91E-4
 STARTHOLDING = 0.0 # initial portfolio holding
 DISCOUNT_RATE = 0.0 # discount rate for time value of money (not gamma in DQN)
-KAPPA = 0.001 #[0.001,0.005] # risk aversion
+KAPPA =  0.001 #[0.001,0.005] # risk aversion
 INP_TYPE = 'alpha_f' #['f','ret'] # 'f', 'ret', 'alpha' or 'alpha_f'
 COST_TYPE = 'quadratic' # quadratic or nondiff
-REWARD_TYPE = ['cara','mean_var'] # 'mean_var' 'cara'
+REWARD_TYPE = 'mean_var' #['cara','mean_var'] # 'mean_var' 'cara'
 CASH = None #1e+6
 
 DT = 1.0
@@ -64,11 +64,11 @@ MULTIASSET = False
 N_ASSETS = None
 HALFLIFE = [75] # list of Halflives of mean reversion
 INITIAL_ALPHA = [0.004] # only for alpha term structure case
-SIGMA = 5e-04 # return volatility
-SIGMAF = [[1e-04], [5e-04], [1e-06], [5e-06]] #0.0001,0.00001 [[0.2, 0.1] ,[0.1, 0.1]] #[[0.2, 0.1],[0.1, 0.1]] # list of factor volatilities 
+SIGMA = 1e-05 # return volatility
+SIGMAF = [1e-05] #0.0001,0.00001 [[0.2, 0.1] ,[0.1, 0.1]] #[[0.2, 0.1],[0.1, 0.1]] # list of factor volatilities 
 F_PARAM = [1.0] #, 0.005] # list of factor loadings
 CORRELATION = None
-DOUBLE_NOISE = [ False,True]
+DOUBLE_NOISE = True
 QTS = [0.001,0.999] # quantile to select action boundaries
 ACTION_TYPE = 'MV' # GP or MV for selecting action boundaries
 UNCORRELATED = True # generate correlated or uncorrelated factors

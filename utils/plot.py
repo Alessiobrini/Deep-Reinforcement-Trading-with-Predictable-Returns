@@ -327,6 +327,7 @@ def plot_abs_metrics(
     df_mean = df.median(axis=0)
     if 'Pdist' not in variable:
         df_opt = df_opt.median(axis=0)
+    # pdb.set_trace()
 
     idxs = [int(i) for i in df.iloc[0, :].index]
 
@@ -342,7 +343,7 @@ def plot_abs_metrics(
 
     if 'Pdist' not in variable:
         ax1.plot(
-            idxs, df_opt.values, color="red", linewidth=3, label="GP" if i == 0 else "",
+            idxs, df_opt.values, color="red", linestyle= '--', linewidth=3, label="GP" if i == 0 else "",
         )
 
     ax1.set_title(
@@ -792,7 +793,7 @@ def plot_BestActions(
             
 
 
-def plot_portfolio(r: pd.DataFrame, tag: str, ax2: object):
+def plot_portfolio(r: pd.DataFrame, tag: str, ax2: object, tbox: bool = True):
     """
     Ploduce plots of portfolio holding
 
@@ -820,18 +821,20 @@ def plot_portfolio(r: pd.DataFrame, tag: str, ax2: object):
             
         ax2.legend(list(r.filter(like="NextHolding_{}".format(tag)).columns) + 
                    list(r.filter(like="OptNextHolding").columns),fontsize=9)
-
-        hold_diff = r.filter(like="OptNextHolding").values[1:-1] -  r.filter(like="NextHolding_{}".format(tag)).values[1:-1] 
-        norm = np.linalg.norm(hold_diff)
-        norm_text = AnchoredText("Norm diff: {:e}".format(norm),loc= 'upper left',prop=dict(size=10))
-        ax2.add_artist(norm_text)
+        
+        if tbox:
+            hold_diff = r.filter(like="OptNextHolding").values[1:-1] -  r.filter(like="NextHolding_{}".format(tag)).values[1:-1] 
+            norm = np.linalg.norm(hold_diff)
+            norm_text = AnchoredText("Norm diff: {:e}".format(norm),loc= 'upper left',prop=dict(size=10))
+            ax2.add_artist(norm_text)
 
     else:
         ax2.plot(r["NextHolding_{}".format(tag)].values[1:-1], label=tag)
         ax2.plot(r["OptNextHolding"].values[1:-1], label="benchmark", alpha=0.5)
-        mse = np.round(np.sum(r["OptNextHolding"].values[1:-1] - r["NextHolding_{}".format(tag)].values[1:-1]),decimals=0)
-        mse_text = AnchoredText("GP - PPO: {:e}".format(mse),loc=1,prop=dict(size=10))
-        ax2.add_artist(mse_text)
+        if tbox:
+            mse = np.round(np.sum(r["OptNextHolding"].values[1:-1] - r["NextHolding_{}".format(tag)].values[1:-1]),decimals=0)
+            mse_text = AnchoredText("GP - PPO: {:e}".format(mse),loc=1,prop=dict(size=10))
+            ax2.add_artist(mse_text)
 
 def plot_2asset_holding(r: pd.DataFrame, tag: str, ax2: object):
     """
