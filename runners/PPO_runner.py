@@ -100,6 +100,7 @@ class PPO_runner(MixinCore):
         n_assets = gin.query_parameter('%N_ASSETS')
         if n_assets:
             self._get_hyperparams_n_assets(n_assets,self.rng)
+            self.start_time = time.time()
 
         self.data_handler = DataHandler(N_train=self.len_series, rng=self.rng)
         if self.experiment_type == "GP":
@@ -176,7 +177,7 @@ class PPO_runner(MixinCore):
 
         self.logging.debug("Start training...")
         for e in tqdm(iterable=range(self.episodes), desc="Running episodes..."):
-
+ 
             if e > 0 and self.universal_train:
                 if self.experiment_type == "GP":
                     self.data_handler.generate_returns(disable_tqdm=True)
@@ -211,6 +212,11 @@ class PPO_runner(MixinCore):
         if n_assets == None:
             self.oos_test.save_series()
             # self.train_agent.save_diagnostics(path=self.savedpath)
+        else:
+            end_time = time.time()
+            with open(os.path.join(self.savedpath, "runtime.txt"), 'w') as f:
+                f.write('Runtime {} minutes'.format((end_time-self.start_time)/60))
+
 
 
         save_gin(os.path.join(self.savedpath, "config.gin"))
@@ -269,7 +275,7 @@ class PPO_runner(MixinCore):
     #     return res_df, res_bench_df
 
     def collect_rollouts(self):
-
+        
         state = self.env.reset()
 
         self.train_agent.reset_experience()
