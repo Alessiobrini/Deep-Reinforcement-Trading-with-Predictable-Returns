@@ -5,6 +5,7 @@ import pdb, os
 import gym
 import gin
 import sys
+import torch
 from utils.math_tools import unscale_action
 from utils.common import format_tousands
 
@@ -392,7 +393,10 @@ class MarketEnv(gym.Env):
                         self.res_df.at[iteration, key+'_{}'.format(i)] = k
                 else:
                     self.res_df[key] = 0.0
-                    self.res_df.at[iteration, key] = Result[key]
+                    if isinstance(Result[key],torch.Tensor):
+                        self.res_df.at[iteration, key] = Result[key].item()
+                    else:
+                        self.res_df.at[iteration, key] = Result[key]
             self.res_df = self.res_df.astype(np.float32)
         else:
 
@@ -403,7 +407,10 @@ class MarketEnv(gym.Env):
                     names = [name + s for s in suffixes]
                     self.res_df.loc[iteration,names] = Result[key]
                 else:
-                    self.res_df.at[iteration, key] = Result[key]
+                    if isinstance(Result[key],torch.Tensor):
+                        self.res_df.at[iteration, key] = Result[key].item()
+                    else:
+                        self.res_df.at[iteration, key] = Result[key]
 
     def save_outputs(self, savedpath, test=None, iteration=None, include_dates=False):
 

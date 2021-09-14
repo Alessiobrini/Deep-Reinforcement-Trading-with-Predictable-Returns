@@ -51,11 +51,10 @@ class DataHandler:
     def generate_returns(self, disable_tqdm: bool = False):
 
         if self.datatype != "garch":
-            # REMARK if you do t_studmfit and you want to compare the training over the same
-            # series wrt t_stud, you need to simulate a series of lenght N_train + factor_lb[-1]
-            # This is currently not implemented here
             if self.datatype == "alpha_term_structure":
                 self.returns, self.factors, self.f_speed = alpha_term_structure_sampler(N_train=self.N_train, rng=self.rng)
+            elif self.datatype == "t_stud_mfit" or self.datatype == "t_stud":
+                self.returns, self.factors, self.f_speed = return_sampler_GP(N_train=self.N_train + self.factor_lb[-1], rng=self.rng, disable_tqdm=disable_tqdm)
             else:
                 self.returns, self.factors, self.f_speed = return_sampler_GP(
                     N_train=self.N_train, rng=self.rng, disable_tqdm=disable_tqdm
@@ -63,7 +62,7 @@ class DataHandler:
 
         elif self.datatype == "garch":
             self.returns, self.params = return_sampler_garch(
-                N_train=self.N_train, disable_tqdm=disable_tqdm
+                N_train=self.N_train + self.factor_lb[-1] + 2, disable_tqdm=disable_tqdm
             )
 
         else:
@@ -71,17 +70,14 @@ class DataHandler:
             sys.exit()
 
     def estimate_parameters(self):
-
         if self.datatype == "t_stud_mfit":
-            # look at the remark above: use .loc[factor_lb[-1] :] if you want the same series of t_stud
-            # this method doesn't require to fit the true parameters
             df = pd.DataFrame(
                 data=np.concatenate([self.returns.reshape(-1, 1), self.factors], axis=1)
             )
 
-            y, X = df[df.columns[0]], df[df.columns[1:]]
+            y, X = df[df.columns[0]].loc[self.factor_lb[-1] :], df[df.columns[1:]].loc[self.factor_lb[-1] :]
 
-            params_meanrev, fitted_ous = RunModels(y, X, mr_only=True)
+            params_meanrev, _ = RunModels(y, X, mr_only=True)
 
         else:
             df = CalculateLaggedSharpeRatio(
@@ -90,22 +86,11 @@ class DataHandler:
 
             y, X = df[df.columns[0]], df[df.columns[1:]]
 
-            params_retmodel, params_meanrev, fitted_retmodel, fitted_ous = RunModels(
+            params_retmodel, params_meanrev, _, _ = RunModels(
                 y, X
             )
 
-            sigma_fit = df.iloc[:, 0].std()
-            gin.bind_parameter("%SIGMA", sigma_fit)
-
-            f_param_fit = params_retmodel["params"]
-            gin.bind_parameter("%F_PARAM", f_param_fit)
-
-            sigmaf_fit = X.std().values
-            gin.bind_parameter("%SIGMAF", sigmaf_fit)
-
         self.f_speed = np.abs(np.array([*params_meanrev.values()]).ravel())
-        gin.bind_parameter("%HALFLIFE", np.around(np.log(2) / self.f_speed_fit, 2))
-
         self.returns = df.iloc[:, 0].values
         self.factors = df.iloc[:, 1:].values
 
@@ -622,6 +607,7 @@ def alpha_term_structure_sampler(
 
         if None not in sigmaf:
             noise_magnitude = (np.array(sigmaf) * np.sqrt(t)).reshape(-1,alpha_n)
+            # pdb.set_trace()
             noise = noise_magnitude * rng.normal(size=(len(t),alpha_n))
             alpha_terms = alpha_terms + noise
 
@@ -629,6 +615,8 @@ def alpha_term_structure_sampler(
             print('Factor loadings for term structure do not sum to one.')
             sys.exit()
         alpha_structure = np.sum(np.array(f_param)* alpha_terms, axis=1)
+        # generate_plot = True
+        
         if generate_plot:
             fig,ax = plt.subplots()
             ax.plot(alpha_terms)
@@ -637,6 +625,6 @@ def alpha_term_structure_sampler(
             ax.set_title('Alpha term structure')
             # plt.show()
 
-
+        # pdb.set_trace()
         return alpha_structure, alpha_terms, f_speed
 

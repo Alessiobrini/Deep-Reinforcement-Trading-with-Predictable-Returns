@@ -57,7 +57,6 @@ class Out_sample_vs_gp:
         self.MV_res = MV_res
 
     def run_test(self, test_agent: object, it: int = 0, return_output: bool = False):
-
         rng = np.random.RandomState(self.rnd_state)
         seeds = rng.choice(1000, self.n_seeds, replace=False)
         self.rng_test = np.random.RandomState(self.rnd_state)
@@ -88,7 +87,6 @@ class Out_sample_vs_gp:
                 data_handler.generate_returns()
             else:
                 data_handler.generate_returns()
-                # TODO check if these method really fit and change the parameters in the gin file
                 data_handler.estimate_parameters()
             
             self.test_env = self.env_cls(
@@ -176,8 +174,9 @@ class Out_sample_vs_gp:
                         NextState, Result, _ = self.test_env.step(
                             CurrState.cpu(), action, i, tag="PPO"
                         )
-                    
+
                     self.test_env.store_results(Result, i)
+                    
 
                 CurrState = NextState
 
