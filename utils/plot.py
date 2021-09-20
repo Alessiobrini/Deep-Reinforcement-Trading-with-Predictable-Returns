@@ -288,7 +288,8 @@ def plot_pct_metrics(
             if gin.query_parameter("%DATATYPE") == "t_stud":
                 ax1.set_ylim(-1500000, 1500000)
             elif gin.query_parameter("%DATATYPE") == "garch":
-                ax1.set_ylim(-1000000, 1000000)
+                # ax1.set_ylim(-1000000, 1000000)
+                pass
             elif gin.query_parameter("%DATATYPE") == "garch_mr":
                 ax1.set_ylim(-5000000, 5000000)
 
@@ -332,18 +333,18 @@ def plot_abs_metrics(
     idxs = [int(i) for i in df.iloc[0, :].index]
 
     for j, i in enumerate(df.index):
-        ax1.scatter(x=idxs, y=df.iloc[i, :], alpha=0.6, color=colors, marker="o", s=7.5)
+        ax1.scatter(x=idxs, y=df.iloc[i, :], alpha=0.6, color=colors, marker="o", s=3.5)
     ax1.plot(
         idxs,
         df_mean.values,
         color=colors,
-        linewidth=3,
+        linewidth=2,
         label="{}".format("_".join(data_dir.split("/")[-2].split("_")[2:])),
     )
 
     if 'Pdist' not in variable:
         ax1.plot(
-            idxs, df_opt.values, color="red", linestyle= '--', linewidth=3, label="GP" if i == 0 else "",
+            idxs, df_opt.values, color="red", linestyle= '--', linewidth=2, label="GP" if i == 0 else "",
         )
 
     ax1.set_title(
@@ -355,7 +356,7 @@ def plot_abs_metrics(
     ax1.set_xlabel("in-sample training iterations")
 
     ax1.legend()
-    # ax1.set_ylim(-20000000, 20000000)
+    ax1.set_ylim(1e14, 5e14)
 
     # fig.savefig(os.path.join(data_dir,'{}.pdf'.format(variable)), dpi=300)
 

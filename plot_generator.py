@@ -137,6 +137,8 @@ def runplot_metrics(p):
 
                 dataframe = pd.concat(dfs)
                 dataframe.index = range(len(dfs))
+                pdb.set_trace()
+                
 
                 # pdb.set_trace()
                 if 'PPO' in tag and p['ep_ppo']:
@@ -187,7 +189,7 @@ def runplot_metrics(p):
                         colors=colors[k],
                         params_path=filenamep,
                     )
-                    # ax.set_ylim(20, 150)
+                    ax.set_ylim(20, 150)
                 logging.info("Plot saved successfully...")
 
 
@@ -298,7 +300,7 @@ def runplot_policy(p):
         outputClass, outputModel, length, experiment
     )
 
-    fig = plt.figure(figsize=set_size(width=1000.0))
+    fig = plt.figure(figsize=set_size(width=243))
     ax = fig.add_subplot()
 
     if "DQN" in tag:
@@ -320,12 +322,22 @@ def runplot_policy(p):
             model, actions = load_PPOmodel(data_dir, p['ep_ppo'])
         else:
             model, actions = load_PPOmodel(data_dir, gin.query_parameter("%EPISODES"))
+
         
         plot_BestActions(model, p['holding'], ax=ax, optimal=p['optimal'])
 
-        ax.set_xlabel("y")
-        ax.set_ylabel("best $\mathregular{A_{t}}$")
-        ax.legend()
+        ax.set_xlabel("y", fontsize=8)
+        ax.set_ylabel("best $\mathregular{A_{t}}$",fontsize=8, labelpad=0.0012)
+        ax.ticklabel_format(axis="y", style="sci", scilimits=(0, 0))
+        plt.xticks(fontsize=6)
+        plt.yticks(fontsize=6)
+        ax.yaxis.get_offset_text().set_fontsize(6)
+
+
+        # ax.legend()
+        fig.tight_layout()
+        fig.savefig(os.path.join('outputs','img_brini_kolm', "ppo_policy_{}_{}.pdf".format(p['seed'], outputModel)), dpi=300, bbox_inches="tight")
+        
     else:
         print("Choose proper algorithm.")
         sys.exit()
@@ -883,15 +895,13 @@ def runplot_holding(p):
             MV_res=query("%MV_RES"),
             N_test=p['N_test']
         )
- 
-        res_df = oos_test.run_test(train_agent, return_output=True)
         # pdb.set_trace()
-
+        res_df = oos_test.run_test(train_agent, return_output=True)
 
         if gin.query_parameter('%MULTIASSET'):
 
 
-            plot_portfolio(res_df, tag[0], axes[i])
+            plot_portfolio(res_df, tag[0], axes[i],tbox=False)
             # plot_action(res_df, tag[0], axes2[i])
             split = model.split("mv_res")
     
@@ -921,7 +931,7 @@ def runplot_holding(p):
 
         else:
 
-            plot_portfolio(res_df, tag[0], axes[i])
+            plot_portfolio(res_df, tag[0], axes[i],tbox=False)
             # plot_action(res_df, tag[0], axes2[i])
             split = model.split("mv_res")
     
@@ -1056,3 +1066,4 @@ if __name__ == "__main__":
         runplot_distribution(p)
     elif p["plot_type"] == "distmulti":
         runmultiplot_distribution(p)
+    

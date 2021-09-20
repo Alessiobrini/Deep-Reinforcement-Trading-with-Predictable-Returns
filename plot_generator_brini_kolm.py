@@ -31,10 +31,13 @@ import tensorflow as tf
 from scipy.stats import ks_2samp,kstest,ttest_ind
 import pdb
 import glob
+import re
 import seaborn as sns
 import gin
 gin.enter_interactive_mode()
 from joblib import Parallel, delayed
+from scipy.optimize import curve_fit
+from scipy.stats import pearsonr
 
 from utils.plot import (
     plot_pct_metrics,
@@ -182,7 +185,8 @@ def runplot_metrics(p):
                         i=it,
                     )                    
                     
-                    ax.set_ylim(-1e09,1e09)
+                    # ax.set_ylim(-1e09,1e09)
+                    ax.set_ylim(1e06,4e06)
 
 
                 else:
@@ -733,10 +737,6 @@ def runplot_distribution(p):
         # plt.close()
 
 
-        
-
-
-
 def parallel_test(seed,test_class,train_agent,data_dir,fullpath=False):
     gin.parse_config_file(os.path.join(data_dir, "config.gin"), skip_unknown=True)
     # change reward function in order to evaluate in the same way
@@ -762,6 +762,175 @@ def parallel_test_wealth(seed,test_class,train_agent,data_dir,fullpath=False):
         return res_df['Wealth_PPO'].values[-1],res_df['OptWealth'].values[-1]
 
 
+def runplot_time(p):
+
+
+    modeltag = p['modeltag']
+    outputClass = p["outputClass"]
+    
+    if isinstance(modeltag,list):
+        assets = []
+        runtimes = []
+        for mtag in modeltag:
+            folders = [p for p in glob.glob(os.path.join('outputs',outputClass,'{}'.format(mtag.format('*'))))]
+            length = os.listdir(folders[0])[0]
+
+
+            n_assets= [int(f.split('n_assets_')[-1].split('_')[0]) for f in folders]
+            times = []    
+
+            for main_f in folders:    
+                length = os.listdir(main_f)[0]
+                for f in os.listdir(os.path.join(main_f,length)):
+                    if 'seed_{}'.format(p['seed']) in f:
+                        data_dir = os.path.join(main_f,length,f)
+                        
+                        file = open(os.path.join(data_dir,'runtime.txt'),'r')
+                        txt = file.read()
+                        times.append(float(re.findall("\d+\.\d+", txt)[0]))
+
+
+            ltup = list(zip(n_assets,times))
+            ltup.sort(key=lambda y: y[0])
+            a,t = zip(*ltup)
+            
+            
+            assets.append(a)
+            runtimes.append(t)
+        
+    
+        fig = plt.figure(figsize=set_size(width=columnwidth))
+        ax = fig.add_subplot()
+        
+        for i in range(len(assets)):
+            
+            ax.plot(assets[i],runtimes[i])
+        
+        # ax.plot(assets[i],assets[i])
+        
+        ax.set_ylabel('Runtime for 100 episodes (minutes)')
+        ax.set_xlabel('Number of assets')
+
+        ax.legend([('-').join(mt.split('_')[-2:]) for mt in modeltag])
+        
+
+        # # objective function
+        # def objective(x, a, b, c):
+        # 	return a * x + b
+        # popt, _ = curve_fit(objective, assets[i],runtimes[i])
+        # corr, _ = pearsonr(assets[i],runtimes[i])
+
+        fig.tight_layout()
+        fig.savefig(os.path.join('outputs','img_brini_kolm', "multiruntime_{}.pdf".format(modeltag[0].split('_{}_')[0])), dpi=300, bbox_inches="tight")
+        
+
+    else:
+        # folders = [p for p in glob.glob(os.path.join('outputs',outputClass,'{}*'.format(modeltag)))]
+        folders = [p for p in glob.glob(os.path.join('outputs',outputClass,'{}'.format(modeltag.format('*'))))]
+        length = os.listdir(folders[0])[0]
+        pdb.set_trace()
+        
+        
+        n_assets= [int(f.split('n_assets_')[-1].split('_')[0]) for f in folders]
+        times = []    
+        # pdb.set_trace()
+        for main_f in folders:    
+            length = os.listdir(main_f)[0]
+            for f in os.listdir(os.path.join(main_f,length)):
+                if 'seed_{}'.format(p['seed']) in f:
+                    data_dir = os.path.join(main_f,length,f)
+                    
+                    file = open(os.path.join(data_dir,'runtime.txt'),'r')
+                    txt = file.read()
+                    times.append(float(re.findall("\d+\.\d+", txt)[0]))
+                    
+        # pdb.set_trace()
+        ltup = list(zip(n_assets,times))
+        ltup.sort(key=lambda y: y[0])
+        n_assets,times = zip(*ltup)
+    
+    
+        fig = plt.figure(figsize=set_size(width=columnwidth))
+        ax = fig.add_subplot()
+        
+        ax.plot(n_assets,times)
+        
+        ax.set_ylabel('Runtime for 100 episodes (minutes)')
+        ax.set_xlabel('Number of assets')
+    
+        fig.tight_layout()
+        fig.savefig(os.path.join('outputs','img_brini_kolm', "runtime_{}_{}.pdf".format(p['n_seeds'], modeltag)), dpi=300, bbox_inches="tight")
+        
+def runplot_policy(p):
+
+    outputClass = p["outputClass"]
+    tag = p["algo"]
+    seed = p["seed"]
+    
+    if 'DQN' in tag:
+        hp_exp = p["hyperparams_exp_dqn"]
+        outputModel = p["outputModel_dqn"]
+        experiment = p["experiment_dqn"]
+    elif 'PPO' in tag:
+        hp_exp = p["hyperparams_exp_ppo"]
+        outputModel = p["outputModel_ppo"]
+        experiment = p["experiment_ppo"]
+
+    if hp_exp:
+        outputModel = outputModel.format(*hp_exp)
+        experiment = experiment.format(*hp_exp, seed)
+
+    modelpath = "outputs/{}/{}".format(outputClass, outputModel)
+    # get the latest created folder "length"
+    all_subdirs = [
+        os.path.join(modelpath, d)
+        for d in os.listdir(modelpath)
+        if os.path.isdir(os.path.join(modelpath, d))
+    ]
+    latest_subdir = max(all_subdirs, key=os.path.getmtime)
+    length = os.path.split(latest_subdir)[-1]
+    data_dir = "outputs/{}/{}/{}/{}".format(
+        outputClass, outputModel, length, experiment
+    )
+
+    fig = plt.figure(figsize=set_size(width=columnwidth))
+    ax = fig.add_subplot()
+
+    if "DQN" in tag:
+        gin.parse_config_file(os.path.join(data_dir, "config.gin"), skip_unknown=True)
+        if p['n_dqn']:
+            model, actions = load_DQNmodel(data_dir, p['n_dqn'])
+        else:
+            model, actions = load_DQNmodel(data_dir, gin.query_parameter("%N_TRAIN"))      
+        
+        plot_BestActions(model, p['holding'], ax=ax, optimal=p['optimal'])
+
+        ax.set_xlabel("y")
+        ax.set_ylabel("best $\mathregular{A_{t}}$")
+        ax.legend()
+
+    elif "PPO" in tag:
+        gin.parse_config_file(os.path.join(data_dir, "config.gin"), skip_unknown=True)
+        if p['ep_ppo']:
+            model, actions = load_PPOmodel(data_dir, p['ep_ppo'])
+        else:
+            model, actions = load_PPOmodel(data_dir, gin.query_parameter("%EPISODES"))
+
+        
+        plot_BestActions(model, p['holding'], ax=ax, optimal=p['optimal'])
+
+        ax.set_xlabel("y")
+        ax.set_ylabel("best $\mathregular{A_{t}}$")
+        # ax.legend()
+        fig.tight_layout()
+        fig.savefig(os.path.join('outputs','img_brini_kolm', "ppo_policy_{}_{}.pdf".format(p['seed'], outputModel)), dpi=300, bbox_inches="tight")
+        
+    else:
+        print("Choose proper algorithm.")
+        sys.exit()
+
+
+
 if __name__ == "__main__":
 
     # Generate Logger-------------------------------------------------------------
@@ -779,11 +948,13 @@ if __name__ == "__main__":
         runplot_holding(p)
     elif p["plot_type"] == "multiholding":
         runplot_multiholding(p)
-    # elif p["plot_type"] == "policy":
-    #     runplot_policy(p)
+    elif p["plot_type"] == "policy":
+        runplot_policy(p)
     # elif p["plot_type"] == "diagnostics":
     #     runplot_diagnostics(p)
     elif p["plot_type"] == "dist":
         runplot_distribution(p)
     # elif p["plot_type"] == "distmulti":
     #     runmultiplot_distribution(p)
+    elif p['plot_type'] == 'runtime':
+        runplot_time(p)
