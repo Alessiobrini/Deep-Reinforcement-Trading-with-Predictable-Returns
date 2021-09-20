@@ -132,7 +132,7 @@ class PPO_runner(MixinCore):
             factors=self.data_handler.factors,
         )
 
-        self.logging.debug("Instantiating DQN model")
+        self.logging.debug("Instantiating PPO model")
         input_shape = self.env.get_state_dim()
 
         step_size = (
@@ -275,7 +275,6 @@ class PPO_runner(MixinCore):
     #     return res_df, res_bench_df
 
     def collect_rollouts(self):
-        
         state = self.env.reset()
 
         self.train_agent.reset_experience()
@@ -367,6 +366,8 @@ class PPO_runner(MixinCore):
 
     def _get_hyperparams_n_assets(self,n_assets,rng):
         gin.bind_parameter('%HALFLIFE',[[rng.randint(low=5,high=150)] for _ in range(n_assets)])
-        gin.bind_parameter('%INITIAL_ALPHA',[[np.round(rng.uniform(low=0.0,high=0.004),5)] for _ in range(n_assets)])
+        gin.bind_parameter('%INITIAL_ALPHA',[[np.round(rng.uniform(low=0.05,high=0.1),5)] for _ in range(n_assets)])
         gin.bind_parameter('%F_PARAM',[[1.0] for _ in range(n_assets)])
-        gin.bind_parameter('%CORRELATION',list(np.round(rng.uniform(size=(int((n_assets**2 - n_assets)/2))),5)))
+        gin.bind_parameter('%CORRELATION',list(np.round(rng.uniform(low=-0.8,
+                                                                    high=0.8,
+                                                                    size=(int((n_assets**2 - n_assets)/2))),5)))
