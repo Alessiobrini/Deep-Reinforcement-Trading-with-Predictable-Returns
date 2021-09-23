@@ -40,6 +40,7 @@ from scipy.optimize import curve_fit
 from scipy.stats import pearsonr
 
 from utils.plot import (
+    move_sn_x,
     plot_pct_metrics,
     plot_abs_metrics,
     plot_BestActions,
@@ -58,17 +59,26 @@ from agents.DQN import DQN
 from agents.PPO import PPO
 from utils.spaces import ActionSpace, ResActionSpace
 from utils.common import readConfigYaml, generate_logger, format_tousands, set_size
+from utils.simulation import DataHandler
 
 gpu_devices = tf.config.experimental.list_physical_devices("GPU")
 for device in gpu_devices:
     tf.config.experimental.set_memory_growth(device, True)
 
 
+os.environ["PATH"] += os.pathsep + 'C:\\Program Files\\MiKTeX\\miktex\\bin\\x64' 
+
 columnwidth=360
 style = 'white' #darkgrid
 params = {
+    "text.usetex": True,
+    # "text.latex": r'\usepackage{cmbright}',
     "savefig.dpi": 300,
-    "font.family": "serif",
+    "font.family" : 'serif', #       : serif
+    "font.serif"  : "Computer Modern Roman" ,     # : Times, Palatino, New Century Schoolbook, Bookman, Computer Modern Roman
+    # "font.sans-serif "   : Helvetica, Avant Garde, Computer Modern Sans Serif
+    # font.cursive       : Zapf Chancery
+    # font.monospace     : Courier, Computer Modern Typewriter
     "font.size": 10,
     "legend.fontsize": 8,
     "xtick.labelsize": 11,
@@ -77,6 +87,7 @@ params = {
 }
 plt.rcParams.update(params)
 sns.set_style(style)
+
 
 def runplot_metrics(p):
 
@@ -96,15 +107,7 @@ def runplot_metrics(p):
     else:
         outputModel = outputModels
 
-    colors = ["blue", "y", "green", "black"]
-    # colors = []
-    random.seed(2212)  # 7156
-    for _ in range(len(outputModel)):
-        r = random.random()
-        b = random.random()
-        g = random.random()
-        color = (r, g, b)
-        colors.append(color)
+    colors = [p['color_res'],p['color_mfree']]
 
     for t in tag:
 
@@ -155,6 +158,7 @@ def runplot_metrics(p):
 
                 dataframe = pd.concat(dfs)
                 dataframe.index = range(len(dfs))
+                # pdb.set_trace()
 
 
                 if 'PPO' in tag and p['ep_ppo']:
@@ -183,11 +187,8 @@ def runplot_metrics(p):
                         v,
                         colors=colors[k],
                         i=it,
+                        plt_type='diff'
                     )                    
-                    
-                    # ax.set_ylim(-1e09,1e09)
-                    ax.set_ylim(1e06,4e06)
-
 
                 else:
                     plot_pct_metrics(
@@ -204,10 +205,12 @@ def runplot_metrics(p):
                     
                 # PERSONALIZE THE IMAGE WITH CORRECT LABELS
                 ax.get_figure().gca().set_title("") # no title
+                # ax.set_ylim(-1e06,4e06)
                 
                 ax.set_xlabel('In-sample episodes')
-                ax.set_ylabel('Reward')
-                ax.legend(['model free','benchmark', 'residual'])
+                ax.set_ylabel('Reward (\$)')
+                ax.ticklabel_format(axis="y", style="sci", scilimits=(0, 0),useMathText=True)
+                ax.legend(['residual','model free'])
                 
                 fig.tight_layout()
                 logging.info("Plot saved successfully...")
@@ -361,6 +364,7 @@ def runplot_holding(p):
             ax.legend(['PPO','benchmark'], fontsize=8)
     
     ax.set_xlabel('Time')
+    ax.ticklabel_format(axis="y", style="sci", scilimits=(0, 0),useMathText=True)
     # ax.set_ylabel('Holding')
     fig.text(0.03, 0.5, 'Holding', ha='center', rotation='vertical')
     
@@ -540,7 +544,7 @@ def runplot_multiholding(p):
         
 
 def runplot_distribution(p):
-
+    
     query = gin.query_parameter
     outputClass = p["outputClass"]
     tag = p["algo"]
@@ -571,170 +575,185 @@ def runplot_distribution(p):
     length = os.path.split(latest_subdir)[-1]
     data_dir = "outputs/{}/{}/{}/{}".format(
         outputClass, outputModel, length, experiment
-    )
+    )    
 
-
-    gin.parse_config_file(os.path.join(data_dir, "config.gin"), skip_unknown=True)
-    gin.bind_parameter('alpha_term_structure_sampler.generate_plot', p['generate_plot'])
-    p['N_test'] = gin.query_parameter('%LEN_SERIES')
-    
-    # gin.bind_parameter('Out_sample_vs_gp.rnd_state',p['random_state'])
-    rng = np.random.RandomState(query("%SEED"))
-
-    if query("%MV_RES"):
-        action_space = ResActionSpace()
-    else:
-        action_space = ActionSpace()
-
-    if gin.query_parameter('%MULTIASSET'):
-        n_assets = len(gin.query_parameter('%HALFLIFE'))
-        n_factors = len(gin.query_parameter('%HALFLIFE')[0])
-        inputs = gin.query_parameter('%INPUTS')
-        if query("%INP_TYPE") == "f" or query("%INP_TYPE") == "alpha_f":
-            if 'sigma' in inputs and 'corr' in inputs:
-                input_shape = (int(n_factors*n_assets+1+ (n_assets**2 - n_assets)/2+n_assets+1),1)
-            else:
-                input_shape = (int(n_factors*n_assets+n_assets+1),1)
-        else:
-            input_shape = (n_assets+n_assets+1,1)
-    else:
-        if query("%INP_TYPE") == "f" or query("%INP_TYPE") == "alpha_f":
-            input_shape = (len(query('%F_PARAM')) + 1,)
-        else:
-            input_shape = (2,)
-
-
-    if "DQN" in tag:
-        train_agent = DQN(
-            input_shape=input_shape, action_space=action_space, rng=rng
-        )
-        if p['n_dqn']:
-            train_agent.model = load_DQNmodel(
-                data_dir, p['n_dqn'], model=train_agent.model
-            )
-        else:
-            train_agent.model = load_DQNmodel(
-                    data_dir, query("%N_TRAIN"), model=train_agent.model
-                )
-
-    elif "PPO" in tag:
-        train_agent = PPO(
-            input_shape=input_shape, action_space=action_space, rng=rng
-        )
-
-        if p['ep_ppo']:
-            train_agent.model = load_PPOmodel(data_dir, p['ep_ppo'], model=train_agent.model)
-        else:
-            train_agent.model = load_PPOmodel(data_dir, gin.query_parameter("%EPISODES"), model=train_agent.model)
-    else:
-        print("Choose proper algorithm.")
-        sys.exit()
-    
-    
-    if gin.query_parameter('%MULTIASSET'):
-        if 'Short' in str(gin.query_parameter('%ENV_CLS')):
-            env = ShortMultiAssetCashMarketEnv
-        else:
-            env = MultiAssetCashMarketEnv
-    else:
-        env = MarketEnv
-        
-    oos_test = Out_sample_vs_gp(
-        savedpath=None,
-        tag=tag[0],
-        experiment_type=query("%EXPERIMENT_TYPE"),
-        env_cls=env,
-        MV_res=query("%MV_RES"),
-        N_test=p['N_test']
-    )
-
-
-    rng_seeds = np.random.RandomState(14)
-    seeds = rng_seeds.choice(1000,p['n_seeds'])
-    if p['dist_to_plot'] == 'r':
-        title = 'reward'
-        rewards = Parallel(n_jobs=p['cores'])(delayed(parallel_test)(
-                s, oos_test,train_agent,data_dir,p['fullpath']) for s in seeds)
-    elif p['dist_to_plot'] == 'w':
-        title= 'wealth'
-        rewards = Parallel(n_jobs=p['cores'])(delayed(parallel_test_wealth)(
-                s, oos_test,train_agent,data_dir,p['fullpath']) for s in seeds)
-
-    if p['fullpath']:
-        rewards_ppo = pd.concat(list(map(list, zip(*rewards)))[0],axis=1).cumsum()
-        rewards_gp = pd.concat(list(map(list, zip(*rewards)))[1],axis=1).cumsum()
-        fig = plt.figure(figsize=set_size(width=1000.0))
-        ax = fig.add_subplot()
-        rewards_ppo.mean(axis=1).plot(ax=ax, label='ppo_mean')
-        rewards_gp.mean(axis=1).plot(ax=ax, label='gp_mean')
-        ax.set_xlabel("Cumulative reward")
-        ax.set_ylabel("Frequency")
-        ax.legend()
-
-        fig.close()
-    else:
-        rewards = pd.DataFrame(data=np.array(rewards), columns=['ppo','gp'])
-        rewards.replace([np.inf, -np.inf], np.nan,inplace=True)
-
+    if p['load_rewards']:
+        rewards = pd.read_parquet(os.path.join(data_dir,'rewards.parquet.gzip'))
         cumdiff = rewards['ppo'].values - rewards['gp'].values
-        # means, stds = rewards.mean().values, rewards.std().values
-        # srs = means/stds
-        KS, p_V = ks_2samp(rewards.values[:,0], rewards.values[:,1])
-        t, p_t = ttest_ind(rewards.values[:,0], rewards.values[:,1])
-        
-        
-        # DOUBLE PICTURES
-        
-        fig = plt.figure(figsize=set_size(width=columnwidth))
-        # ax1 = fig.add_subplot()
-        gs = gridspec.GridSpec(ncols=2, nrows=1, figure=fig)
-        ax1 = fig.add_subplot(gs[0])
-        ax2 = fig.add_subplot(gs[1])
-        fig.subplots_adjust(wspace=0.25)
-        
-        sns.kdeplot(rewards['ppo'].values, bw_method=0.2,ax=ax1,color='tab:blue')
-        sns.kdeplot(rewards['gp'].values, bw_method=0.2,ax=ax1,color='tab:orange',linestyle="--")
-        ax1.set_xlabel("Cumulative reward")
-        ax1.set_ylabel("Kernel density")
-        ax1.legend(labels=['PPO','benchmark']) 
-        
-        sns.kdeplot(cumdiff, bw_method=0.2,ax=ax2,color='tab:olive')
-        ax2.set_xlabel("Cumulative diff reward")
-        ax2.legend(labels=['difference']) 
-        ax2.set_ylabel(None)
-        # ks_text = AnchoredText("Ks Test: pvalue {:.2f} \n T Test: pvalue {:.2f}".format(p_V,p_t),loc=1,prop=dict(size=6))
-        # ax2.add_artist(ks_text)
-        
-        fig.tight_layout()
-        fig.savefig(os.path.join('outputs','img_brini_kolm', "kernel_densities_{}_{}.pdf".format(p['n_seeds'], outputModel)), dpi=300, bbox_inches="tight")
-        
-        # SINGLE PICTURES
-        # fig = plt.figure(figsize=set_size(width=columnwidth))
-        # ax = fig.add_subplot()
-        # # sns.kdeplot(rewards['gp'].values, bw_method=0.2,ax=ax,color='tab:orange')
-        # sns.kdeplot(cumdiff, bw_method=0.2,ax=ax,color='tab:blue')
-        # ax.set_xlabel("Cumulative reward diff")
-        # ax.set_ylabel("KDE")
-        # ax.set_title('{} Obs \n Means: PPO {:.2f} GP {:.2f} \n Stds: PPO {:.2f} GP {:.2f} \n SR:  PPO {:.2f} GP {:.2f} \n Exp {}'.format(len(rewards),*means,*stds, *srs, outputModel))
-        # ax.legend(labels=['gp','ppo'],loc=2)
-        # ks_text = AnchoredText("Ks Test: pvalue {:.2f} \n T Test: pvalue {:.2f}".format(p_V,p_t),loc=1,prop=dict(size=10))
-        # ax.add_artist(ks_text)
-        # fig.savefig(os.path.join('outputs','img_brini_kolm', "cumreward_diff_density_{}_{}.pdf".format(p['n_seeds'], outputModel)), dpi=300)
-        # plt.close()
-            
+    else:
     
-        # fig = plt.figure(figsize=set_size(width=columnwidth))
-        # ax = fig.add_subplot()
-        # sns.kdeplot(rewards['gp'].values, bw_method=0.2,ax=ax,color='tab:orange',linestyle="--")
-        # sns.kdeplot(rewards['ppo'].values, bw_method=0.2,ax=ax,color='tab:blue')
-        # ax.set_xlabel("Cumulative reward")
-        # ax.set_ylabel("KDE")
-        # ax.set_title('{} Obs \n Means: PPO {:.2f} GP {:.2f} \n Stds: PPO {:.2f} GP {:.2f} \n SR:  PPO {:.2f} GP {:.2f} \n Exp {}'.format(len(rewards),*means,*stds, *srs, outputModel))
-        # ax.legend(labels=['gp','ppo'],loc=2)        
-        # ks_text = AnchoredText("Ks Test: pvalue {:.2f} \n T Test: pvalue {:.2f}".format(p_V,p_t),loc=1,prop=dict(size=10))
-        # ax.add_artist(ks_text)
-        # fig.savefig(os.path.join('outputs','img_brini_kolm', "cumreward_density_{}_{}.pdf".format(p['n_seeds'], outputModel)), dpi=300)
-        # plt.close()
+        gin.parse_config_file(os.path.join(data_dir, "config.gin"), skip_unknown=True)
+        gin.bind_parameter('alpha_term_structure_sampler.generate_plot', p['generate_plot'])
+        p['N_test'] = gin.query_parameter('%LEN_SERIES')
+        
+        # gin.bind_parameter('Out_sample_vs_gp.rnd_state',p['random_state'])
+        rng = np.random.RandomState(query("%SEED"))
+    
+        if query("%MV_RES"):
+            action_space = ResActionSpace()
+        else:
+            action_space = ActionSpace()
+    
+        if gin.query_parameter('%MULTIASSET'):
+            n_assets = len(gin.query_parameter('%HALFLIFE'))
+            n_factors = len(gin.query_parameter('%HALFLIFE')[0])
+            inputs = gin.query_parameter('%INPUTS')
+            if query("%INP_TYPE") == "f" or query("%INP_TYPE") == "alpha_f":
+                if 'sigma' in inputs and 'corr' in inputs:
+                    input_shape = (int(n_factors*n_assets+1+ (n_assets**2 - n_assets)/2+n_assets+1),1)
+                else:
+                    input_shape = (int(n_factors*n_assets+n_assets+1),1)
+            else:
+                input_shape = (n_assets+n_assets+1,1)
+        else:
+            if query("%INP_TYPE") == "f" or query("%INP_TYPE") == "alpha_f":
+                input_shape = (len(query('%F_PARAM')) + 1,)
+            else:
+                input_shape = (2,)
+    
+    
+        if "DQN" in tag:
+            train_agent = DQN(
+                input_shape=input_shape, action_space=action_space, rng=rng
+            )
+            if p['n_dqn']:
+                train_agent.model = load_DQNmodel(
+                    data_dir, p['n_dqn'], model=train_agent.model
+                )
+            else:
+                train_agent.model = load_DQNmodel(
+                        data_dir, query("%N_TRAIN"), model=train_agent.model
+                    )
+    
+        elif "PPO" in tag:
+            train_agent = PPO(
+                input_shape=input_shape, action_space=action_space, rng=rng
+            )
+    
+            if p['ep_ppo']:
+                train_agent.model = load_PPOmodel(data_dir, p['ep_ppo'], model=train_agent.model)
+            else:
+                train_agent.model = load_PPOmodel(data_dir, gin.query_parameter("%EPISODES"), model=train_agent.model)
+        else:
+            print("Choose proper algorithm.")
+            sys.exit()
+        
+        
+        if gin.query_parameter('%MULTIASSET'):
+            if 'Short' in str(gin.query_parameter('%ENV_CLS')):
+                env = ShortMultiAssetCashMarketEnv
+            else:
+                env = MultiAssetCashMarketEnv
+        else:
+            env = MarketEnv
+            
+        oos_test = Out_sample_vs_gp(
+            savedpath=None,
+            tag=tag[0],
+            experiment_type=query("%EXPERIMENT_TYPE"),
+            env_cls=env,
+            MV_res=query("%MV_RES"),
+            N_test=p['N_test']
+        )
+    
+    
+        rng_seeds = np.random.RandomState(14)
+        seeds = rng_seeds.choice(1000,p['n_seeds'])
+        if p['dist_to_plot'] == 'r':
+            title = 'reward'
+            rewards = Parallel(n_jobs=p['cores'])(delayed(parallel_test)(
+                    s, oos_test,train_agent,data_dir,p['fullpath']) for s in seeds)
+        elif p['dist_to_plot'] == 'w':
+            title= 'wealth'
+            rewards = Parallel(n_jobs=p['cores'])(delayed(parallel_test_wealth)(
+                    s, oos_test,train_agent,data_dir,p['fullpath']) for s in seeds)
+    
+        if p['fullpath']:
+            rewards_ppo = pd.concat(list(map(list, zip(*rewards)))[0],axis=1).cumsum()
+            rewards_gp = pd.concat(list(map(list, zip(*rewards)))[1],axis=1).cumsum()
+            fig = plt.figure(figsize=set_size(width=1000.0))
+            ax = fig.add_subplot()
+            rewards_ppo.mean(axis=1).plot(ax=ax, label='ppo_mean')
+            rewards_gp.mean(axis=1).plot(ax=ax, label='gp_mean')
+            ax.set_xlabel("Cumulative reward (\$)")
+            ax.set_ylabel("Frequency")
+            ax.legend()
+    
+            fig.close()
+        else:
+            rewards = pd.DataFrame(data=np.array(rewards), columns=['ppo','gp'])
+            rewards.replace([np.inf, -np.inf], np.nan,inplace=True)
+    
+            cumdiff = rewards['ppo'].values - rewards['gp'].values
+            # means, stds = rewards.mean().values, rewards.std().values
+            # srs = means/stds
+            KS, p_V = ks_2samp(rewards.values[:,0], rewards.values[:,1])
+            t, p_t = ttest_ind(rewards.values[:,0], rewards.values[:,1])
+        
+        
+    # DOUBLE PICTURES
+    
+    fig = plt.figure(figsize=set_size(width=columnwidth))
+    # ax1 = fig.add_subplot()
+    gs = gridspec.GridSpec(ncols=2, nrows=1, figure=fig)
+    # ax1 = fig.add_subplot(gs[0])
+    # ax2 = fig.add_subplot(gs[1])
+    ax1 = plt.subplot(gs[0])
+    
+   
+    
+    sns.kdeplot(rewards['ppo'].values, bw_method=0.2,ax=ax1,color='tab:blue')
+    sns.kdeplot(rewards['gp'].values, bw_method=0.2,ax=ax1,color='tab:orange',alpha=0.6,linestyle="--")
+    ax1.set_xlabel("Cumulative reward (\$)")
+    ax1.set_ylabel("Probability")
+    ax1.ticklabel_format(axis="both", style="sci", scilimits=(0, 0),useMathText=True)
+    ax1.legend(labels=['ResPPO','GP']) 
+    move_sn_x(offs=.03, side='right', dig=2)
+    
+    ax2 = plt.subplot(gs[1])
+    sns.kdeplot(cumdiff, bw_method=0.2,ax=ax2,color='tab:olive')
+    ax2.set_xlabel("Cumulative reward (\$)")
+    ax2.ticklabel_format(axis="both", style="sci", scilimits=(0, 0),useMathText=True)
+    ax2.legend(labels=['ResPPO-GP'],loc=1,handlelength=0.5) 
+    ax2.set_ylabel(None)
+    move_sn_x(offs=.03, side='right', dig=2)
+    
+    if not p['load_rewards']:
+        rewards.to_parquet(os.path.join(data_dir,'rewards.parquet.gzip'),compression="gzip")
+        with open(os.path.join(data_dir, "KStest.txt"), 'w') as f:
+            f.write("Ks Test: pvalue {:.2f} \n T Test: pvalue {:.2f} \n Number of simulations {}".format(p_V,p_t,p['n_seeds']))
+    
+    fig.subplots_adjust(wspace=0.05)
+    fig.tight_layout()
+    fig.savefig(os.path.join('outputs','img_brini_kolm', "kernel_densities_{}_{}.pdf".format(p['n_seeds'], outputModel)), dpi=300, bbox_inches="tight")
+    
+    # SINGLE PICTURES
+    # fig = plt.figure(figsize=set_size(width=columnwidth))
+    # ax = fig.add_subplot()
+    # # sns.kdeplot(rewards['gp'].values, bw_method=0.2,ax=ax,color='tab:orange')
+    # sns.kdeplot(cumdiff, bw_method=0.2,ax=ax,color='tab:blue')
+    # ax.set_xlabel("Cumulative reward diff")
+    # ax.set_ylabel("KDE")
+    # ax.set_title('{} Obs \n Means: PPO {:.2f} GP {:.2f} \n Stds: PPO {:.2f} GP {:.2f} \n SR:  PPO {:.2f} GP {:.2f} \n Exp {}'.format(len(rewards),*means,*stds, *srs, outputModel))
+    # ax.legend(labels=['gp','ppo'],loc=2)
+    # ks_text = AnchoredText("Ks Test: pvalue {:.2f} \n T Test: pvalue {:.2f}".format(p_V,p_t),loc=1,prop=dict(size=10))
+    # ax.add_artist(ks_text)
+    # fig.savefig(os.path.join('outputs','img_brini_kolm', "cumreward_diff_density_{}_{}.pdf".format(p['n_seeds'], outputModel)), dpi=300)
+    # plt.close()
+        
+
+    # fig = plt.figure(figsize=set_size(width=columnwidth))
+    # ax = fig.add_subplot()
+    # sns.kdeplot(rewards['gp'].values, bw_method=0.2,ax=ax,color='tab:orange',linestyle="--")
+    # sns.kdeplot(rewards['ppo'].values, bw_method=0.2,ax=ax,color='tab:blue')
+    # ax.set_xlabel("Cumulative reward")
+    # ax.set_ylabel("KDE")
+    # ax.set_title('{} Obs \n Means: PPO {:.2f} GP {:.2f} \n Stds: PPO {:.2f} GP {:.2f} \n SR:  PPO {:.2f} GP {:.2f} \n Exp {}'.format(len(rewards),*means,*stds, *srs, outputModel))
+    # ax.legend(labels=['gp','ppo'],loc=2)        
+    # ks_text = AnchoredText("Ks Test: pvalue {:.2f} \n T Test: pvalue {:.2f}".format(p_V,p_t),loc=1,prop=dict(size=10))
+    # ax.add_artist(ks_text)
+    # fig.savefig(os.path.join('outputs','img_brini_kolm', "cumreward_density_{}_{}.pdf".format(p['n_seeds'], outputModel)), dpi=300)
+    # plt.close()
 
 
 def parallel_test(seed,test_class,train_agent,data_dir,fullpath=False):
@@ -929,6 +948,68 @@ def runplot_policy(p):
         print("Choose proper algorithm.")
         sys.exit()
 
+def runplot_alpha(p):
+    
+    query = gin.query_parameter
+
+
+    outputClass = p["outputClass"]
+    tag = p["algo"]
+    seed = p["seed"]
+    if 'DQN' in tag:
+        hp = p["hyperparams_model_dqn"]
+        outputModels = p["outputModels_dqn"]
+    elif 'PPO' in tag:
+        hp = p["hyperparams_model_ppo"]
+        outputModels = p["outputModels_ppo"]
+
+
+    if hp is not None:
+        outputModel = [exp.format(*hp) for exp in outputModels]
+    else:
+        outputModel = outputModels
+    
+    model = outputModel[0]
+
+    modelpath = "outputs/{}/{}".format(outputClass, model)
+    # get the latest created folder "length"
+    all_subdirs = [
+        os.path.join(modelpath, d)
+        for d in os.listdir(modelpath)
+        if os.path.isdir(os.path.join(modelpath, d))
+    ]
+    latest_subdir = max(all_subdirs, key=os.path.getmtime)
+    length = os.path.split(latest_subdir)[-1]
+    experiment = [
+        exp
+        for exp in os.listdir("outputs/{}/{}/{}".format(outputClass, model, length))
+        if seed in exp
+    ][0]
+    data_dir = "outputs/{}/{}/{}/{}".format(outputClass, model, length, experiment)
+
+    gin.parse_config_file(os.path.join(data_dir, "config.gin"), skip_unknown=True)
+    gin.bind_parameter('alpha_term_structure_sampler.generate_plot', p['generate_plot'])
+    p['N_test'] = gin.query_parameter('%LEN_SERIES')
+    
+
+    rng = np.random.RandomState(p['random_state'])
+    
+    data_handler = DataHandler(N_train=p['N_test'], rng=rng)
+    data_handler.generate_returns()
+
+    
+    
+    fig = plt.figure(figsize=set_size(width=columnwidth))
+    ax1 = fig.add_subplot()
+    ax1.plot(data_handler.returns*10**4) #to express in bps
+    
+    ax1.set_xlabel("Time")
+    ax1.set_ylabel("Alpha (bps)")
+
+    fig.tight_layout()
+    fig.savefig(os.path.join('outputs','img_brini_kolm', "alpha_{}_{}.pdf".format(p['seed'], outputModel)), dpi=300, bbox_inches="tight")
+
+    
 
 
 if __name__ == "__main__":
@@ -950,11 +1031,9 @@ if __name__ == "__main__":
         runplot_multiholding(p)
     elif p["plot_type"] == "policy":
         runplot_policy(p)
-    # elif p["plot_type"] == "diagnostics":
-    #     runplot_diagnostics(p)
     elif p["plot_type"] == "dist":
         runplot_distribution(p)
-    # elif p["plot_type"] == "distmulti":
-    #     runmultiplot_distribution(p)
     elif p['plot_type'] == 'runtime':
         runplot_time(p)
+    elif p['plot_type'] == 'alpha':
+        runplot_alpha(p)

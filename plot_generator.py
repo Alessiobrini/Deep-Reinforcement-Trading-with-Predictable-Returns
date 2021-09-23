@@ -137,10 +137,24 @@ def runplot_metrics(p):
 
                 dataframe = pd.concat(dfs)
                 dataframe.index = range(len(dfs))
-                pdb.set_trace()
-                
+                # dataframe = dataframe*10
 
-                # pdb.set_trace()
+                               
+                med= dataframe.median(axis=0)
+                fdf = dataframe[dataframe>med]
+                idxs = []
+                for i in range(len(fdf.columns)):
+                    idxs.extend(fdf.iloc[:,0].dropna().index.tolist())
+                from collections import Counter
+                counts = Counter(idxs)
+                
+                seed_idx = list(counts.keys())
+                good_seeds = np.array(filtered_dir)[seed_idx]
+                good_seeds = [int(s.split('seed_')[-1]) for s in good_seeds]
+                    
+                # dataframe=fdf
+                
+                pdb.set_trace()
                 if 'PPO' in tag and p['ep_ppo']:
                     dataframe = dataframe.iloc[:,:dataframe.columns.get_loc(p['ep_ppo'])]
 
@@ -157,7 +171,7 @@ def runplot_metrics(p):
                     dataframe_opt.index = range(len(dfs_opt))
                     if 'PPO' in tag and p['ep_ppo']:
                         dataframe_opt = dataframe_opt.iloc[:,:dataframe_opt.columns.get_loc(p['ep_ppo'])]
-                    # pdb.set_trace()
+                        
                     plot_abs_metrics(
                         ax,
                         dataframe,
@@ -167,16 +181,9 @@ def runplot_metrics(p):
                         v,
                         colors=colors[k],
                         i=it,
+                        plt_type='abs'
                     )                    
-                    
-                    # if 'Pdist' in v:
-                    #     std = 1e+10
-                    #     ax.set_ylim(0.0, 0.0 + std)
-                    # else:
-                    #     import math
-                    #     value = dataframe_opt.iloc[0, 2]
-                    #     odm = math.floor(math.log(value, 5))
-                    #     ax.set_ylim(value - (10**(odm)), value + 0.5*(10**(odm)))
+                    # ax.set_ylim(-1e+10, 1e+11)
 
 
                 else:
@@ -749,6 +756,184 @@ def runmultiplot_distribution(p):
                     plt.close()
 
 
+def runmultiplot_distribution_seed(p):
+
+    query = gin.query_parameter
+    modeltag = p['modeltag']
+    outputClass = p["outputClass"]
+    tag = p["algo"]
+    seed = p["seed"]
+    
+    folders = [p for p in glob.glob(os.path.join('outputs',outputClass,'{}*'.format(modeltag)))]
+    length = os.listdir(folders[0])[0]
+    # pdb.set_trace()
+
+    for main_f in folders:    
+        length = os.listdir(main_f)[0]
+        for f in os.listdir(os.path.join(main_f,length)):
+            # if 'seed_{}'.format(p['seed']) in f:
+            data_dir = os.path.join(main_f,length,f)
+  
+            gin.parse_config_file(os.path.join(data_dir, "config.gin"), skip_unknown=True)
+            gin.bind_parameter('alpha_term_structure_sampler.generate_plot', p['generate_plot'])
+            # change reward function in order to evaluate in the same way
+            if query('%REWARD_TYPE') == 'cara':
+                gin.bind_parameter('%REWARD_TYPE', 'mean_var')
+            p['N_test'] = gin.query_parameter('%LEN_SERIES')
+            
+            # gin.bind_parameter('Out_sample_vs_gp.rnd_state',p['random_state'])
+            rng = np.random.RandomState(query("%SEED"))
+        
+            if query("%MV_RES"):
+                action_space = ResActionSpace()
+            else:
+                action_space = ActionSpace()
+                
+            if gin.query_parameter('%MULTIASSET'):
+                n_assets = len(gin.query_parameter('%HALFLIFE'))
+                n_factors = len(gin.query_parameter('%HALFLIFE')[0])
+                inputs = gin.query_parameter('%INPUTS')
+                if query("%INP_TYPE") == "f" or query("%INP_TYPE") == "alpha_f":
+                    if 'sigma' in inputs and 'corr' in inputs:
+                        input_shape = (int(n_factors*n_assets+1+ (n_assets**2 - n_assets)/2+n_assets+1),1)
+                    else:
+                        input_shape = (int(n_factors*n_assets+n_assets+1),1)
+                else:
+                    input_shape = (n_assets+n_assets+1,1)
+            else:
+                if query("%INP_TYPE") == "f" or query("%INP_TYPE") == "alpha_f":
+                    input_shape = (len(query('%F_PARAM')) + 1,)
+                else:
+                    input_shape = (2,)
+        
+        
+            if "DQN" in tag:
+                train_agent = DQN(
+                    input_shape=input_shape, action_space=action_space, rng=rng
+                )
+                if p['n_dqn']:
+                    train_agent.model = load_DQNmodel(
+                        data_dir, p['n_dqn'], model=train_agent.model
+                    )
+                else:
+                    train_agent.model = load_DQNmodel(
+                            data_dir, query("%N_TRAIN"), model=train_agent.model
+                        )
+        
+            elif "PPO" in tag:
+                train_agent = PPO(
+                    input_shape=input_shape, action_space=action_space, rng=rng
+                )
+        
+                if p['ep_ppo']:
+                    train_agent.model = load_PPOmodel(data_dir, p['ep_ppo'], model=train_agent.model)
+                else:
+                    train_agent.model = load_PPOmodel(data_dir, gin.query_parameter("%EPISODES"), model=train_agent.model)
+            else:
+                print("Choose proper algorithm.")
+                sys.exit()
+                
+            if gin.query_parameter('%MULTIASSET'):
+                if 'Short' in str(gin.query_parameter('%ENV_CLS')):
+                    env = ShortMultiAssetCashMarketEnv
+                else:
+                    env = MultiAssetCashMarketEnv
+            else:
+                env = MarketEnv
+            oos_test = Out_sample_vs_gp(
+                savedpath=None,
+                tag=tag[0],
+                experiment_type=query("%EXPERIMENT_TYPE"),
+                env_cls=env,
+                MV_res=query("%MV_RES"),
+                N_test=p['N_test']
+            )
+            
+        
+            rng_seeds = np.random.RandomState(14)
+            seeds = rng_seeds.choice(1000,p['n_seeds'])
+            rewards = Parallel(n_jobs=p['cores'])(delayed(parallel_test)(
+                    s, oos_test,train_agent,data_dir,p['fullpath']) for s in seeds)
+           
+            if p['fullpath']:
+        
+                rewards_ppo = pd.concat(list(map(list, zip(*rewards)))[0],axis=1).cumsum()
+                rewards_gp = pd.concat(list(map(list, zip(*rewards)))[1],axis=1).cumsum()
+                fig = plt.figure(figsize=set_size(width=1000.0))
+                ax = fig.add_subplot()
+                # rewards.loc[:,:].cumsum().plot(ax=ax)
+                # rewards.loc[:len(rewards)//2,:].cumsum().plot(ax=ax)
+                rewards_ppo.mean(axis=1).plot(ax=ax, label='ppo_mean')
+                # ci = 2 * rewards_ppo.std(axis=1)
+                # ax.fill_between(list(rewards_ppo.index),(rewards_ppo.mean(axis=1) - ci), (rewards_ppo.mean(axis=1) + ci), color='tab:blue', alpha=0.5)
+                rewards_gp.mean(axis=1).plot(ax=ax, label='gp_mean')
+                # ci = 2 * rewards_gp.std(axis=1)
+                # ax.fill_between(list(rewards_ppo.index),(rewards_gp.mean(axis=1) - ci), (rewards_gp.mean(axis=1) + ci), color='tab:orange', alpha=0.5)
+                ax.set_xlabel("Cumulative reward")
+                ax.set_ylabel("Frequency")
+                ax.legend()
+        
+                # fig = plt.figure(figsize=set_size(width=1000.0))
+                # ax = fig.add_subplot()
+                # rewards.loc[:,:].plot(ax=ax)
+                # rewards.loc[:len(rewards)//2,:].plot(ax=ax)
+                # ax.set_xlabel("Cumulative reward")
+                # ax.set_ylabel("Frequency")
+                # ax.legend()
+                fig.close()
+            else:
+                rewards = pd.DataFrame(data=np.array(rewards), columns=['ppo','gp'])
+        
+                # fig = plt.figure(figsize=set_size(width=1000.0))
+                # ax = fig.add_subplot()
+                # rewards['gp'].plot(ax=ax, kind='hist', alpha=0.7,color='tab:orange',bins=50)
+                # rewards['ppo'].plot(ax=ax, kind='hist', color='tab:blue',bins=50)
+                # ax.set_xlabel("Cumulative reward")
+                # ax.set_ylabel("Frequency")
+                # ax.legend()
+                # means, stds = rewards.mean().values, rewards.std().values
+                # srs = means/stds
+                # ax.set_title('{} Obs \n Means: PPO {:.2f} GP {:.2f} \n Stds: PPO {:.2f} GP {:.2f} \n SR:  PPO {:.2f} GP {:.2f} \n Exp {}'.format(len(rewards),*means,*stds, *srs, f))
+                # fig.savefig(os.path.join(data_dir, "cumreward_hist_{}_{}.png".format(p['n_seeds'], f)), dpi=300)
+                # plt.close()
+            
+                    
+                cumdiff = rewards['ppo'].values - rewards['gp'].values
+                means, stds = rewards.mean().values, rewards.std().values
+                srs = means/stds
+                KS, p_V = ks_2samp(rewards.values[:,0], rewards.values[:,1])
+                t, p_t = ttest_ind(rewards.values[:,0], rewards.values[:,1])
+                
+                fig = plt.figure(figsize=set_size(width=1000.0))
+                ax = fig.add_subplot()
+                # sns.kdeplot(rewards['gp'].values, bw_method=0.2,ax=ax,color='tab:orange')
+                sns.kdeplot(cumdiff, bw_method=0.2,ax=ax,color='tab:blue')
+                ax.set_xlabel("Cumulative reward diff")
+                ax.set_ylabel("KDE")
+                ax.legend()
+                ax.set_title('{} Obs \n Means: PPO {:.2f} GP {:.2f} \n Stds: PPO {:.2f} GP {:.2f} \n SR:  PPO {:.2f} GP {:.2f} \n Exp {}'.format(len(rewards),*means,*stds, *srs, f))
+                ax.legend(labels=['gp','ppo'],loc=2)
+                ks_text = AnchoredText("Ks Test: pvalue {:.2f} \n T Test: pvalue {:.2f}".format(p_V,p_t),loc=1,prop=dict(size=10))
+                ax.add_artist(ks_text)
+                fig.savefig(os.path.join(data_dir, "cumreward_diff_density_{}_{}.png".format(p['n_seeds'], f)), dpi=300)
+                plt.close()
+                    
+            
+                fig = plt.figure(figsize=set_size(width=1000.0))
+                ax = fig.add_subplot()
+                sns.kdeplot(rewards['gp'].values, bw_method=0.2,ax=ax,color='tab:orange')
+                sns.kdeplot(rewards['ppo'].values, bw_method=0.2,ax=ax,color='tab:blue')
+                ax.set_xlabel("Cumulative reward")
+                ax.set_ylabel("KDE")
+                ax.legend()
+                ax.set_title('{} Obs \n Means: PPO {:.2f} GP {:.2f} \n Stds: PPO {:.2f} GP {:.2f} \n SR:  PPO {:.2f} GP {:.2f} \n Exp {}'.format(len(rewards),*means,*stds, *srs, f))
+                ax.legend(labels=['gp','ppo'],loc=2)        
+                ks_text = AnchoredText("Ks Test: pvalue {:.2f} \n T Test: pvalue {:.2f}".format(p_V,p_t),loc=1,prop=dict(size=10))
+                ax.add_artist(ks_text)
+                fig.savefig(os.path.join(data_dir, "cumreward_density_{}_{}.png".format(p['n_seeds'], f)), dpi=300)
+                plt.close()
+
+
 def runplot_holding(p):
 
     query = gin.query_parameter
@@ -895,8 +1080,10 @@ def runplot_holding(p):
             MV_res=query("%MV_RES"),
             N_test=p['N_test']
         )
-        # pdb.set_trace()
+        
         res_df = oos_test.run_test(train_agent, return_output=True)
+        res_df['NextHolding_PPO'] = res_df['NextHolding_PPO']*10
+        # pdb.set_trace()
 
         if gin.query_parameter('%MULTIASSET'):
 
@@ -1066,4 +1253,7 @@ if __name__ == "__main__":
         runplot_distribution(p)
     elif p["plot_type"] == "distmulti":
         runmultiplot_distribution(p)
+    elif p["plot_type"] == "distmultiseed":
+        runmultiplot_distribution_seed(p)
+    
     
