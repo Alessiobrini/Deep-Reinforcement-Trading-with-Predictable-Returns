@@ -109,7 +109,7 @@ def get_action_boundaries(
         factors,
     )
 
-    if action_type == "GP":
+    if action_type == "GP" or action_type == "GPext":
         CurrOptState = env.opt_reset()
         OptRate, DiscFactorLoads = env.opt_trading_rate_disc_loads()
 
@@ -121,7 +121,11 @@ def get_action_boundaries(
             env.store_results(OptResult, i)
             CurrOptState = NextOptState
 
-        action_quantiles = env.res_df["OptNextAction"].quantile(qts).values
+        action_quantiles = env.res_df["OptNextAction"].quantile(qts[:2]).values
+
+        if action_type == "GPext":
+            action_quantiles[0] = action_quantiles[0] - action_quantiles[0]*qts[2]
+            action_quantiles[1] = action_quantiles[1] + action_quantiles[1]*qts[2]
     elif action_type == "MV":
         CurrMVState = env.opt_reset()
 
@@ -131,22 +135,25 @@ def get_action_boundaries(
             env.store_results(MVResult, i)
             CurrMVState = NextMVState
 
-        action_quantiles = env.res_df["MVNextAction"].quantile(qts).values
-
+        action_quantiles = env.res_df["MVNextAction"].quantile(qts[:2]).values
+        
     else:
         print("Choose proper action type. Please, read the doc.")
         sys.exit()
 
-    qt = np.min(np.abs(action_quantiles))
-    length = len(str(int(np.round(qt))))
-    action_range = int(np.abs(np.round(qt, -length + 1)))
+    if action_type == "GPext":
+        action_range = np.max(np.abs(action_quantiles))
+    else:
+        qt = np.min(np.abs(action_quantiles))
+        length = len(str(int(np.round(qt))))
+        action_range = int(np.abs(np.round(qt, -length + 1)))
 
     ret_range = float(max(np.abs(returns.min()), returns.max()))
 
-    if action_type == "GP":
-        holding_quantiles = env.res_df["OptNextHolding"].quantile(qts).values
+    if action_type == "GP" or action_type == "GPext":
+        holding_quantiles = env.res_df["OptNextHolding"].quantile(qts[:2]).values
     elif action_type == "MV":
-        holding_quantiles = env.res_df["MVNextHolding"].quantile(qts).values
+        holding_quantiles = env.res_df["MVNextHolding"].quantile(qts[:2]).values
 
     if np.abs(holding_quantiles[0]) - np.abs(holding_quantiles[1]) < 1000:
         holding_ranges = int(np.abs(np.round(holding_quantiles[0], -2)))
