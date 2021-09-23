@@ -124,6 +124,7 @@ class PPO_runner(MixinCore):
             gin.query_parameter("%ACTION_RANGE")[0] = action_range
             self.action_space = ActionSpace()
 
+
         self.logging.debug("Instantiating market environment")
         self.env = self.env_cls(
             N_train=self.N_train,
@@ -209,6 +210,11 @@ class PPO_runner(MixinCore):
                 n_assets = gin.query_parameter('%N_ASSETS')
                 if n_assets == None:
                     self.oos_test.run_test(it=e + 1, test_agent=self.train_agent)
+                else:
+                    if e+1== self.episodes:
+                        self.oos_test.run_test(it=e + 1, test_agent=self.train_agent)
+        
+        n_assets = gin.query_parameter('%N_ASSETS')
         if n_assets == None:
             self.oos_test.save_series()
             # self.train_agent.save_diagnostics(path=self.savedpath)
@@ -216,6 +222,8 @@ class PPO_runner(MixinCore):
             end_time = time.time()
             with open(os.path.join(self.savedpath, "runtime.txt"), 'w') as f:
                 f.write('Runtime {} minutes'.format((end_time-self.start_time)/60))
+            
+            self.oos_test.save_series()
 
 
 

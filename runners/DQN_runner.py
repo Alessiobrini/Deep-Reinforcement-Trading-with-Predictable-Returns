@@ -163,6 +163,7 @@ class DQN_runner(MixinCore):
             experiment_type=self.experiment_type,
             env_cls=self.env_cls,
             MV_res=self.MV_res,
+            N_test=2000
         )
 
         self.oos_test.init_series_to_fill(iterations=self.col_names_oos)
@@ -186,7 +187,8 @@ class DQN_runner(MixinCore):
         """
 
         self.logging.debug("Training...")
-        CurrState, _ = self.env.reset()
+        # pdb.set_trace()
+        CurrState = self.env.reset()
 
         # CurrOptState = env.opt_reset()
         # OptRate, DiscFactorLoads = env.opt_trading_rate_disc_loads()
@@ -257,158 +259,3 @@ class DQN_runner(MixinCore):
 
         save_gin(os.path.join(self.savedpath, "config.gin"))
         logging.info("Config file saved")
-
-    # def training_episodic_agent(self):
-    #     """
-    #     Main routine to train and test the DRL algorithm. The steps are:
-
-    #     1. Load the dataset, metadata, any model output and any pre-loaded
-    #     data (cached_data).
-    #     2. Start the Backtrader engine and initialize the broker object.
-    #     3. Instantiate the environment.
-    #     4. Instantiate the model for the agent.
-    #     5. Train the model according to a chosen technique.
-    #     6. Test the model out-of-sample.
-    #     7. Log the performance data, plot, save configuration file and
-    #         the runner logger output.
-
-    #     Once this is done, the backtest is over and all of the artifacts
-    #     are saved in `_exp/experiment_name/_backtests/`.
-    #     """
-
-    #     self.logging.debug("Start episodic training...")
-    #     for e in tqdm(iterable=range(self.episodes), desc="Running episodes..."):
-
-    #         self.logging.debug("Rpisodic training...")
-
-    #         self.collect_rollouts()
-
-    #         self.update()
-
-    #         if self.save_freq and ((e + 1) % self.save_freq == 0):
-    #             self.train_agent.model.save_weights(
-    #                 os.path.join(
-    #                     self.savedpath, "ckpt", "DQN_{}_ep_weights".format(e + 1)
-    #                 ),
-    #                 save_format="tf",
-    #             )
-
-    #             self.logging.debug("Testing...")
-    #             if len(self.test_symbols)>1:
-    #                 if e+1 == self.episodes:
-    #                     last_episode=True
-    #                 else:
-    #                     last_episode=False
-    #                 self.oos_test.run_multiple_tests(episode=e + 1, last_episode=last_episode)
-    #             else:
-    #                 self.oos_test.run_test(episode=e + 1)
-
-    #     if len(self.test_symbols)>1:
-    #         self.oos_test.save_avg_series(self.savedpath)
-    #     else:
-    #         self.oos_test.save_series(self.savedpath)
-
-    #     if self.universal:
-    #         np.save(os.path.join(self.savedpath,'symbols.npy'),self.used_symbols)
-    #     save_gin(os.path.join(self.savedpath, "config.gin"))
-    #     logging.info("Config file saved")
-
-    # def testing_agent(self):
-
-    #     self.logging.debug("Loading Data")
-    #     df_train, df_test, df = self.load_data()
-
-    #     self.logging.debug("Instantiating action space")
-    #     self.action_space = ActionSpace()
-
-    #     self.test_env = self.env_cls(dataframe=df_test)
-
-    #     self.logging.debug("Instantiating benchmark agent")
-    #     self.benchmark_agent = self.bnch_agent_cls(
-    #         symbol=self.symbol,
-    #         start_year=self.start_year,
-    #         split_year=self.split_year,
-    #         end_year=self.end_year,
-    #         df=df,
-    #     )
-    #     self.benchmark_agent._get_parameters()
-    #     self.benchmark_test_env = self.bnch_env_cls(
-    #         dataframe=self.benchmark_agent.df_test
-    #     )
-
-    #     self.logging.debug("Loading pretrained model")
-    #     input_shape = self.test_env.get_state_dim()
-
-    #     self.train_agent = self.agent_cls(
-    #         input_shape=input_shape, action_space=self.action_space, rng=self.rng
-    #     )
-
-    #     self.train_agent.model.load_weights(
-    #             os.path.join(self.savedpath, "ckpt", "DQN_{}_ep_weights".format(self.episodes))
-    #         )
-
-    #     self.logging.debug("Instantiating Out of sample tester")
-    #     self.oos_test = Out_sample_vs_gp(
-    #         test_agent=self.train_agent,
-    #         test_env=self.test_env,
-    #         benchmark_agent=self.benchmark_agent,
-    #         benchmark_env=self.benchmark_test_env,
-    #         savedpath=self.savedpath,
-    #         test_symbols = [self.symbol],
-    #         tag="DQN",
-    #     )
-
-    #     self.logging.debug("Testing...")
-    #     res_df, res_bench_df = self.oos_test.run_test(self.oos_test, return_output=True)
-
-    #     return res_df, res_bench_df
-
-    # def collect_rollouts(self):
-
-    #     CurrState = self.env.reset()
-
-    #     for i in range(len(self.env.returns) - 1):
-
-    #         self.train_agent.update_epsilon()
-    #         epsilon = self.train_agent.epsilon
-    #         side_only = self.action_space.side_only
-
-    #         action, qvalues = self.train_agent.eps_greedy_action(
-    #             CurrState, epsilon, side_only=side_only
-    #         )
-    #         if not side_only:
-    #             unscaled_action = action
-    #         else:
-    #             unscaled_action = get_bet_size(
-    #                 qvalues,
-    #                 action,
-    #                 action_limit=self.action_space.action_range[0],
-    #                 zero_action=self.action_space.zero_action,
-    #                 rng=self.rng,
-    #             )
-
-    #         NextState, Result = self.env.step(CurrState, unscaled_action, i)
-
-    #         exp = {
-    #             "s": CurrState,
-    #             "a": action,
-    #             "a_unsc": unscaled_action,
-    #             "r": Result["Reward_DQN"],
-    #             "s2": NextState,
-    #         }
-
-    #         self.train_agent.add_experience(exp)
-    #         CurrState = NextState
-
-    # def update(self):
-
-    #     copy_step = self.train_agent.copy_step
-    #     side_only = self.action_space.side_only
-
-    #     for i in range(len(self.env.returns) - 1):
-
-    #         self.train_agent.train(i, side_only)
-
-    #         self.iters += 1
-    #         if (self.iters % copy_step == 0) and (i > self.train_agent.start_train):
-    #             self.train_agent.copy_weights()
