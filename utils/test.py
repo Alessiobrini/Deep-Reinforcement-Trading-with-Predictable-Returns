@@ -19,11 +19,12 @@ import pandas as pd
 from typing import Union, Optional
 from pathlib import Path
 import pdb, sys
-from utils.tools import get_bet_size
+from utils.tools import get_bet_size, get_action_boundaries
 import torch
 import torch.nn as nn
 from utils.math_tools import unscale_action, unscale_asymmetric_action
 from utils.simulation import DataHandler
+
 
 
 @gin.configurable()
@@ -89,6 +90,17 @@ class Out_sample_vs_gp:
                 data_handler.generate_returns()
                 data_handler.estimate_parameters()
             
+            if data_handler.datatype == "alpha_term_structure" and not self.MV_res:
+                action_range, _, _ = get_action_boundaries(
+                    N_train=self.N_test,
+                    f_speed=data_handler.f_speed,
+                    returns=data_handler.returns,
+                    factors=data_handler.factors,
+                )
+
+                gin.query_parameter("%ACTION_RANGE")[0] = action_range
+                test_agent.action_space = ActionSpace()
+
             self.test_env = self.env_cls(
                 N_train=self.N_test,
                 f_speed=data_handler.f_speed,

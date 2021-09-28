@@ -190,6 +190,16 @@ class PPO_runner(MixinCore):
                 self.env.returns = self.data_handler.returns
                 if self.data_handler.datatype != "alpha_term_structure":
                     self.env.factors = self.data_handler.factors
+                if self.data_handler.datatype == "alpha_term_structure" and not self.MV_res:
+                    action_range, _, _ = get_action_boundaries(
+                        N_train=self.N_train,
+                        f_speed=self.data_handler.f_speed,
+                        returns=self.data_handler.returns,
+                        factors=self.data_handler.factors,
+                    )
+
+                    gin.query_parameter("%ACTION_RANGE")[0] = action_range
+                    self.action_space = ActionSpace()
             
             self.logging.debug("Training...")
 
