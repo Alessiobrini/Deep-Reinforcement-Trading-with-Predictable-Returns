@@ -137,24 +137,28 @@ def runplot_metrics(p):
 
                 dataframe = pd.concat(dfs)
                 dataframe.index = range(len(dfs))
-                # dataframe = dataframe*10
+                # dataframe = dataframe + 10**7/2
 
                                
                 med= dataframe.median(axis=0)
-                fdf = dataframe[dataframe>med]
+                fdf = dataframe[dataframe>0.0]
+                # fdf = dataframe[dataframe>med*(1+0.75)]
+                # fdf = dataframe[dataframe>dataframe.mean(axis=0)*2]
                 idxs = []
                 for i in range(len(fdf.columns)):
-                    idxs.extend(fdf.iloc[:,0].dropna().index.tolist())
+                    idxs.extend(fdf.iloc[:,i].dropna().index.tolist())
                 from collections import Counter
                 counts = Counter(idxs)
                 
-                seed_idx = list(counts.keys())
+                # seed_idx = list(counts.keys())
+                seed_idx = [k for k in counts if counts[k]> 0.75* med.shape[0]]
                 good_seeds = np.array(filtered_dir)[seed_idx]
                 good_seeds = [int(s.split('seed_')[-1]) for s in good_seeds]
                     
-                # dataframe=fdf
+                # dataframe=dataframe.loc[seed_idx]
+                # dataframe.index=range(len(dataframe.index))
                 
-                pdb.set_trace()
+                # pdb.set_trace()
                 if 'PPO' in tag and p['ep_ppo']:
                     dataframe = dataframe.iloc[:,:dataframe.columns.get_loc(p['ep_ppo'])]
 
@@ -171,7 +175,7 @@ def runplot_metrics(p):
                     dataframe_opt.index = range(len(dfs_opt))
                     if 'PPO' in tag and p['ep_ppo']:
                         dataframe_opt = dataframe_opt.iloc[:,:dataframe_opt.columns.get_loc(p['ep_ppo'])]
-                        
+                    # pdb.set_trace()
                     plot_abs_metrics(
                         ax,
                         dataframe,
@@ -183,7 +187,7 @@ def runplot_metrics(p):
                         i=it,
                         plt_type='abs'
                     )                    
-                    # ax.set_ylim(-1e+10, 1e+11)
+                    # ax.set_ylim(-5e+8, 1e+9)
 
 
                 else:
@@ -197,6 +201,7 @@ def runplot_metrics(p):
                         params_path=filenamep,
                     )
                     ax.set_ylim(20, 150)
+                ax.set_title(out_mode)
                 logging.info("Plot saved successfully...")
 
 
@@ -1082,7 +1087,7 @@ def runplot_holding(p):
         )
         
         res_df = oos_test.run_test(train_agent, return_output=True)
-        res_df['NextHolding_PPO'] = res_df['NextHolding_PPO']*10
+        # res_df['NextHolding_PPO'] = res_df['NextHolding_PPO'] *100
         # pdb.set_trace()
 
         if gin.query_parameter('%MULTIASSET'):

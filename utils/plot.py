@@ -347,7 +347,7 @@ def plot_abs_metrics(
 
     elif plt_type == 'abs':
 
-        # pdb.set_trace()
+
         df_median = df.median(axis=0)
 
         if 'Pdist' not in variable:
