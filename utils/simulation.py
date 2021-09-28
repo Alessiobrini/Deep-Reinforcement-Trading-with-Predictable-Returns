@@ -503,7 +503,8 @@ def return_sampler_garch(
 
     p = pd.Series(data=vals, index=names)
     if p_arg:
-        p = p_arg
+        p.values[-3:] = p_arg
+
     simulations = model.simulate(p, N_train) / 100
 
     return simulations["data"].values, p
