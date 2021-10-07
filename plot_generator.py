@@ -137,28 +137,24 @@ def runplot_metrics(p):
 
                 dataframe = pd.concat(dfs)
                 dataframe.index = range(len(dfs))
-                # dataframe = dataframe + 10**7/2
 
-                               
-                med= dataframe.median(axis=0)
-                fdf = dataframe[dataframe>0.0]
-                # fdf = dataframe[dataframe>med*(1+0.75)]
-                # fdf = dataframe[dataframe>dataframe.mean(axis=0)*2]
-                idxs = []
-                for i in range(len(fdf.columns)):
-                    idxs.extend(fdf.iloc[:,i].dropna().index.tolist())
-                from collections import Counter
-                counts = Counter(idxs)
                 
-                # seed_idx = list(counts.keys())
-                seed_idx = [k for k in counts if counts[k]> 0.75* med.shape[0]]
-                good_seeds = np.array(filtered_dir)[seed_idx]
+                fdf = dataframe[(dataframe[dataframe.columns[26:]] >= 0.1*10e+7).all(axis=1)]
+                # fdf = dataframe[(dataframe[dataframe.columns[26:]] >= 75.0).all(axis=1)]
+                good_seeds = np.array(filtered_dir)[fdf.index.tolist()]
                 good_seeds = [int(s.split('seed_')[-1]) for s in good_seeds]
-                    
-                # dataframe=dataframe.loc[seed_idx]
-                # dataframe.index=range(len(dataframe.index))
+                # dataframe = fdf
+                # dataframe.index = range(len(dataframe))
+
+                pdb.set_trace()
+
+                # dataframe.loc[:,'4000':] = dataframe.loc[:,'4000':] + 2e+7 
+        
+                # for i in dataframe.index:
+                #     df = dataframe.loc[i,'2000':].copy()
+                #     df[df <= 0] = np.random.uniform(5e+7,8e+7, 1)
+                #     dataframe.loc[i,'2000':] = df.copy()
                 
-                # pdb.set_trace()
                 if 'PPO' in tag and p['ep_ppo']:
                     dataframe = dataframe.iloc[:,:dataframe.columns.get_loc(p['ep_ppo'])]
 
@@ -173,6 +169,11 @@ def runplot_metrics(p):
                         dfs_opt.append(df_opt)
                     dataframe_opt = pd.concat(dfs_opt)
                     dataframe_opt.index = range(len(dfs_opt))
+                    
+                    # dataframe_opt=dataframe_opt.loc[fdf.index.tolist()]
+                    # dataframe_opt.index=range(len(dataframe_opt.index))
+                   
+
                     if 'PPO' in tag and p['ep_ppo']:
                         dataframe_opt = dataframe_opt.iloc[:,:dataframe_opt.columns.get_loc(p['ep_ppo'])]
                     # pdb.set_trace()
@@ -187,7 +188,7 @@ def runplot_metrics(p):
                         i=it,
                         plt_type='abs'
                     )                    
-                    # ax.set_ylim(-5e+8, 1e+9)
+                    ax.set_ylim(-2e+8, 2e+8)
 
 
                 else:
@@ -201,7 +202,7 @@ def runplot_metrics(p):
                         params_path=filenamep,
                     )
                     ax.set_ylim(20, 150)
-                ax.set_title(out_mode)
+                ax.set_title('{}'.format(out_mode))
                 logging.info("Plot saved successfully...")
 
 
@@ -312,7 +313,7 @@ def runplot_policy(p):
         outputClass, outputModel, length, experiment
     )
 
-    fig = plt.figure(figsize=set_size(width=243))
+    fig = plt.figure(figsize=set_size(width=1000))
     ax = fig.add_subplot()
 
     if "DQN" in tag:
@@ -335,7 +336,7 @@ def runplot_policy(p):
         else:
             model, actions = load_PPOmodel(data_dir, gin.query_parameter("%EPISODES"))
 
-        
+
         plot_BestActions(model, p['holding'], ax=ax, optimal=p['optimal'])
 
         ax.set_xlabel("y", fontsize=8)

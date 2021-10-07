@@ -33,6 +33,7 @@ def get_action_boundaries(
     factors: Union[list or np.ndarray],
     qts: list = [0.01, 0.99],
     action_type: str = "GP",
+    disable: bool = True
 ):
 
     """
@@ -114,7 +115,7 @@ def get_action_boundaries(
         OptRate, DiscFactorLoads = env.opt_trading_rate_disc_loads()
 
         cycle_len = len(returns) - 1
-        for i in tqdm(iterable=range(cycle_len), desc="Selecting Action boundaries"):
+        for i in tqdm(iterable=range(cycle_len), desc="Selecting Action boundaries", disable=disable):
             NextOptState, OptResult = env.opt_step(
                 CurrOptState, OptRate, DiscFactorLoads, i
             )

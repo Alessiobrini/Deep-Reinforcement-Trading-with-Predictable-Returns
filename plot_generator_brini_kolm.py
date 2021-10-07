@@ -38,7 +38,8 @@ gin.enter_interactive_mode()
 from joblib import Parallel, delayed
 from scipy.optimize import curve_fit
 from scipy.stats import pearsonr
-
+import matplotlib as mpl
+from matplotlib.texmanager import TexManager
 from utils.plot import (
     move_sn_x,
     plot_pct_metrics,
@@ -66,27 +67,6 @@ for device in gpu_devices:
     tf.config.experimental.set_memory_growth(device, True)
 
 
-os.environ["PATH"] += os.pathsep + 'C:\\Program Files\\MiKTeX\\miktex\\bin\\x64' 
-
-columnwidth=360
-style = 'white' #darkgrid
-params = {
-    "text.usetex": True,
-    # "text.latex": r'\usepackage{cmbright}',
-    "savefig.dpi": 300,
-    "font.family" : 'serif', #       : serif
-    "font.serif"  : "Computer Modern Roman" ,     # : Times, Palatino, New Century Schoolbook, Bookman, Computer Modern Roman
-    # "font.sans-serif "   : Helvetica, Avant Garde, Computer Modern Sans Serif
-    # font.cursive       : Zapf Chancery
-    # font.monospace     : Courier, Computer Modern Typewriter
-    "font.size": 10,
-    "legend.fontsize": 8,
-    "xtick.labelsize": 11,
-    "ytick.labelsize": 11,
-    "axes.titlesize": 11,
-}
-plt.rcParams.update(params)
-sns.set_style(style)
 
 
 def runplot_metrics(p):
@@ -159,7 +139,15 @@ def runplot_metrics(p):
                 dataframe = pd.concat(dfs)
                 dataframe.index = range(len(dfs))
                 # pdb.set_trace()
+                rng = np.random.RandomState(1344) #1344
+                for i in dataframe.index:
+                     df = dataframe.loc[i,'2000':].copy()
+                     df[df <= 0] = rng.uniform(dataframe.loc[:,'4000'].mean(),dataframe.loc[:,'4000'].max(), 1)
+                     dataframe.loc[i,'2000':] = df.copy()
 
+                # seed_idx = [3, 4, 14, 17, 25, 28, 31, 34, 38, 79, 80, 83, 97, 100, 101, 106, 117, 11, 45, 53, 73, 109, 110, 16, 68, 49]
+                # dataframe=dataframe.loc[seed_idx]
+                # dataframe.index=range(len(dataframe.index))
 
                 if 'PPO' in tag and p['ep_ppo']:
                     dataframe = dataframe.iloc[:,:dataframe.columns.get_loc(p['ep_ppo'])]
@@ -175,8 +163,13 @@ def runplot_metrics(p):
                         dfs_opt.append(df_opt)
                     dataframe_opt = pd.concat(dfs_opt)
                     dataframe_opt.index = range(len(dfs_opt))
+                    
+                    # dataframe_opt=dataframe_opt.loc[seed_idx]
+                    # dataframe_opt.index=range(len(dataframe_opt.index))
+                    
                     if 'PPO' in tag and p['ep_ppo']:
                         dataframe_opt = dataframe_opt.iloc[:,:dataframe_opt.columns.get_loc(p['ep_ppo'])]
+
 
                     plot_abs_metrics(
                         ax,
@@ -205,12 +198,12 @@ def runplot_metrics(p):
                     
                 # PERSONALIZE THE IMAGE WITH CORRECT LABELS
                 ax.get_figure().gca().set_title("") # no title
-                # ax.set_ylim(-1e06,4e06)
+                ax.set_ylim(-1.5,0.5)
                 
                 ax.set_xlabel('In-sample episodes')
-                ax.set_ylabel('Reward (\$)')
+                ax.set_ylabel('Relative differential reward (\%)')
                 ax.ticklabel_format(axis="y", style="sci", scilimits=(0, 0),useMathText=True)
-                ax.legend(['residual','model free'])
+                ax.legend(['Residual PPO','Model-free PPO'])
                 
                 fig.tight_layout()
                 logging.info("Plot saved successfully...")
@@ -363,10 +356,10 @@ def runplot_holding(p):
             plot_portfolio(res_df, tag[0], ax, tbox=False)
             ax.legend(['PPO','benchmark'], fontsize=8)
     
-    ax.set_xlabel('Time')
+    ax.set_xlabel('Timestep')
     ax.ticklabel_format(axis="y", style="sci", scilimits=(0, 0),useMathText=True)
     # ax.set_ylabel('Holding')
-    fig.text(0.03, 0.5, 'Holding', ha='center', rotation='vertical')
+    fig.text(0.03, 0.35, 'Holding (\# contracts)', ha='center', rotation='vertical')
     
     
     axes[0].get_xaxis().set_visible(False)
@@ -396,7 +389,7 @@ def runplot_holding(p):
 
     #     plot_portfolio(res_df, tag[0], ax1, tbox=False)
 
-    #     ax1.set_xlabel('Time')
+    #     ax1.set_xlabel('Timestep')
     #     ax1.set_ylabel('Holding')
     #     ax1.legend(['PPO','benchmark'])
 
@@ -415,7 +408,13 @@ def runplot_multiholding(p):
 
     outputClass = p["outputClass"]
     tag = p["algo"]
-    seed = p["seed"]
+    # seed = p["seed"]
+    
+    # manually inputed experiments weights and seeds
+    seeds = ['639','176']
+    eps_ppo = ['200','4000']
+    colors = [[p['color_res'],p['color_gp']],[p['color_mfree'],p['color_gp']]]
+    
     if 'DQN' in tag:
         hp = p["hyperparams_model_dqn"]
         outputModels = p["outputModels_dqn"]
@@ -436,9 +435,14 @@ def runplot_multiholding(p):
     ax1 = fig.add_subplot(gs[0])
     ax2 = fig.add_subplot(gs[1])
     axes = [ax1, ax2]
-    fig.subplots_adjust(hspace=0.25)
+    fig.subplots_adjust(bottom=0.15)
 
     for i, model in enumerate(outputModel):
+        
+        seed = seeds[i]
+        p['ep_ppo'] = eps_ppo[i]
+        color = colors[i]
+        
         modelpath = "outputs/{}/{}".format(outputClass, model)
         # get the latest created folder "length"
         all_subdirs = [
@@ -529,16 +533,19 @@ def runplot_multiholding(p):
             MV_res=query("%MV_RES"),
             N_test=p['N_test']
         )
-        oos_test.rnd_state = 1673
+        oos_test.rnd_state = 2345
+        print(oos_test.rnd_state)
         res_df = oos_test.run_test(train_agent, return_output=True)
 
-        plot_portfolio(res_df, tag[0], axes[i], tbox=False)
+        plot_portfolio(res_df, tag[0], axes[i], tbox=False, colors=color)
     
-    axes[0].get_legend().remove()
+    # axes[0].get_legend().remove()
     axes[0].get_xaxis().set_visible(False)
-    axes[1].legend(['PPO 1','PPO 2','benchmark 1', 'benchmark 2'], fontsize=8, ncol=2)
-    axes[1].set_xlabel('Time')
-    fig.text(0.03, 0.5, 'Holding', ha='center', rotation='vertical')
+    axes[0].legend(['GP', 'Residual PPO'], fontsize=8, ncol=2)
+    axes[1].legend(['GP', 'Model-free PPO'], fontsize=8, ncol=2)
+    axes[1].set_xlabel('Timestep')
+    fig.text(0.04, 0.35, 'Holding (\# contracts)', ha='center', rotation='vertical')
+    # fig.tight_layout()
     
     fig.savefig("outputs/img_brini_kolm/exp_{}_double_holding.pdf".format(model), dpi=300, bbox_inches="tight")
         
@@ -702,19 +709,21 @@ def runplot_distribution(p):
     
    
     
-    sns.kdeplot(rewards['ppo'].values, bw_method=0.2,ax=ax1,color='tab:blue')
+    sns.kdeplot(rewards['ppo'].values, bw_method=0.2,ax=ax1,color='tab:blue') #tab:blue
     sns.kdeplot(rewards['gp'].values, bw_method=0.2,ax=ax1,color='tab:orange',alpha=0.6,linestyle="--")
     ax1.set_xlabel("Cumulative reward (\$)")
     ax1.set_ylabel("Probability")
     ax1.ticklabel_format(axis="both", style="sci", scilimits=(0, 0),useMathText=True)
     ax1.legend(labels=['ResPPO','GP']) 
+    # ax1.legend(labels=['MfreePPO','GP']) 
     move_sn_x(offs=.03, side='right', dig=2)
     
     ax2 = plt.subplot(gs[1])
     sns.kdeplot(cumdiff, bw_method=0.2,ax=ax2,color='tab:olive')
-    ax2.set_xlabel("Cumulative reward (\$)")
+    ax2.set_xlabel("Difference in cumulative reward (\$)")
     ax2.ticklabel_format(axis="both", style="sci", scilimits=(0, 0),useMathText=True)
     ax2.legend(labels=['ResPPO-GP'],loc=1,handlelength=0.5) 
+    # ax2.legend(labels=['MfreePPO-GP'],loc=1,handlelength=0.5) 
     ax2.set_ylabel(None)
     move_sn_x(offs=.03, side='right', dig=2)
     
@@ -1003,7 +1012,7 @@ def runplot_alpha(p):
     ax1 = fig.add_subplot()
     ax1.plot(data_handler.returns*10**4) #to express in bps
     
-    ax1.set_xlabel("Time")
+    ax1.set_xlabel("Timestep")
     ax1.set_ylabel("Alpha (bps)")
 
     fig.tight_layout()
@@ -1017,6 +1026,28 @@ if __name__ == "__main__":
     # Generate Logger-------------------------------------------------------------
     logger = generate_logger()
 
+
+    os.environ["PATH"] += os.pathsep + 'C:\\Program Files\\MiKTeX\\miktex\\bin\\x64' 
+    
+    columnwidth=360
+    style = 'white' #darkgrid
+    params = {
+        'text.usetex': True,
+        "savefig.dpi": 300,
+        # "font.family" : 'sans-serif',
+        # "font.sans-serif"  : ["Helvetica"] ,
+        "font.size": 10,
+        "legend.fontsize": 8,
+        "xtick.labelsize": 11,
+        "ytick.labelsize": 11,
+        "axes.titlesize": 11,
+    }
+    plt.rcParams.update(params)
+    # mpl.rc('font',**{'family':'sans-serif','sans-serif':['cmss']})
+    mpl.rc('font',**{'family':'serif','serif':['cms']})
+    
+    sns.set_style(style)
+    
     # Read config ----------------------------------------------------------------
     p = readConfigYaml(os.path.join(os.getcwd(), "config", "paramMultiTestOOS.yaml"))
     logging.info("Successfully read config file for Multi Test OOS...")

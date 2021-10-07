@@ -22,14 +22,14 @@ LEN_SERIES = 200 #None # length of simulated series, if null the legth is N_trai
 EPOCHS = 3
 OUTPUTDIR = 'outputs' # main directory for the experiment
 OUTPUTCLASS = %ALGO # first subdirectory
-OUTPUTMODEL = '20210914_test1' # second subdirectory
+OUTPUTMODEL = '20211002_multi_alpha_runtime' # second subdirectory
 SAVE_FREQ = 20  # number of checkpoints to save during training
-SEED = 34 #[35, 423]  # seed for reproducibility
+SEED = [35]  # seed for reproducibility
 START_TRAIN = 300 # steps after which the training starts
 USE_GPU = True
-VARYING_PARS = None #['%N_ASSETS', '%SEED']
+VARYING_PARS = ['%LAYERS', '%N_ASSETS', '%SEED']
 VARYING_TYPE = 'chunk'
-NUM_CORES = 7
+NUM_CORES = 6
 
 # spaces
 ACTION_RANGE =  [None, 9] # action range for standard RL [boundary,number of actions]
@@ -62,7 +62,8 @@ CASH = 1e+9
 DT = 1.0
 ROLLOUT_PCT_NUM = 1.0
 MULTIASSET = True
-N_ASSETS = 25 #[5,25,50,100,200,500,1000]
+N_ASSETS = [   5,   57,  109,  162,  214,  266,  319,  371,  423,  476,  528,
+        581,  633,  685,  738,  790,  842,  895,  947, 1000]
 HALFLIFE = [[137], [78]]
 INITIAL_ALPHA =  [[0.0022], [0.00185]] 
 F_PARAM =  [[1.0], [1.0]]
@@ -82,7 +83,7 @@ LAGS_MEAN_PROCESS = 1 # lag or list of lags for the autoregressive component in 
 VOL_PROCESS = 'GARCH' # choice for volatility process ['GARCH', 'TGARCH', 'EGARCH', 'Constant']
 DISTR_NOISE = 'normal' # choice for noise distribution ['normal', 'studt', 'skewstud', 'ged']
 
-
+LAYERS = [[32,32],[64,64],[128,128],[256,256],[512,512],[1024,1024]]
 
 # Parameters for main_runner:
 # ==============================================================================
@@ -180,8 +181,8 @@ PPO.tau = 0.98 # lambda in the original GAE paper
 PPO.clip_param = 0.25 # clipping of objective function
 PPO.vf_c = 0.5 # coefficient for the value error
 PPO.ent_c = 0.001 # coefficient for entropy
-PPO.hidden_units_value = [128,64]
-PPO.hidden_units_actor = [128,64]
+PPO.hidden_units_value = %LAYERS
+PPO.hidden_units_actor = %LAYERS
 PPO.batch_size =  50
 PPO.lr = 0.0003 # initial learning rate
 PPO.activation = 'tanh'

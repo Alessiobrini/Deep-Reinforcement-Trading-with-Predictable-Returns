@@ -325,7 +325,9 @@ def plot_abs_metrics(
 ):
 
     if plt_type == 'diff':
-        df = df-df_opt
+        
+        df = (df-df_opt)/df_opt
+        # pdb.set_trace()
         df_median = df.median(axis=0)
         mad = median_abs_deviation(df)
         if 'Pdist' not in variable:
@@ -343,7 +345,7 @@ def plot_abs_metrics(
     
         under_line     = df_median - mad
         over_line      = df_median + mad
-        ax1.fill_between(idxs, under_line, over_line, color=colors, alpha=.1, linewidth=0, label='')
+        ax1.fill_between(idxs, under_line, over_line, color=colors, alpha=0.25, linewidth=0, label='')
 
     elif plt_type == 'abs':
 
@@ -593,6 +595,8 @@ def plot_BestActions(
     """
 
     query = gin.query_parameter
+    gin.bind_parameter('%DOUBLE_NOISE', False)
+    gin.bind_parameter('%SIGMAF', [None])
 
     def opt_trading_rate_disc_loads(
         discount_rate, kappa, CostMultiplier, f_param, f_speed
@@ -620,10 +624,10 @@ def plot_BestActions(
         actions = ActionSpace(
             query("%ACTION_RANGE"), query("%ZERO_ACTION"), query("%SIDE_ONLY")
         ).values
-
+    rng = np.random.RandomState(15)
     if query("%INP_TYPE") == "ret" or query("%INP_TYPE") == "alpha":
         if query("%INP_TYPE") == "alpha":
-            data_handler = DataHandler(N_train=query('%LEN_SERIES'), rng=None)
+            data_handler = DataHandler(N_train=query('%LEN_SERIES'), rng=rng)
             data_handler.generate_returns()
             sample_Ret = data_handler.returns
             sample_Ret.sort()
@@ -671,10 +675,11 @@ def plot_BestActions(
     elif query("%INP_TYPE") == "f" or query("%INP_TYPE") == "alpha_f":
 
         if query("%INP_TYPE") == "alpha_f":
-            data_handler = DataHandler(N_train=query('%LEN_SERIES'), rng=None)
+            data_handler = DataHandler(N_train=query('%LEN_SERIES'), rng=rng)
             data_handler.generate_returns()
             factors = data_handler.factors
-            factors.sort()
+
+            # factors.sort()
         else:
             n_factors = len(query("%F_PARAM"))
     
@@ -804,7 +809,7 @@ def plot_BestActions(
             
 
 
-def plot_portfolio(r: pd.DataFrame, tag: str, ax2: object, tbox: bool = True):
+def plot_portfolio(r: pd.DataFrame, tag: str, ax2: object, tbox: bool = True,colors: list = ['tab:blue','tab:orange']):
     """
     Ploduce plots of portfolio holding
 
@@ -840,8 +845,9 @@ def plot_portfolio(r: pd.DataFrame, tag: str, ax2: object, tbox: bool = True):
             ax2.add_artist(norm_text)
 
     else:
-        ax2.plot(r["NextHolding_{}".format(tag)].values[1:-1], label=tag)
-        ax2.plot(r["OptNextHolding"].values[1:-1], label="benchmark", alpha=0.5)
+        
+        ax2.plot(r["OptNextHolding"].values[1:-1], label="benchmark", color=colors[1], ls='--')
+        ax2.plot(r["NextHolding_{}".format(tag)].values[1:-1], label=tag, color=colors[0])
         if tbox:
             mse = np.round(np.sum(r["OptNextHolding"].values[1:-1] - r["NextHolding_{}".format(tag)].values[1:-1]),decimals=0)
             mse_text = AnchoredText("GP - PPO: {:e}".format(mse),loc=1,prop=dict(size=10))

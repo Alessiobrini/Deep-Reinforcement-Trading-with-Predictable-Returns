@@ -8,7 +8,7 @@ import agents.PPO
 # Macros:
 # ==============================================================================
 # Set up
-ALGO = 'PPO' # 'PPO', 'DQN' or 'DDPG'  
+ALGO = 'DQN' # 'PPO', 'DQN' or 'DDPG'  
 
 ENV_CLS = @MarketEnv 
 
@@ -17,20 +17,18 @@ EXPERIMENT_TYPE = 'Misspec' # GP or Misspec
 MV_RES = False # Decide which actions to take (trading quantity or MVresiduals)
 UNIVERSAL_TRAIN = True
 
-EPISODES =  300 #None # episode to run the algorithm. Put None if you want to train DQN online
-N_TRAIN = None #150000 #300000
-LEN_SERIES = 2000 # length of simulated series, if null the legth is N_train
+EPISODES =  None # episode to run the algorithm. Put None if you want to train DQN online
+N_TRAIN = 15000 #300000
+LEN_SERIES = None # 2000 # length of simulated series, if null the legth is N_train
 EPOCHS = 3
 OUTPUTDIR = 'outputs' # main directory for the experiment
 OUTPUTCLASS = %ALGO # first subdirectory
-OUTPUTMODEL = '20211002_PPOTSTUD' # second subdirectory
-SAVE_FREQ = 10  # number of checkpoints to save during training
-SEED = [1375, 5054,  920, 2002, 2083, 9945, 8063, 1040, 8162,  174, 1178,
-       4430, 9689,  549, 6684,  117, 5024,  594,  148, 2640, 8449, 9303,
-       2870, 5976, 2979, 5969, 3253, 14, 56, 89]  # seed for reproducibility
+OUTPUTMODEL = '20211003_DQNGARCH_sens2' # second subdirectory
+SAVE_FREQ = 1000  # number of checkpoints to save during training
+SEED = 34 #[740, 698, 158, 361,  88, 394, 930, 866, 309, 528, 431, 357] #[ 115]  # seed for reproducibility
 START_TRAIN = 300 # steps after which the training starts
 USE_GPU = True
-VARYING_PARS = ['%DATATYPE','%DEGREES', '%SEED'] 
+VARYING_PARS = None #['%P_ARG', '%SEED'] 
 VARYING_TYPE = 'chunk'
 NUM_CORES = 60
 
@@ -46,7 +44,7 @@ ZERO_ACTION = True # include the zero action (hold) in the action space
 #bcm_scale :  #[0.001,0.0001]
 
 # env and data simulation
-DATATYPE =  ['t_stud','t_stud_mfit'] # type of data to simulate # 'gauss', 'garch','t_stud','t_stud_mfit', 'garch_mr', 'alpha_term_structure'
+DATATYPE = 'garch' # ['t_stud','t_stud_mfit'] # type of data to simulate # 'gauss', 'garch','t_stud','t_stud_mfit', 'garch_mr', 'alpha_term_structure'
 
 FACTOR_LB = [100] # list of lags for fitting autoregressive vairables of the return series
 COSTMULTIPLIER = 0.001 # Cost multiplier to make the cost proportional to the risk
@@ -64,25 +62,25 @@ DT = 1.0
 ROLLOUT_PCT_NUM = 1.0
 MULTIASSET = False
 N_ASSETS = None
-HALFLIFE = [300] #[[100], [150], [200], [250], [300], [350], [400], [450], [500], [550]] #[300]  # list of Halflives of mean reversion
+HALFLIFE = [300]  #[[100], [150], [200], [250], [300], [350], [400], [450], [500], [550]] #[300]  # list of Halflives of mean reversion
 INITIAL_ALPHA = [0.005] #[[0.001],[0.004],[0.012],[0.008]] # only for alpha term structure case
 SIGMA = 0.01 # return volatility
 SIGMAF = [0.1] # list of factor volatilities
-F_PARAM = [0.005] #[[0.001], [0.012], [0.023], [0.034], [0.045], [0.056], [0.067], [0.078], [0.089], [0.1]] # [0.01] #[0.001 , 0.0062, 0.0114, 0.0166, 0.0218, 0.0271, 0.0323, 0.0375, 0.0427, 0.0479, 0.0531, 0.0583, 0.0635, 0.0687, 0.0739, 0.0792, 0.0844, 0.0896, 0.0948, 0.1   ] #, 0.005] # list of factor loadings
+F_PARAM = [0.01] #[[0.001], [0.012], [0.023], [0.034], [0.045], [0.056], [0.067], [0.078], [0.089], [0.1]] # [0.01] #[0.001 , 0.0062, 0.0114, 0.0166, 0.0218, 0.0271, 0.0323, 0.0375, 0.0427, 0.0479, 0.0531, 0.0583, 0.0635, 0.0687, 0.0739, 0.0792, 0.0844, 0.0896, 0.0948, 0.1   ] #, 0.005] # list of factor loadings
 CORRELATION = None
 QTS = [0.001,0.999] # quantile to select action boundaries
 ACTION_TYPE = 'GP' # GP or MV for selecting action boundaries
 UNCORRELATED = True # generate correlated or uncorrelated factors
-T_STUD = True # Student's T noise in the simulation for GP factors
-DEGREES = [6,8] #[2,4,6,8,10,12] #[6,8] # degrees of freedom for Student's T
+T_STUD = False # Student's T noise in the simulation for GP factors
+DEGREES = 6 #[2,4,6,8,10,12] #[6,8] # degrees of freedom for Student's T
 VOL = 'omosk' #'omosk' or 'eterosk' to simulate GP-like return with stoch vol
 
 MEAN_PROCESS = 'AR' # choice for mean process ['AR', 'Constant']
 LAGS_MEAN_PROCESS = 1 # lag or list of lags for the autoregressive component in the mean return
 VOL_PROCESS = 'GARCH' # choice for volatility process ['GARCH', 'TGARCH', 'EGARCH', 'Constant']
 DISTR_NOISE = 'normal' #['normal','studt'] #['normal','studt'] # choice for noise distribution ['normal', 'studt', 'skewstud', 'ged']
-P_ARG = [[0.075,0.0067,0.60],[0.075,0.0067,0.65],[0.075,0.0067,0.70],[0.075,0.0067,0.75],[0.075,0.0067,0.80],[0.075,0.0067,0.85]] # 3 values for garch parameters
-# [[0.075,0.005,0.85],[0.075,0.007,0.85],[0.075,0.009,0.85],[0.075,0.02,0.85],[0.075,0.04,0.85],[0.075,0.06,0.85],[0.075,0.08,0.85],[0.075,0.01,0.85]]
+P_ARG = [0.075, 0.0505, 0.8815] # [[0.075, 0.0505, 0.8815], [0.075, 0.0518, 0.8779], [0.075, 0.0628, 0.8809], [0.075, 0.0529, 0.9114], [0.075, 0.0686, 0.9008], [0.075, 0.0889, 0.8743], [0.075, 0.0975, 0.8731], [0.075, 0.0821, 0.9033], [0.075, 0.0805, 0.9065], [0.075, 0.0986, 0.8872]] # 3 values for garch parameters
+
 
 # Parameters for main_runner:
 # ==============================================================================
