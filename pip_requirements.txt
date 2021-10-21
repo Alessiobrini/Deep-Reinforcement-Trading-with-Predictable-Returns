@@ -7,7 +7,7 @@ astor==0.8.1
 astunparse==1.6.3
 attrs==17.4.0
 Automat==0.6.0
-Babel==2.6.0
+Babel==2.9.1
 blinker==1.4
 Brlapi==0.6.6
 cachetools==4.0.0
