@@ -364,7 +364,7 @@ class PPO_runner(MixinCore):
 
             state = next_state
 
-            _, self.next_value = self.train_agent.act(next_state)
+        _, self.next_value = self.train_agent.act(next_state)
         # compute the advantage estimate from the given rollout
         self.train_agent.compute_gae(self.next_value.detach().cpu().numpy().ravel())
 
