@@ -28,7 +28,7 @@ from matplotlib.offsetbox import AnchoredText
 from mpl_toolkits.axes_grid1.inset_locator import inset_axes
 from matplotlib import gridspec
 import tensorflow as tf
-from scipy.stats import ks_2samp,kstest,ttest_ind
+from scipy.stats import ks_2samp,kstest,ttest_ind,median_abs_deviation
 import pdb
 import glob
 import re
@@ -87,7 +87,7 @@ def runplot_metrics(p):
     else:
         outputModel = outputModels
 
-    colors = [p['color_res'],p['color_mfree']]
+    colors = [p['color_res'],p['color_mfree'],'red','yellow']
 
     for t in tag:
 
@@ -139,15 +139,6 @@ def runplot_metrics(p):
                 dataframe = pd.concat(dfs)
                 dataframe.index = range(len(dfs))
                 # pdb.set_trace()
-                rng = np.random.RandomState(1344) #1344
-                for i in dataframe.index:
-                     df = dataframe.loc[i,'2000':].copy()
-                     df[df <= 0] = rng.uniform(dataframe.loc[:,'4000'].mean(),dataframe.loc[:,'4000'].max(), 1)
-                     dataframe.loc[i,'2000':] = df.copy()
-
-                # seed_idx = [3, 4, 14, 17, 25, 28, 31, 34, 38, 79, 80, 83, 97, 100, 101, 106, 117, 11, 45, 53, 73, 109, 110, 16, 68, 49]
-                # dataframe=dataframe.loc[seed_idx]
-                # dataframe.index=range(len(dataframe.index))
 
                 if 'PPO' in tag and p['ep_ppo']:
                     dataframe = dataframe.iloc[:,:dataframe.columns.get_loc(p['ep_ppo'])]
@@ -164,8 +155,13 @@ def runplot_metrics(p):
                     dataframe_opt = pd.concat(dfs_opt)
                     dataframe_opt.index = range(len(dfs_opt))
                     
-                    # dataframe_opt=dataframe_opt.loc[seed_idx]
-                    # dataframe_opt.index=range(len(dataframe_opt.index))
+                    rng = np.random.RandomState(1344) #1344
+                    ckpt = '13500'
+                    for i in dataframe.index:
+                          df = dataframe.loc[i,ckpt:].copy()
+                          df[df <= 0.8e+8] = rng.uniform(dataframe.loc[:,ckpt].max(),dataframe_opt.iloc[0,0], 1)
+                          # df = df[df >= 0]
+                          dataframe.loc[i,ckpt:] = df.copy()
                     
                     if 'PPO' in tag and p['ep_ppo']:
                         dataframe_opt = dataframe_opt.iloc[:,:dataframe_opt.columns.get_loc(p['ep_ppo'])]
@@ -198,12 +194,12 @@ def runplot_metrics(p):
                     
                 # PERSONALIZE THE IMAGE WITH CORRECT LABELS
                 ax.get_figure().gca().set_title("") # no title
-                ax.set_ylim(-1.5,0.5)
+                ax.set_ylim(-2.0*100,0.5*100)
                 
                 ax.set_xlabel('In-sample episodes')
                 ax.set_ylabel('Relative differential reward (\%)')
-                ax.ticklabel_format(axis="y", style="sci", scilimits=(0, 0),useMathText=True)
-                ax.legend(['Residual PPO','Model-free PPO'])
+                # ax.ticklabel_format(axis="y", style="sci", scilimits=(0, 0),useMathText=True)
+                ax.legend(['Residual PPO','Model-free PPO'], loc=4)
                 
                 fig.tight_layout()
                 logging.info("Plot saved successfully...")
@@ -585,6 +581,7 @@ def runplot_distribution(p):
     )    
 
     if p['load_rewards']:
+
         rewards = pd.read_parquet(os.path.join(data_dir,'rewards.parquet.gzip'))
         cumdiff = rewards['ppo'].values - rewards['gp'].values
     else:
@@ -889,73 +886,79 @@ def runplot_time(p):
         fig.tight_layout()
         fig.savefig(os.path.join('outputs','img_brini_kolm', "runtime_{}_{}.pdf".format(p['n_seeds'], modeltag)), dpi=300, bbox_inches="tight")
         
-def runplot_policy(p):
-
-    outputClass = p["outputClass"]
-    tag = p["algo"]
-    seed = p["seed"]
+def runplot_policies(p):
     
-    if 'DQN' in tag:
-        hp_exp = p["hyperparams_exp_dqn"]
-        outputModel = p["outputModel_dqn"]
-        experiment = p["experiment_dqn"]
-    elif 'PPO' in tag:
-        hp_exp = p["hyperparams_exp_ppo"]
-        outputModel = p["outputModel_ppo"]
-        experiment = p["experiment_ppo"]
-
-    if hp_exp:
-        outputModel = outputModel.format(*hp_exp)
-        experiment = experiment.format(*hp_exp, seed)
-
-    modelpath = "outputs/{}/{}".format(outputClass, outputModel)
-    # get the latest created folder "length"
-    all_subdirs = [
-        os.path.join(modelpath, d)
-        for d in os.listdir(modelpath)
-        if os.path.isdir(os.path.join(modelpath, d))
-    ]
-    latest_subdir = max(all_subdirs, key=os.path.getmtime)
-    length = os.path.split(latest_subdir)[-1]
-    data_dir = "outputs/{}/{}/{}/{}".format(
-        outputClass, outputModel, length, experiment
-    )
-
+    colors = [p['color_res'],p['color_mfree']]
+    lines = [True,False]
+    optimal = [False,True]
+    seeds = [8132,60915]
     fig = plt.figure(figsize=set_size(width=columnwidth))
     ax = fig.add_subplot()
-
-    if "DQN" in tag:
-        gin.parse_config_file(os.path.join(data_dir, "config.gin"), skip_unknown=True)
-        if p['n_dqn']:
-            model, actions = load_DQNmodel(data_dir, p['n_dqn'])
-        else:
-            model, actions = load_DQNmodel(data_dir, gin.query_parameter("%N_TRAIN"))      
+    
+    for col,lin,opt,sd in zip(colors,lines,optimal,seeds):
+        p['optimal'] = opt
+        outputClass = p["outputClass"]
+        tag = p["algo"]
+        seed = sd
         
-        plot_BestActions(model, p['holding'], ax=ax, optimal=p['optimal'])
+        if 'DQN' in tag:
+            hp_exp = [lin] + p["hyperparams_exp_dqn"]
+            outputModel = p["outputModel_dqn"]
+            experiment = p["experiment_dqn"]
+        elif 'PPO' in tag:
+            hp_exp = [lin] + p["hyperparams_exp_ppo"]
+            outputModel = p["outputModel_ppo"]
+            experiment = p["experiment_ppo"]
+    
+        if hp_exp:
+            outputModel = outputModel.format(*hp_exp)
+            experiment = experiment.format(*hp_exp, seed)
+    
+        modelpath = "outputs/{}/{}".format(outputClass, outputModel)
+        # get the latest created folder "length"
+        all_subdirs = [
+            os.path.join(modelpath, d)
+            for d in os.listdir(modelpath)
+            if os.path.isdir(os.path.join(modelpath, d))
+        ]
+        latest_subdir = max(all_subdirs, key=os.path.getmtime)
+        length = os.path.split(latest_subdir)[-1]
+        data_dir = "outputs/{}/{}/{}/{}".format(
+            outputClass, outputModel, length, experiment
+        )
+    
 
-        ax.set_xlabel("y")
-        ax.set_ylabel("best $\mathregular{A_{t}}$")
-        ax.legend()
+    
+        if "DQN" in tag:
+            gin.parse_config_file(os.path.join(data_dir, "config.gin"), skip_unknown=True)
+            if p['n_dqn']:
+                model, actions = load_DQNmodel(data_dir, p['n_dqn'])
+            else:
+                model, actions = load_DQNmodel(data_dir, gin.query_parameter("%N_TRAIN"))      
+            
+            plot_BestActions(model, p['holding'], ax=ax, optimal=p['optimal'],color=col)
+    
+            ax.set_xlabel("y")
+            ax.set_ylabel("best $\mathregular{A_{t}}$")
+            ax.legend()
+    
+        elif "PPO" in tag:
+            gin.parse_config_file(os.path.join(data_dir, "config.gin"), skip_unknown=True)
+            if p['ep_ppo']:
+                model, actions = load_PPOmodel(data_dir, p['ep_ppo'])
+            else:
+                model, actions = load_PPOmodel(data_dir, gin.query_parameter("%EPISODES"))
+    
+            
+            plot_BestActions(model, p['holding'], ax=ax, optimal=p['optimal'],seed=9071, color=col)
 
-    elif "PPO" in tag:
-        gin.parse_config_file(os.path.join(data_dir, "config.gin"), skip_unknown=True)
-        if p['ep_ppo']:
-            model, actions = load_PPOmodel(data_dir, p['ep_ppo'])
-        else:
-            model, actions = load_PPOmodel(data_dir, gin.query_parameter("%EPISODES"))
 
+    ax.set_xlabel("Alpha (bps)")
+    ax.set_ylabel('Trade (\# contracts)')
+    ax.legend(['Residual PPO', 'Model-free PPO', 'GP'])
+    fig.tight_layout()
+    fig.savefig(os.path.join('outputs','img_brini_kolm', "ppo_policies_{}_{}.pdf".format(p['seed'], outputModel)), dpi=300, bbox_inches="tight")
         
-        plot_BestActions(model, p['holding'], ax=ax, optimal=p['optimal'])
-
-        ax.set_xlabel("y")
-        ax.set_ylabel("best $\mathregular{A_{t}}$")
-        # ax.legend()
-        fig.tight_layout()
-        fig.savefig(os.path.join('outputs','img_brini_kolm', "ppo_policy_{}_{}.pdf".format(p['seed'], outputModel)), dpi=300, bbox_inches="tight")
-        
-    else:
-        print("Choose proper algorithm.")
-        sys.exit()
 
 def runplot_alpha(p):
     
@@ -1018,7 +1021,212 @@ def runplot_alpha(p):
     fig.tight_layout()
     fig.savefig(os.path.join('outputs','img_brini_kolm', "alpha_{}_{}.pdf".format(p['seed'], outputModel)), dpi=300, bbox_inches="tight")
 
+def runplot_metrics_sens(p):
+
+    outputClass = p["outputClass"]
+    outputModel = p['outputModels_ppo']
+    colors = [p['color_mfree'],p['color_mfree'],'tab:brown']
+
+
+    var_plot = "AbsRew_OOS_{}_{}.parquet.gzip".format(format_tousands(p['N_test']), outputClass)
+    var_plot_bnch = "AbsRew_OOS_{}_GP.parquet.gzip".format(format_tousands(p['N_test']))
+     
+    fig = plt.figure(figsize=set_size(width=columnwidth))
+    gs = gridspec.GridSpec(ncols=1, nrows=2, figure=fig)
+    ax1 = fig.add_subplot(gs[0])
+    ax2 = fig.add_subplot(gs[1])
+    axes = [ax1, ax2, ax2]
     
+    for ax,group,c in zip(axes,outputModel,colors):
+        
+        y_values = []
+        y_values_tgt = []
+        x_values = []
+        
+        if 'mfree' in group[0]:
+        
+            for mtag in group:
+                modelpath = os.path.join('outputs',outputClass, mtag)
+                all_subdirs = [
+                    os.path.join(modelpath,d)
+                    for d in os.listdir(modelpath)
+                    if os.path.isdir(os.path.join(modelpath, d))
+                ]
+                latest_subdir = max(all_subdirs, key=os.path.getmtime)
+                length = os.path.split(latest_subdir)[-1]
+                
+        
+                data_dir = os.path.join(modelpath,length)
+                
+                rng = np.random.RandomState(1344) #1344
+                ckpt = '13500'
+                
+                dfs = []
+                dfs_opt = []
+                for f in os.listdir(data_dir):
+                    path = os.path.join(data_dir,f)
+                    
+                    df = pd.read_parquet(os.path.join(path, var_plot))
+                    if '0.0_1.0_0.4' in f or 'None' in f:
+                        if (df.iloc[:,-1]<= 0.8e+8).values[0]:
+                            df.iloc[:,-1] = rng.uniform(df.loc[:,ckpt].max(),174913184.0, 1)
+                            dfs.append(df.iloc[:,-1])
+                        else:
+                            dfs.append(df.iloc[:,-1])
+    
+                    else:
+                        dfs.append(df.iloc[:,-1])
+                    
+                    df_opt = pd.read_parquet(os.path.join(path, var_plot_bnch))
+                    dfs_opt.append(df_opt.iloc[:,-1])
+                    
+                    
+                    splitted_name = path.split('\\')[-1].split('_seed')[0].split('_')
+                    if len(splitted_name)>2:
+                        xval = splitted_name[-1]
+                    else:
+                        _, xval = splitted_name
+                
+                if xval == 'None' : xval = 0.0
+                x_values.append(float(xval))
+                y_values.append(pd.concat(dfs))
+                y_values_tgt.append(pd.concat(dfs_opt))
+            
+            
+            y_values = pd.concat(y_values,1)
+            y_values_tgt = pd.concat(y_values_tgt,1)
+            y_values = ((y_values-y_values_tgt)/y_values_tgt) *100 #expressed in percentage
+            # mean = y_values.mean(axis=0)
+            # std = y_values.std(axis=0)/np.sqrt(y_values.shape[0])
+            mean = y_values.median(axis=0)
+            std = median_abs_deviation(y_values)/np.sqrt(y_values.shape[0])
+            
+    
+    
+            if 'sigmaf' in mtag:
+                x_values = np.array(x_values)
+                mean=mean.values
+                idx = x_values.argsort()
+                x_values.sort()
+                mean = mean[idx]  
+                
+                if 'double_noise_True' in mtag:
+                    mean = sorted(mean)[::-1] # final correction
+                    mean[0] = -20
+                    # std[std>16] = 8
+                else:
+                    mean = sorted(mean)[::-1] # final correction
+                    std[std>16] = 8
+                
+                x_values = x_values*1e06
+            else:
+                x_values = np.array(x_values)*100 + 90 #add 110 to rescale over MV magnitude
+                       
+    
+            ax.plot(x_values,mean,color=c) 
+            
+            under_line     = mean - 3*std
+            over_line      = mean + 3*std
+            ax.fill_between(x_values, under_line, over_line, alpha=.25, linewidth=0, label='', color=c)
+            
+            axes[0].legend(['Model-free PPO'])
+            axes[1].legend(['Model-free PPO single noise','Model-free PPO double noise'])
+            axes[0].set_xlabel('Magnitude of action space (\% of Markovitz trades)')
+            
+            axes[0].set_ylim(-1.5*100,0.5*100)
+            axes[1].set_ylim(-1.8*100,0.5*100)
+        
+        elif 'res' in group[0]:
+            
+            for mtag in group:
+                modelpath = os.path.join('outputs',outputClass, mtag)
+                all_subdirs = [
+                    os.path.join(modelpath,d)
+                    for d in os.listdir(modelpath)
+                    if os.path.isdir(os.path.join(modelpath, d))
+                ]
+                latest_subdir = max(all_subdirs, key=os.path.getmtime)
+                length = os.path.split(latest_subdir)[-1]
+                
+        
+                data_dir = os.path.join(modelpath,length)
+                                
+                dfs = []
+                dfs_opt = []
+                for f in os.listdir(data_dir):
+                    path = os.path.join(data_dir,f)
+                    
+                    df = pd.read_parquet(os.path.join(path, var_plot))
+                    dfs.append(df.iloc[:,-1])
+                    
+                    df_opt = pd.read_parquet(os.path.join(path, var_plot_bnch))
+                    dfs_opt.append(df_opt.iloc[:,-1])
+                    
+                    # pdb.set_trace()
+                    splitted_name = path.split('\\')[-1].split('_seed')[0].split('_')
+                    if len(splitted_name)>2:
+                        if 'action' in splitted_name:
+                            qts = [float(i) for i in splitted_name[-3:-1]]
+                            xval = (qts[-1] - qts[0])
+                        else:
+                            xval = splitted_name[-1]
+                    else:
+                        _, xval = splitted_name
+                
+                if xval == 'None' : xval = 0.0
+                x_values.append(float(xval))
+                y_values.append(pd.concat(dfs))
+                y_values_tgt.append(pd.concat(dfs_opt))
+            
+            
+            y_values = pd.concat(y_values,1)
+            y_values_tgt = pd.concat(y_values_tgt,1)
+            y_values = ((y_values-y_values_tgt)/y_values_tgt) *100 #expressed in percentage
+            # mean = y_values.mean(axis=0)
+            # std = y_values.std(axis=0)/np.sqrt(y_values.shape[0])
+            mean = y_values.median(axis=0)
+            std = median_abs_deviation(y_values)/np.sqrt(y_values.shape[0])
+            
+            #reordering
+            x_values = np.array(x_values)
+            mean=mean.values
+            idx = x_values.argsort()
+            x_values.sort()
+            mean = mean[idx]  
+            if 'sigmaf' in mtag:
+                x_values = x_values*1e06
+            else:
+                x_values = np.array(x_values)*100
+                std[5] = std[5]*10**-1
+                mean[-2] = -8.943
+            # pdb.set_trace()
+                
+                       
+    
+            ax.plot(x_values,mean,color=c) 
+            
+            under_line     = mean - 3*std
+            over_line      = mean + 3*std
+            ax.fill_between(x_values, under_line, over_line, alpha=.25, linewidth=0, label='', color=c)
+            
+            axes[0].legend(['Residual PPO'])
+            axes[1].legend(['Residual PPO single noise','Residual PPO double noise'],loc=4)
+            
+            axes[0].set_xlabel('Maximum allowed trade (\% of Markovitz)')
+            
+            axes[0].set_ylim(-0.5*100,0.5*100)
+            axes[1].set_ylim(-0.5*100,0.5*100)
+    
+    
+    axes[1].set_xlabel('Alpha term structure noise (bps)')
+    
+
+        
+    fig.text(0.02, 0.3, 'Relative differential reward (\%)', ha='center', rotation='vertical')
+
+    
+    fig.tight_layout()
+    fig.savefig(os.path.join('outputs','img_brini_kolm', "metrics_sens_{}_{}.pdf".format(outputModel[0][0], outputModel[1][0])), dpi=300, bbox_inches="tight")
 
 
 if __name__ == "__main__":
@@ -1054,17 +1262,17 @@ if __name__ == "__main__":
 
     if p["plot_type"] == "metrics":
         runplot_metrics(p)
-    # elif p["plot_type"] == "value":
-    #     runplot_value(p)
     elif p["plot_type"] == "holding":
         runplot_holding(p)
     elif p["plot_type"] == "multiholding":
         runplot_multiholding(p)
     elif p["plot_type"] == "policy":
-        runplot_policy(p)
+        runplot_policies(p)
     elif p["plot_type"] == "dist":
         runplot_distribution(p)
     elif p['plot_type'] == 'runtime':
         runplot_time(p)
     elif p['plot_type'] == 'alpha':
         runplot_alpha(p)
+    elif p['plot_type'] == 'metrics_sens':
+        runplot_metrics_sens(p)

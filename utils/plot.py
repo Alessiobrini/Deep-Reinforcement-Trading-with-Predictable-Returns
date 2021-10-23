@@ -326,8 +326,8 @@ def plot_abs_metrics(
 
     if plt_type == 'diff':
         
-        df = (df-df_opt)/df_opt
-        # pdb.set_trace()
+
+        df = ((df-df_opt)/df_opt)*100
         df_median = df.median(axis=0)
         mad = median_abs_deviation(df)
         if 'Pdist' not in variable:
@@ -572,7 +572,7 @@ def optimal_vf(states, discount_rate, kappa, costmultiplier, f_param, halflife, 
 
 
 def plot_BestActions(
-    model, holding: float, ax: object = None, optimal: bool = False,
+    model, holding: float, ax: object = None, optimal: bool = False, seed: int = 324345, color='tab:blue'
 ):
 
     """
@@ -624,7 +624,7 @@ def plot_BestActions(
         actions = ActionSpace(
             query("%ACTION_RANGE"), query("%ZERO_ACTION"), query("%SIDE_ONLY")
         ).values
-    rng = np.random.RandomState(15)
+    rng = np.random.RandomState(seed)
     if query("%INP_TYPE") == "ret" or query("%INP_TYPE") == "alpha":
         if query("%INP_TYPE") == "alpha":
             data_handler = DataHandler(N_train=query('%LEN_SERIES'), rng=rng)
@@ -656,6 +656,7 @@ def plot_BestActions(
                 dist, _ = model(states)
             
             unscaled_max_action = torch.nn.Tanh()(dist.mean)
+            
             if query("%MV_RES"):
                 max_action = unscale_asymmetric_action(actions[0],actions[-1], unscaled_max_action)
             else:
@@ -668,6 +669,7 @@ def plot_BestActions(
             max_action,
             linewidth=1.5,
             label="{} Policy".format(model.modelname),
+            color=color
         )
         # ax.fill_between(sample_Ret, (max_action-ci).reshape(-1), (max_action+ci).reshape(-1), color='b', alpha=.1)
 
@@ -755,13 +757,15 @@ def plot_BestActions(
                 max_action,
                 linewidth=1.5,
                 label="{} Policy".format(model.modelname),
+                color=color
             )
         else:
             ax.plot(
-                factors[:, 0],
+                factors[:, 0]*10**4, #to express in bps
                 max_action,
                 linewidth=1.5,
                 label="{} Policy".format(model.modelname),
+                color=color
             )
 
         # ci = 1.96 * model.log_std.exp().detach().numpy()
@@ -802,9 +806,9 @@ def plot_BestActions(
             optimal_policy = OptNextHolding - holdings
 
             if holding == None:
-                ax.plot(holdings, optimal_policy, linewidth=1.5, label="GP Policy")
+                ax.plot(holdings, optimal_policy, linewidth=1.5, label="GP Policy", color='tab:orange')
             else:
-                ax.plot(factors[:, 0], optimal_policy, linewidth=1.5, label="GP Policy")
+                ax.plot(factors[:, 0]*10**4, optimal_policy, linewidth=1.5, label="GP Policy", color='tab:orange')
 
             
 

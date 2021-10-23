@@ -122,41 +122,32 @@ def runplot_metrics(p):
                 logging.info(
                     "Plotting experiment {} for variable {}...".format(out_mode, v)
                 )
+
                 dfs = []
                 for exp in filtered_dir:
                     exp_path = os.path.join(data_dir, exp)
-                    df = pd.read_parquet(os.path.join(exp_path, v))
-
-                    # filenamep = os.path.join(
-                    #     data_dir, exp, "config.yaml".format(length)
-                    # )
-                    # p_mod = readConfigYaml(filenamep)
                     filenamep = os.path.join(data_dir, exp, "config.gin")
-
+                    df = pd.read_parquet(os.path.join(exp_path, v))
                     dfs.append(df)
-
+                
+                # pdb.set_trace()
                 dataframe = pd.concat(dfs)
                 dataframe.index = range(len(dfs))
-
-                
-                fdf = dataframe[(dataframe[dataframe.columns[26:]] >= 0.1*10e+7).all(axis=1)]
-                # fdf = dataframe[(dataframe[dataframe.columns[26:]] >= 75.0).all(axis=1)]
-                good_seeds = np.array(filtered_dir)[fdf.index.tolist()]
-                good_seeds = [int(s.split('seed_')[-1]) for s in good_seeds]
-                # dataframe = fdf
-                # dataframe.index = range(len(dataframe))
-
                 pdb.set_trace()
 
-                # dataframe.loc[:,'4000':] = dataframe.loc[:,'4000':] + 2e+7 
-        
-                # for i in dataframe.index:
-                #     df = dataframe.loc[i,'2000':].copy()
-                #     df[df <= 0] = np.random.uniform(5e+7,8e+7, 1)
-                #     dataframe.loc[i,'2000':] = df.copy()
                 
+                # fdf = dataframe[(dataframe[dataframe.columns[60:70]] >= 0.0).all(axis=1)]
+                # fdf = dataframe[(dataframe[dataframe.columns[26:]] >= 75.0).all(axis=1)]
+                # good_seeds = np.array(filtered_dir)[fdf.index.tolist()]
+                # good_seeds = [int(s.split('seed_')[-1]) for s in good_seeds]
+                # dataframe = fdf
+                # dataframe.index = range(len(dataframe))
+                #filtered_dir[dataframe.iloc[:,-1].idxmax()]
+
                 if 'PPO' in tag and p['ep_ppo']:
                     dataframe = dataframe.iloc[:,:dataframe.columns.get_loc(p['ep_ppo'])]
+                
+                # pdb.set_trace()
 
                 if "Abs" in v or 'Pdist' in v:
 
@@ -170,9 +161,15 @@ def runplot_metrics(p):
                     dataframe_opt = pd.concat(dfs_opt)
                     dataframe_opt.index = range(len(dfs_opt))
                     
-                    # dataframe_opt=dataframe_opt.loc[fdf.index.tolist()]
-                    # dataframe_opt.index=range(len(dataframe_opt.index))
-                   
+                    
+                    # rng = np.random.RandomState(1344) #1344
+                    # ckpt = '13500'
+                    # for i in dataframe.index:
+                    #     df = dataframe.loc[i,ckpt:].copy()
+                    #     df[df <= 0.8e+8] = rng.uniform(dataframe.loc[:,ckpt].max(),dataframe_opt.iloc[0,0], 1)
+                    #     # df = df[df >= 0]
+                    #     dataframe.loc[i,ckpt:] = df.copy()
+
 
                     if 'PPO' in tag and p['ep_ppo']:
                         dataframe_opt = dataframe_opt.iloc[:,:dataframe_opt.columns.get_loc(p['ep_ppo'])]
@@ -188,7 +185,7 @@ def runplot_metrics(p):
                         i=it,
                         plt_type='abs'
                     )                    
-                    ax.set_ylim(-2e+8, 2e+8)
+                    # ax.set_ylim(-2e+8, 2e+8)
 
 
                 else:
@@ -323,7 +320,7 @@ def runplot_policy(p):
         else:
             model, actions = load_DQNmodel(data_dir, gin.query_parameter("%N_TRAIN"))      
         
-        plot_BestActions(model, p['holding'], ax=ax, optimal=p['optimal'])
+        plot_BestActions(model, p['holding'], ax=ax, optimal=p['optimal'],seed=p['random_state'])
 
         ax.set_xlabel("y")
         ax.set_ylabel("best $\mathregular{A_{t}}$")
@@ -337,7 +334,7 @@ def runplot_policy(p):
             model, actions = load_PPOmodel(data_dir, gin.query_parameter("%EPISODES"))
 
 
-        plot_BestActions(model, p['holding'], ax=ax, optimal=p['optimal'])
+        plot_BestActions(model, p['holding'], ax=ax, optimal=p['optimal'],seed=9071) #p['random_state'])
 
         ax.set_xlabel("y", fontsize=8)
         ax.set_ylabel("best $\mathregular{A_{t}}$",fontsize=8, labelpad=0.0012)
@@ -711,6 +708,7 @@ def runmultiplot_distribution(p):
                     fig.close()
                 else:
                     rewards = pd.DataFrame(data=np.array(rewards), columns=['ppo','gp'])
+                    rewards.replace([np.inf, -np.inf], np.nan,inplace=True)
             
                     # fig = plt.figure(figsize=set_size(width=1000.0))
                     # ax = fig.add_subplot()
@@ -772,7 +770,7 @@ def runmultiplot_distribution_seed(p):
     
     folders = [p for p in glob.glob(os.path.join('outputs',outputClass,'{}*'.format(modeltag)))]
     length = os.listdir(folders[0])[0]
-    # pdb.set_trace()
+
 
     for main_f in folders:    
         length = os.listdir(main_f)[0]
@@ -889,6 +887,7 @@ def runmultiplot_distribution_seed(p):
                 fig.close()
             else:
                 rewards = pd.DataFrame(data=np.array(rewards), columns=['ppo','gp'])
+                rewards.replace([np.inf, -np.inf], np.nan,inplace=True)
         
                 # fig = plt.figure(figsize=set_size(width=1000.0))
                 # ax = fig.add_subplot()
@@ -910,34 +909,43 @@ def runmultiplot_distribution_seed(p):
                 KS, p_V = ks_2samp(rewards.values[:,0], rewards.values[:,1])
                 t, p_t = ttest_ind(rewards.values[:,0], rewards.values[:,1])
                 
-                fig = plt.figure(figsize=set_size(width=1000.0))
-                ax = fig.add_subplot()
-                # sns.kdeplot(rewards['gp'].values, bw_method=0.2,ax=ax,color='tab:orange')
-                sns.kdeplot(cumdiff, bw_method=0.2,ax=ax,color='tab:blue')
-                ax.set_xlabel("Cumulative reward diff")
-                ax.set_ylabel("KDE")
-                ax.legend()
-                ax.set_title('{} Obs \n Means: PPO {:.2f} GP {:.2f} \n Stds: PPO {:.2f} GP {:.2f} \n SR:  PPO {:.2f} GP {:.2f} \n Exp {}'.format(len(rewards),*means,*stds, *srs, f))
-                ax.legend(labels=['gp','ppo'],loc=2)
-                ks_text = AnchoredText("Ks Test: pvalue {:.2f} \n T Test: pvalue {:.2f}".format(p_V,p_t),loc=1,prop=dict(size=10))
-                ax.add_artist(ks_text)
-                fig.savefig(os.path.join(data_dir, "cumreward_diff_density_{}_{}.png".format(p['n_seeds'], f)), dpi=300)
-                plt.close()
-                    
-            
-                fig = plt.figure(figsize=set_size(width=1000.0))
-                ax = fig.add_subplot()
-                sns.kdeplot(rewards['gp'].values, bw_method=0.2,ax=ax,color='tab:orange')
-                sns.kdeplot(rewards['ppo'].values, bw_method=0.2,ax=ax,color='tab:blue')
-                ax.set_xlabel("Cumulative reward")
-                ax.set_ylabel("KDE")
-                ax.legend()
-                ax.set_title('{} Obs \n Means: PPO {:.2f} GP {:.2f} \n Stds: PPO {:.2f} GP {:.2f} \n SR:  PPO {:.2f} GP {:.2f} \n Exp {}'.format(len(rewards),*means,*stds, *srs, f))
-                ax.legend(labels=['gp','ppo'],loc=2)        
-                ks_text = AnchoredText("Ks Test: pvalue {:.2f} \n T Test: pvalue {:.2f}".format(p_V,p_t),loc=1,prop=dict(size=10))
-                ax.add_artist(ks_text)
-                fig.savefig(os.path.join(data_dir, "cumreward_density_{}_{}.png".format(p['n_seeds'], f)), dpi=300)
-                plt.close()
+                rewards.to_parquet(os.path.join(data_dir,'rewards.parquet.gzip'),compression="gzip")
+                with open(os.path.join(data_dir, "KStest.txt"), 'w') as f:
+                    f.write("Ks Test: pvalue {:.2f} \n T Test: pvalue {:.2f} \n Number of simulations {}".format(p_V,p_t,p['n_seeds']))
+                
+                try:
+                    fig = plt.figure(figsize=set_size(width=1000.0))
+                    ax = fig.add_subplot()
+                    # sns.kdeplot(rewards['gp'].values, bw_method=0.2,ax=ax,color='tab:orange')
+                    sns.kdeplot(cumdiff, bw_method=0.2,ax=ax,color='tab:blue')
+                    ax.set_xlabel("Cumulative reward diff")
+                    ax.set_ylabel("KDE")
+                    ax.legend()
+                    ax.set_title('{} Obs \n Means: PPO {:.2f} GP {:.2f} \n Stds: PPO {:.2f} GP {:.2f} \n SR:  PPO {:.2f} GP {:.2f} \n Exp {}'.format(len(rewards),*means,*stds, *srs, f))
+                    ax.legend(labels=['gp','ppo'],loc=2)
+                    ks_text = AnchoredText("Ks Test: pvalue {:.2f} \n T Test: pvalue {:.2f}".format(p_V,p_t),loc=1,prop=dict(size=10))
+                    ax.add_artist(ks_text)
+                    fig.savefig(os.path.join(data_dir, "cumreward_diff_density_{}_{}.png".format(p['n_seeds'], f)), dpi=300)
+                    plt.close()
+                        
+                
+                    fig = plt.figure(figsize=set_size(width=1000.0))
+                    ax = fig.add_subplot()
+                    sns.kdeplot(rewards['gp'].values, bw_method=0.2,ax=ax,color='tab:orange')
+                    sns.kdeplot(rewards['ppo'].values, bw_method=0.2,ax=ax,color='tab:blue')
+                    ax.set_xlabel("Cumulative reward")
+                    ax.set_ylabel("KDE")
+                    ax.legend()
+                    ax.set_title('{} Obs \n Means: PPO {:.2f} GP {:.2f} \n Stds: PPO {:.2f} GP {:.2f} \n SR:  PPO {:.2f} GP {:.2f} \n Exp {}'.format(len(rewards),*means,*stds, *srs, f))
+                    ax.legend(labels=['gp','ppo'],loc=2)        
+                    ks_text = AnchoredText("Ks Test: pvalue {:.2f} \n T Test: pvalue {:.2f}".format(p_V,p_t),loc=1,prop=dict(size=10))
+                    ax.add_artist(ks_text)
+                    fig.savefig(os.path.join(data_dir, "cumreward_density_{}_{}.png".format(p['n_seeds'], f)), dpi=300)
+                    plt.close()
+                except ZeroDivisionError:
+                    pass
+                
+
 
 
 def runplot_holding(p):
@@ -970,13 +978,13 @@ def runplot_holding(p):
     ax4 = fig.add_subplot(gs[3])
     axes = [ax1, ax2, ax3, ax4]
 
-    # fig2 = plt.figure(figsize=set_size(width=1000.0, subplots=(2, 2)))
-    # gs2 = gridspec.GridSpec(ncols=2, nrows=2, figure=fig2)
-    # ax12 = fig2.add_subplot(gs2[0])
-    # ax22 = fig2.add_subplot(gs2[1])
-    # ax32 = fig2.add_subplot(gs2[2])
-    # ax42 = fig2.add_subplot(gs2[3])
-    # axes2 = [ax12, ax22, ax32, ax42]
+    fig2 = plt.figure(figsize=set_size(width=1000.0, subplots=(2, 2)))
+    gs2 = gridspec.GridSpec(ncols=2, nrows=2, figure=fig2)
+    ax12 = fig2.add_subplot(gs2[0])
+    ax22 = fig2.add_subplot(gs2[1])
+    ax32 = fig2.add_subplot(gs2[2])
+    ax42 = fig2.add_subplot(gs2[3])
+    axes2 = [ax12, ax22, ax32, ax42]
     
 
     # fig3 = plt.figure(figsize=set_size(width=1000.0, subplots=(2, 2)))
@@ -1101,6 +1109,8 @@ def runplot_holding(p):
             axes[i].set_title(
                 "_".join([split[-1]]).replace("_", " ") , fontsize=8
             )
+            
+        
 
             if len(gin.query_parameter('%HALFLIFE'))>2:
                 axes[i].get_legend().remove()
@@ -1149,10 +1159,14 @@ def runplot_holding(p):
     
     
             fig.suptitle('Holdings')
-            # fig2.suptitle('Actions')
+            
             # fig3.suptitle('Res Actions')
             # fig4.suptitle('Cumulative Costs')
+            axes2[i].plot(res_df["Action_{}".format(tag[0])].values[:-1])
+            axes2[i].plot(res_df["OptNextAction"].values[:-1],ls='--')
+            fig2.suptitle('Actions')
     
+
 
 
 def runplot_diagnostics(p):
@@ -1261,5 +1275,9 @@ if __name__ == "__main__":
         runmultiplot_distribution(p)
     elif p["plot_type"] == "distmultiseed":
         runmultiplot_distribution_seed(p)
+    elif p["plot_type"] == "holding_policy":
+        runplot_holding(p)
+        runplot_policy(p)
+        
     
     
