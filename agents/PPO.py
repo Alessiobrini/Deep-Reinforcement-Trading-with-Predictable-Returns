@@ -452,6 +452,7 @@ class PPO:
         rewards = self.experience["reward"]
         values = self.experience["value"]
 
+
         values = values + [next_value]
         gae = 0
         returns = []

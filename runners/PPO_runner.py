@@ -197,7 +197,7 @@ class PPO_runner(MixinCore):
                         returns=self.data_handler.returns,
                         factors=self.data_handler.factors,
                     )
-
+                    
                     gin.query_parameter("%ACTION_RANGE")[0] = action_range
                     self.action_space = ActionSpace()
             
@@ -311,9 +311,15 @@ class PPO_runner(MixinCore):
                         self.action_space.action_range[0],self.action_space.action_range[1], clipped_action
                     )
                 else:
-                    unscaled_action = unscale_action(
-                        self.action_space.action_range[0], clipped_action
-                    )
+                    
+                    if self.action_space.asymmetric:
+                        unscaled_action = unscale_asymmetric_action(
+                            self.action_space.action_range[0],self.action_space.action_range[1], clipped_action
+                        )
+                    else:
+                        unscaled_action = unscale_action(
+                            self.action_space.action_range[0], clipped_action
+                        )
 
             elif self.train_agent.policy_type == "discrete":
                 action = dist.sample()
@@ -359,8 +365,9 @@ class PPO_runner(MixinCore):
             state = next_state
 
             _, self.next_value = self.train_agent.act(next_state)
-            # compute the advantage estimate from the given rollout
-            self.train_agent.compute_gae(self.next_value.detach().cpu().numpy().ravel())
+        # compute the advantage estimate from the given rollout
+        self.train_agent.compute_gae(self.next_value.detach().cpu().numpy().ravel())
+
 
     def update(self,episode):
         for i in range(self.epochs):  # run for more than one epochs
@@ -378,6 +385,7 @@ class PPO_runner(MixinCore):
             if i == len(range(self.epochs)) - 1:
                 pass
             else:
+                pdb.set_trace()
                 self.train_agent.compute_gae(
                     self.next_value.detach().cpu().numpy().ravel(), recompute_value=True
                 )

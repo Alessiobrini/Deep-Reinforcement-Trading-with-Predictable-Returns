@@ -100,7 +100,7 @@ class Out_sample_vs_gp:
 
                 gin.query_parameter("%ACTION_RANGE")[0] = action_range
                 test_agent.action_space = ActionSpace()
-
+            
             self.test_env = self.env_cls(
                 N_train=self.N_test,
                 f_speed=data_handler.f_speed,
@@ -162,9 +162,15 @@ class Out_sample_vs_gp:
                                 test_agent.action_space.action_range[0],test_agent.action_space.action_range[1], action
                             )
                         else:
-                            action = unscale_action(
-                                test_agent.action_space.values[-1], action
-                            )
+                            if test_agent.action_space.asymmetric:
+                                action = unscale_asymmetric_action(
+                                    test_agent.action_space.action_range[0],test_agent.action_space.action_range[1], action
+                                )
+                            else:
+                                action = unscale_action(
+                                    test_agent.action_space.action_range[0], action
+                                )
+
 
                     elif test_agent.policy_type == "discrete":
                         # action = test_agent.action_space.values[dist.sample()]
@@ -201,7 +207,7 @@ class Out_sample_vs_gp:
                 self.test_env.store_results(OptResult, i)
 
                 CurrOptState = NextOptState
-
+            # pdb.set_trace()
             if return_output:
                 return self.test_env.res_df
 
@@ -383,6 +389,7 @@ class Out_sample_vs_gp:
         if abs_wealthrl:
             self.abs_series_wealth_rl.loc[0, str(it)] = np.mean(abs_wealthrl)
             self.abs_series_wealth_gp.loc[0, str(it)] = np.mean(abs_wealthgp)
+        
 
 
     def save_series(self):
