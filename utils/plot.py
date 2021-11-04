@@ -342,9 +342,9 @@ def plot_abs_metrics(
             linewidth=2,
             label="{}".format("_".join(data_dir.split("/")[-2].split("_")[2:])),
         )
-    
-        under_line     = df_median - mad
-        over_line      = df_median + mad
+        sz=1.0
+        under_line     = df_median - sz *mad
+        over_line      = df_median + sz *mad
         ax1.fill_between(idxs, under_line, over_line, color=colors, alpha=0.25, linewidth=0, label='')
 
     elif plt_type == 'abs':
@@ -595,8 +595,11 @@ def plot_BestActions(
     """
 
     query = gin.query_parameter
-    gin.bind_parameter('%DOUBLE_NOISE', False)
-    gin.bind_parameter('%SIGMAF', [None])
+    # gin.bind_parameter('%DOUBLE_NOISE', False)
+    # gin.bind_parameter('%SIGMAF', [None])
+    gin.bind_parameter('%INITIAL_ALPHA', [0.009])
+    # gin.bind_parameter('%HALFLIFE', [35])
+    
 
     def opt_trading_rate_disc_loads(
         discount_rate, kappa, CostMultiplier, f_param, f_speed
@@ -638,6 +641,7 @@ def plot_BestActions(
             holdings = np.zeros(len(sample_Ret), dtype="float")
         else:
             holdings = np.ones(len(sample_Ret), dtype="float") * holding
+            
 
         if model.modelname == "DQN":
             states = tf.constant(
@@ -680,6 +684,7 @@ def plot_BestActions(
             data_handler = DataHandler(N_train=query('%LEN_SERIES'), rng=rng)
             data_handler.generate_returns()
             factors = data_handler.factors
+            # pdb.set_trace()
 
             # factors.sort()
         else:
@@ -702,6 +707,7 @@ def plot_BestActions(
                 factors = np.repeat(0.004, len(factors)).reshape(-1, 1)
         else:
             holdings = np.ones(len(factors), dtype="float") * holding
+
 
         if model.modelname == "DQN":
             states = tf.constant(

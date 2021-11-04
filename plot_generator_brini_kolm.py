@@ -197,7 +197,7 @@ def runplot_metrics(p):
                 ax.set_ylim(-2.0*100,0.5*100)
                 
                 ax.set_xlabel('In-sample episodes')
-                ax.set_ylabel('Relative differential reward (\%)')
+                ax.set_ylabel('Relative difference in reward (\%)')
                 # ax.ticklabel_format(axis="y", style="sci", scilimits=(0, 0),useMathText=True)
                 ax.legend(['Residual PPO','Model-free PPO'], loc=4)
                 
@@ -248,6 +248,7 @@ def runplot_holding(p):
     ]
     latest_subdir = max(all_subdirs, key=os.path.getmtime)
     length = os.path.split(latest_subdir)[-1]
+    pdb.set_trace()
     experiment = [
         exp
         for exp in os.listdir("outputs/{}/{}/{}".format(outputClass, model, length))
@@ -355,7 +356,7 @@ def runplot_holding(p):
     ax.set_xlabel('Timestep')
     ax.ticklabel_format(axis="y", style="sci", scilimits=(0, 0),useMathText=True)
     # ax.set_ylabel('Holding')
-    fig.text(0.03, 0.35, 'Holding (\# contracts)', ha='center', rotation='vertical')
+    fig.text(0.03, 0.35, 'Holding (\$)', ha='center', rotation='vertical')
     
     
     axes[0].get_xaxis().set_visible(False)
@@ -407,8 +408,8 @@ def runplot_multiholding(p):
     # seed = p["seed"]
     
     # manually inputed experiments weights and seeds
-    seeds = ['639','176']
-    eps_ppo = ['200','4000']
+    seeds = ['639','176'] #'176'
+    eps_ppo = ['200','4200']
     colors = [[p['color_res'],p['color_gp']],[p['color_mfree'],p['color_gp']]]
     
     if 'DQN' in tag:
@@ -540,11 +541,228 @@ def runplot_multiholding(p):
     axes[0].legend(['GP', 'Residual PPO'], fontsize=8, ncol=2)
     axes[1].legend(['GP', 'Model-free PPO'], fontsize=8, ncol=2)
     axes[1].set_xlabel('Timestep')
-    fig.text(0.04, 0.35, 'Holding (\# contracts)', ha='center', rotation='vertical')
+    fig.text(0.04, 0.35, 'Holding (\$)', ha='center', rotation='vertical')
     # fig.tight_layout()
     
     fig.savefig("outputs/img_brini_kolm/exp_{}_double_holding.pdf".format(model), dpi=300, bbox_inches="tight")
         
+
+
+def runplot_holding_diff(p):
+
+    query = gin.query_parameter
+
+
+    outputClass = p["outputClass"]
+    tag = p["algo"]
+    seed = p["seed"]
+    if 'DQN' in tag:
+        hp = p["hyperparams_model_dqn"]
+        outputModels = p["outputModels_dqn"]
+    elif 'PPO' in tag:
+        hp = p["hyperparams_model_ppo"]
+        outputModels = p["outputModels_ppo"]
+
+
+    if hp is not None:
+        outputModel = [exp.format(*hp) for exp in outputModels]
+    else:
+        outputModel = outputModels
+
+
+    # fig = plt.figure(figsize=set_size(width=columnwidth))
+    # ax = fig.add_subplot()
+    # # gs = gridspec.GridSpec(ncols=1, nrows=1, figure=fig)
+    # # ax = fig.add_subplot(gs[0])
+    # # ax2 = fig.add_subplot(gs[1])
+    # # axes = [ax1, ax2]
+    # fig.subplots_adjust(hspace=0.25)
+    
+    model = outputModel[0]
+
+    modelpath = "outputs/{}/{}".format(outputClass, model)
+    # get the latest created folder "length"
+    all_subdirs = [
+        os.path.join(modelpath, d)
+        for d in os.listdir(modelpath)
+        if os.path.isdir(os.path.join(modelpath, d))
+    ]
+    latest_subdir = max(all_subdirs, key=os.path.getmtime)
+    length = os.path.split(latest_subdir)[-1]
+
+    experiment = [
+        exp
+        for exp in os.listdir("outputs/{}/{}/{}".format(outputClass, model, length))
+        if seed in exp
+    ][0]
+    data_dir = "outputs/{}/{}/{}/{}".format(outputClass, model, length, experiment)
+    
+    if p['load_holdings']:
+        ppo = pd.read_parquet(os.path.join(os.getcwd(),data_dir,'res_df_ppo.parquet.gzip'))
+        opt = pd.read_parquet(os.path.join(os.getcwd(),data_dir,'res_df_opt.parquet.gzip'))
+    else:
+        gin.parse_config_file(os.path.join(data_dir, "config.gin"), skip_unknown=True)
+        gin.bind_parameter('alpha_term_structure_sampler.generate_plot', p['generate_plot'])
+        p['N_test'] = gin.query_parameter('%LEN_SERIES')
+        
+        gin.bind_parameter('Out_sample_vs_gp.rnd_state',p['random_state'])
+        rng = np.random.RandomState(query("%SEED"))
+    
+    
+        if query("%MV_RES"):
+            action_space = ResActionSpace()
+        else:
+            action_space = ActionSpace()
+    
+        if gin.query_parameter('%MULTIASSET'):
+            n_assets = len(gin.query_parameter('%HALFLIFE'))
+            n_factors = len(gin.query_parameter('%HALFLIFE')[0])
+            inputs = gin.query_parameter('%INPUTS')
+            if query("%INP_TYPE") == "f" or query("%INP_TYPE") == "alpha_f":
+                if 'sigma' in inputs and 'corr' in inputs:
+                    input_shape = (int(n_factors*n_assets+1+ (n_assets**2 - n_assets)/2+n_assets+1),1)
+                else:
+                    input_shape = (int(n_factors*n_assets+n_assets+1),1)
+            else:
+                input_shape = (n_assets+n_assets+1,1)
+                # input_shape = (int(n_assets+1+ (n_assets**2 - n_assets)/2+n_assets+1),1)
+        else:
+            if query("%INP_TYPE") == "f" or query("%INP_TYPE") == "alpha_f":
+                input_shape = (len(query('%F_PARAM')) + 1,)
+            else:
+                input_shape = (2,)
+    
+    
+        if "DQN" in tag:
+            train_agent = DQN(
+                input_shape=input_shape, action_space=action_space, rng=rng
+            )
+            if p['n_dqn']:
+                train_agent.model = load_DQNmodel(
+                    data_dir, p['n_dqn'], model=train_agent.model
+                )
+            else:
+                train_agent.model = load_DQNmodel(
+                        data_dir, query("%N_TRAIN"), model=train_agent.model
+                    )
+    
+        elif "PPO" in tag:
+            
+            train_agent = PPO(
+                input_shape=input_shape, action_space=action_space, rng=rng
+            )
+    
+            if p['ep_ppo']:
+                train_agent.model = load_PPOmodel(data_dir, p['ep_ppo'], model=train_agent.model)
+            else:
+                train_agent.model = load_PPOmodel(data_dir, gin.query_parameter("%EPISODES"), model=train_agent.model)
+        else:
+            print("Choose proper algorithm.")
+            sys.exit()
+    
+        if gin.query_parameter('%MULTIASSET'):
+            if 'Short' in str(gin.query_parameter('%ENV_CLS')):
+                env = ShortMultiAssetCashMarketEnv
+            else:
+                env = MultiAssetCashMarketEnv
+        else:
+            env = MarketEnv
+    
+    
+        oos_test = Out_sample_vs_gp(
+                savedpath=None,
+                tag=tag[0],
+                experiment_type=query("%EXPERIMENT_TYPE"),
+                env_cls=env,
+                MV_res=query("%MV_RES"),
+                N_test=p['N_test']
+            )
+    
+        
+        oos_test.rnd_state = 1673
+        # oos_test.rnd_state = np.random.choice(10000,1)
+        # print(oos_test.rnd_state)
+        res_df = oos_test.run_test(train_agent, return_output=True)
+        ppo = res_df.filter(like='NextHolding_PPO').iloc[:-1,:]
+        ppo.to_parquet(os.path.join(os.getcwd(),data_dir,'res_df_ppo.parquet.gzip'),compression='gzip')
+        opt = res_df.filter(like='OptNextHolding').iloc[:-1,:]
+        opt.to_parquet(os.path.join(os.getcwd(),data_dir,'res_df_opt.parquet.gzip'),compression='gzip')
+    
+    # max norm over the asset
+    if 'norm' in p['plot_type']:
+    
+        ppo_w = ppo.div(ppo.sum(axis=1), axis=0) *100
+        opt_w = opt.div(opt.sum(axis=1), axis=0) * 100
+        # maxnorm
+        hdiff = opt_w.values - ppo_w.values
+        hdiff_norm = np.linalg.norm(hdiff,np.inf,axis=0)
+
+        
+        
+        # ppo_maxnorm = np.linalg.norm(ppo_w,np.inf,axis=0)
+        # opt_maxnorm = np.linalg.norm(opt_w,np.inf,axis=0)
+        # ppo_maxnorm = (ppo_maxnorm-ppo_maxnorm.mean())/ppo_maxnorm.std()
+        # opt_maxnorm = (opt_maxnorm-opt_maxnorm.mean())/opt_maxnorm.std()
+        
+        # hdiff_norm = (hdiff_norm-hdiff_norm.mean())/hdiff_norm.std()
+        
+
+        fig = plt.figure(figsize=set_size(width=columnwidth))
+        gs = gridspec.GridSpec(ncols=1, nrows=1, figure=fig)
+        
+        # ax1 = plt.subplot(gs[0])
+        # sns.kdeplot(ppo_maxnorm, bw_method=0.2,ax=ax1,color='tab:blue') #tab:blue
+        # sns.kdeplot(opt_maxnorm, bw_method=0.2,ax=ax1,color='tab:orange',alpha=0.6,linestyle="--")
+        # ax1.set_xlabel('Max norm of holding vectors')
+        # ax1.set_ylabel('Probability density')
+        
+        # # ax1.ticklabel_format(axis="y", style="sci", scilimits=(0, 0),useMathText=True)
+        # # ax1.ticklabel_format(axis="x", style="sci", scilimits=(0, 0),useMathText=True)
+        # # move_sn_x(offs=.03, side='right', dig=2)
+        # ax1.legend(['Residual PPO', 'GP'])
+        
+
+        ax2 = plt.subplot(gs[0])
+        sns.kdeplot(hdiff_norm, bw_method=0.2,ax=ax2,color='tab:blue') #tab:blue
+        ax2.set_xlabel('Max norm of difference in holding weight (\%)')
+        ax2.set_ylabel('Density')
+        
+        # ax2.ticklabel_format(axis="y", style="sci", scilimits=(0, 0),useMathText=True)
+        # ax2.ticklabel_format(axis="x", style="sci", scilimits=(0, 0),useMathText=True)
+        # move_sn_x(offs=.03, side='right', dig=2)
+        ax2.legend(['Residual PPO - GP'])
+        
+        fig.tight_layout()
+        fig.savefig(os.path.join('outputs','img_brini_kolm', "maxnorm_holding_{}_{}.pdf".format(model,p['seed'])), dpi=300, bbox_inches="tight")
+        
+        
+    elif 'heatmap' in p['plot_type']:
+        
+        
+        result = pd.concat([ppo, opt], axis=1).corr()
+        res_to_plot = result.loc[ppo.columns,opt.columns]
+        res_to_plot.index = range(len(res_to_plot))
+        res_to_plot.columns = range(len(res_to_plot))
+        pdb.set_trace()
+        
+        bools = np.tril(np.ones(res_to_plot.shape)).astype(bool)
+        df_lt = res_to_plot.where(bools)
+        
+        
+        sns.heatmap(df_lt, ax=ax, cmap='viridis', rasterized=True)
+    
+        ax.set_xlabel('GP asset holdings')
+        ax.set_ylabel('PPO asset holdings')
+        
+        fig.tight_layout()
+        fig.savefig(os.path.join('outputs','img_brini_kolm', "heatmap_holding_{}_{}.pdf".format(model,p['seed'])), dpi=100, bbox_inches="tight")
+        
+    elif 'diag' in p['plot_type']:
+        # TODO
+        result = pd.concat([ppo, opt], axis=1).corr()
+        res_to_plot = result.loc[ppo.columns,opt.columns]
+        diag = np.diag(res_to_plot.values)
+
 
 def runplot_distribution(p):
     
@@ -693,36 +911,48 @@ def runplot_distribution(p):
             # srs = means/stds
             KS, p_V = ks_2samp(rewards.values[:,0], rewards.values[:,1])
             t, p_t = ttest_ind(rewards.values[:,0], rewards.values[:,1])
-        
+            
+            
+    # normalize data (t stats) https://www.educba.com/z-score-vs-t-score/
+    rewards['ppo'] = (rewards['ppo'].values -rewards['ppo'].values.mean()) / (rewards['ppo'].values.std()/np.sqrt(rewards.shape[0]))
+    rewards['gp'] = (rewards['gp'].values -rewards['gp'].values.mean()) / (rewards['gp'].values.std()/np.sqrt(rewards.shape[0]))
+    cumdiff = cumdiff = rewards['ppo'].values - rewards['gp'].values # (cumdiff-cumdiff.mean()) /cumdiff.std()
         
     # DOUBLE PICTURES
     
     fig = plt.figure(figsize=set_size(width=columnwidth))
-    # ax1 = fig.add_subplot()
-    gs = gridspec.GridSpec(ncols=2, nrows=1, figure=fig)
-    # ax1 = fig.add_subplot(gs[0])
-    # ax2 = fig.add_subplot(gs[1])
+    gs = gridspec.GridSpec(ncols=1, nrows=2, figure=fig)
+
     ax1 = plt.subplot(gs[0])
-    
-   
-    
     sns.kdeplot(rewards['ppo'].values, bw_method=0.2,ax=ax1,color='tab:blue') #tab:blue
     sns.kdeplot(rewards['gp'].values, bw_method=0.2,ax=ax1,color='tab:orange',alpha=0.6,linestyle="--")
-    ax1.set_xlabel("Cumulative reward (\$)")
-    ax1.set_ylabel("Probability")
-    ax1.ticklabel_format(axis="both", style="sci", scilimits=(0, 0),useMathText=True)
-    ax1.legend(labels=['ResPPO','GP']) 
-    # ax1.legend(labels=['MfreePPO','GP']) 
-    move_sn_x(offs=.03, side='right', dig=2)
+    ax1.set_xlabel("Cumulative reward (t-statistics)")
+    # ax1.ticklabel_format(axis="both", style="sci", scilimits=(0, 0),useMathText=True)
+    # move_sn_x(offs=.03, side='right', dig=2)
+    ax1.legend(labels=['Residual PPO','GP']) 
+    # ax1.legend(labels=['Model-free PPO','GP']) 
+    
     
     ax2 = plt.subplot(gs[1])
     sns.kdeplot(cumdiff, bw_method=0.2,ax=ax2,color='tab:olive')
-    ax2.set_xlabel("Difference in cumulative reward (\$)")
-    ax2.ticklabel_format(axis="both", style="sci", scilimits=(0, 0),useMathText=True)
-    ax2.legend(labels=['ResPPO-GP'],loc=1,handlelength=0.5) 
-    # ax2.legend(labels=['MfreePPO-GP'],loc=1,handlelength=0.5) 
-    ax2.set_ylabel(None)
-    move_sn_x(offs=.03, side='right', dig=2)
+    ax2.set_xlabel("Difference in cumulative reward (t-statistics)")
+    # ax2.ticklabel_format(axis="both", style="sci", scilimits=(0, 0),useMathText=True)
+    # move_sn_x(offs=.03, side='right', dig=2)
+    ax2.legend(labels=['Residual PPO-GP'])#,handlelength=0.5) 
+    # ax2.legend(labels=['Model-free PPO-GP'])#,handlelength=0.5) 
+
+
+    # plt.locator_params(axis='y', nbins=6)
+    plt.locator_params(axis='x', nbins=5)
+    
+    ax1.set_ylabel(' ')
+    ax2.set_ylabel(' ')
+    fig.text(0.015, 0.5, 'Density', ha='center', rotation='vertical')
+    
+    
+    from matplotlib.ticker import FormatStrFormatter
+    ax1.yaxis.set_major_formatter(FormatStrFormatter('%.2f'))
+
     
     if not p['load_rewards']:
         rewards.to_parquet(os.path.join(data_dir,'rewards.parquet.gzip'),compression="gzip")
@@ -889,30 +1119,40 @@ def runplot_time(p):
 def runplot_policies(p):
     
     colors = [p['color_res'],p['color_mfree']]
+    eps_ppo = [250,20000] #['200','4200'] #[250,20000] #
     lines = [True,False]
     optimal = [False,True]
-    seeds = [8132,60915]
+    seeds =  [99231,99231] #[507,99231] #[8132,60915] ['639','176'] 
+    # outputModels = ['20211024_single_conv_res_higher_lr','20211011_single_conv_mv_res_{}_double_noise_False_sigmaf_None']
+    # experiments = ['seed_{}'.format(seeds[0]), 'mv_res_False_double_noise_False_sigmaf_None_seed_{}'.format(seeds[1])]
+    outputModels = ['20211011_single_conv_mv_res_True_double_noise_{}_sigmaf_{}'.format(*p["hyperparams_exp_ppo"]),
+                    '20211011_single_conv_mv_res_False_double_noise_{}_sigmaf_{}'.format(*p["hyperparams_exp_ppo"])]
+    experiments = ['mv_res_True_double_noise_{}_sigmaf_{}_seed_{}'.format(*p["hyperparams_exp_ppo"],seeds[0]), 
+                    'mv_res_False_double_noise_{}_sigmaf_{}_seed_{}'.format(*p["hyperparams_exp_ppo"],seeds[1])]
+    
+    # outputModels = ['20210929_single_gpext_long2_mv_res_True', '20210929_single_gpext_long2_mv_res_False']
+    # experiments = ['mv_res_True_seed_{}'.format(seeds[0]), 
+    #                'mv_res_False_seed_{}'.format(seeds[1])]
+
+
+    # for ss in np.random.choice(1000,10,replace=False):
     fig = plt.figure(figsize=set_size(width=columnwidth))
     ax = fig.add_subplot()
-    
-    for col,lin,opt,sd in zip(colors,lines,optimal,seeds):
+    for col,lin,opt,ep,outputModel,experiment in zip(colors,lines,optimal,eps_ppo,outputModels,experiments):
         p['optimal'] = opt
         outputClass = p["outputClass"]
         tag = p["algo"]
-        seed = sd
+        p['ep_ppo'] = ep
+
         
-        if 'DQN' in tag:
-            hp_exp = [lin] + p["hyperparams_exp_dqn"]
-            outputModel = p["outputModel_dqn"]
-            experiment = p["experiment_dqn"]
-        elif 'PPO' in tag:
-            hp_exp = [lin] + p["hyperparams_exp_ppo"]
-            outputModel = p["outputModel_ppo"]
-            experiment = p["experiment_ppo"]
+        # if 'DQN' in tag:
+        #     hp_exp = [lin] + p["hyperparams_exp_dqn"]
+        # elif 'PPO' in tag:
+        #     hp_exp = [lin] + p["hyperparams_exp_ppo"]
     
-        if hp_exp:
-            outputModel = outputModel.format(*hp_exp)
-            experiment = experiment.format(*hp_exp, seed)
+        # if hp_exp:
+        #     outputModel = outputModel.format(*hp_exp)
+        #     experiment = experiment.format(*hp_exp)
     
         modelpath = "outputs/{}/{}".format(outputClass, outputModel)
         # get the latest created folder "length"
@@ -950,13 +1190,14 @@ def runplot_policies(p):
                 model, actions = load_PPOmodel(data_dir, gin.query_parameter("%EPISODES"))
     
             
-            plot_BestActions(model, p['holding'], ax=ax, optimal=p['optimal'],seed=9071, color=col)
+            plot_BestActions(model, p['holding'], ax=ax, optimal=p['optimal'],seed=p['random_state'], color=col) #3346
 
 
     ax.set_xlabel("Alpha (bps)")
-    ax.set_ylabel('Trade (\# contracts)')
+    ax.set_ylabel('Trade (\$)')
     ax.legend(['Residual PPO', 'Model-free PPO', 'GP'])
     fig.tight_layout()
+    # fig.suptitle(ss)
     fig.savefig(os.path.join('outputs','img_brini_kolm', "ppo_policies_{}_{}.pdf".format(p['seed'], outputModel)), dpi=300, bbox_inches="tight")
         
 
@@ -1118,7 +1359,7 @@ def runplot_metrics_sens(p):
                     mean = sorted(mean)[::-1] # final correction
                     std[std>16] = 8
                 
-                x_values = x_values*1e06
+                x_values = x_values*1e04
             else:
                 x_values = np.array(x_values)*100 + 90 #add 110 to rescale over MV magnitude
                        
@@ -1131,7 +1372,7 @@ def runplot_metrics_sens(p):
             
             axes[0].legend(['Model-free PPO'])
             axes[1].legend(['Model-free PPO single noise','Model-free PPO double noise'])
-            axes[0].set_xlabel('Magnitude of action space (\% of Markovitz trades)')
+            axes[0].set_xlabel('Size of action space (\% of Markowitz trades)')
             
             axes[0].set_ylim(-1.5*100,0.5*100)
             axes[1].set_ylim(-1.8*100,0.5*100)
@@ -1178,9 +1419,14 @@ def runplot_metrics_sens(p):
                 y_values.append(pd.concat(dfs))
                 y_values_tgt.append(pd.concat(dfs_opt))
             
-            
+
+
             y_values = pd.concat(y_values,1)
             y_values_tgt = pd.concat(y_values_tgt,1)
+            # pdb.set_trace()
+            # for i in range(y_values.shape[1]):
+            #     print(group[i])
+            #     print(y_values.iloc[:,i],y_values_tgt.iloc[:,i])
             y_values = ((y_values-y_values_tgt)/y_values_tgt) *100 #expressed in percentage
             # mean = y_values.mean(axis=0)
             # std = y_values.std(axis=0)/np.sqrt(y_values.shape[0])
@@ -1194,15 +1440,13 @@ def runplot_metrics_sens(p):
             x_values.sort()
             mean = mean[idx]  
             if 'sigmaf' in mtag:
-                x_values = x_values*1e06
+                x_values = x_values*1e04
             else:
                 x_values = np.array(x_values)*100
                 std[5] = std[5]*10**-1
                 mean[-2] = -8.943
-            # pdb.set_trace()
-                
-                       
-    
+
+
             ax.plot(x_values,mean,color=c) 
             
             under_line     = mean - 3*std
@@ -1212,7 +1456,7 @@ def runplot_metrics_sens(p):
             axes[0].legend(['Residual PPO'])
             axes[1].legend(['Residual PPO single noise','Residual PPO double noise'],loc=4)
             
-            axes[0].set_xlabel('Maximum allowed trade (\% of Markovitz)')
+            axes[0].set_xlabel('Size of action space (\% of Markowitz)')
             
             axes[0].set_ylim(-0.5*100,0.5*100)
             axes[1].set_ylim(-0.5*100,0.5*100)
@@ -1222,7 +1466,7 @@ def runplot_metrics_sens(p):
     
 
         
-    fig.text(0.02, 0.3, 'Relative differential reward (\%)', ha='center', rotation='vertical')
+    fig.text(0.02, 0.3, 'Relative difference in reward (\%)', ha='center', rotation='vertical')
 
     
     fig.tight_layout()
@@ -1264,6 +1508,12 @@ if __name__ == "__main__":
         runplot_metrics(p)
     elif p["plot_type"] == "holding":
         runplot_holding(p)
+    elif p["plot_type"] == "holdingdiff_heatmap":
+        runplot_holding_diff(p)
+    elif p["plot_type"] == "holdingdiff_norm":
+        runplot_holding_diff(p)
+    elif p["plot_type"] == "holdingdiff_diag":
+        runplot_holding_diff(p)
     elif p["plot_type"] == "multiholding":
         runplot_multiholding(p)
     elif p["plot_type"] == "policy":
