@@ -40,7 +40,7 @@ class DataHandler:
         datatype: str,
         N_train: int,
         rng: object,
-        factor_lb: Union[list or None] = None,
+        factor_lb: Union[list, None] = None,
     ):
 
         self.datatype = datatype
@@ -98,10 +98,10 @@ class DataHandler:
 @gin.configurable()
 def return_sampler_GP(
     N_train: int,
-    sigmaf: Union[float or list or np.ndarray],
-    f_param: Union[float or list or np.ndarray],
-    sigma: Union[float or list or np.ndarray],
-    HalfLife: Union[int or list or np.ndarray],
+    sigmaf: Union[float , list , np.ndarray],
+    f_param: Union[float , list , np.ndarray],
+    sigma: Union[float , list , np.ndarray],
+    HalfLife: Union[int , list , np.ndarray],
     rng: np.random.mtrand.RandomState = None,
     offset: int = 2,
     uncorrelated: bool = False,
@@ -111,7 +111,7 @@ def return_sampler_GP(
     dt: int = 1,
     disable_tqdm: bool = False,
 ) -> Tuple[
-    Union[list or np.ndarray], Union[list or np.ndarray], Union[list or np.ndarray]
+    Union[list , np.ndarray], Union[list , np.ndarray], Union[list , np.ndarray]
 ]:
     """
     Generates financial returns driven by mean-reverting factors.
@@ -513,11 +513,11 @@ def return_sampler_garch(
 @gin.configurable()
 def alpha_term_structure_sampler(    
     N_train: int,
-    HalfLife: Union[int or list or np.ndarray],
-    initial_alpha: Union[int or list or np.ndarray],
-    f_param: Union[int or list or np.ndarray],
-    sigma: Union[int or list or np.ndarray]= None,
-    sigmaf: Union[int or list or np.ndarray]= None,
+    HalfLife: Union[int , list , np.ndarray],
+    initial_alpha: Union[int , list , np.ndarray],
+    f_param: Union[int , list , np.ndarray],
+    sigma: Union[int , list , np.ndarray]= None,
+    sigmaf: Union[int , list , np.ndarray]= None,
     rng: np.random.mtrand.RandomState = None,
     offset: int = 2,
     generate_plot:bool = False,
@@ -535,7 +535,11 @@ def alpha_term_structure_sampler(
             hl = HalfLife[i]
             fp = f_param[i]
             if rng:
-                init_a = np.array([rng.uniform(-val,val,1) for val in init_a]).reshape(-1,)
+                posneg = rng.choice([0,1])
+                if posneg == 0:
+                    init_a = np.array([rng.uniform(-val*(1+0.2),-val*(1-0.2),1) for val in init_a]).reshape(-1,)
+                elif posneg == 1:
+                    init_a = np.array([rng.uniform(val*(1-0.2),val*(1+0.2),1) for val in init_a]).reshape(-1,)
                 if 'truncate' in hl:
                     hl = np.array([rng.uniform(int(N_train * 0.85),int(N_train * 1.25),1) for _ in init_a]).reshape(-1,)
                 elif None in hl:
@@ -589,13 +593,20 @@ def alpha_term_structure_sampler(
         # single asset case where different alpha term structure can be combined in 
         # a unique prediction
         if rng:
-            initial_alpha = np.array([rng.uniform(-val,val,1) for val in initial_alpha]).reshape(-1,)
+            posneg = rng.choice([0,1])
+            if posneg == 0:
+                initial_alpha = np.array([rng.uniform(-val*(1+0.5),-val*(1-0.5),1) for val in initial_alpha]).reshape(-1,)
+            elif posneg == 1:
+                initial_alpha = np.array([rng.uniform(val*(1-0.5),val*(1+0.5),1) for val in initial_alpha]).reshape(-1,)
+
             if 'truncate' in HalfLife:
                 HalfLife = np.array([rng.uniform(int(N_train * 0.85),int(N_train * 1.25),1) for _ in initial_alpha]).reshape(-1,)
             elif None in HalfLife:
                 HalfLife = np.array([rng.uniform(5,int(N_train * 0.75),1) for _ in initial_alpha]).reshape(-1,)
             else:
                 HalfLife = np.array([rng.uniform(val*(1-0.5),val*(1+0.5),1) for val in HalfLife]).reshape(-1,)
+            # print('init',initial_alpha)
+            # print('hl',HalfLife)
 
         alpha_n = len(HalfLife)
         f_speed =  np.log(2)/HalfLife

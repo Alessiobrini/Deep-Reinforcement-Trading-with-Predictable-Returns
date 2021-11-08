@@ -24,6 +24,7 @@ from utils.spaces import (
     ResActionSpace,
 )
 from utils.simulation import DataHandler
+from utils.common import format_tousands
 from agents.PPO import PPO
 from utils.tools import get_action_boundaries, get_bet_size, CalculateLaggedSharpeRatio
 from utils.test import Out_sample_vs_gp
@@ -41,7 +42,7 @@ class PPO_runner(MixinCore):
         seed: int,
         episodes: int,
         epochs: int,
-        len_series: Union[int or None],
+        len_series: Union[int , None],
         dt: int,
         rollouts_pct_num: float,
         save_freq: int,
@@ -49,10 +50,11 @@ class PPO_runner(MixinCore):
         outputDir: str = "outputs",
         outputClass: str = "PPO",
         outputModel: str = "test",
-        varying_pars: Union[list or None] = None,
+        varying_pars: Union[list , None] = None,
         varying_type: str = "chunk",
         num_cores: int = None,
         universal_train: bool = False,
+        store_insample: bool = False,
     ):
 
         self.logging.info("Starting model setup")
@@ -177,6 +179,8 @@ class PPO_runner(MixinCore):
         """
 
         self.logging.debug("Start training...")
+        if self.store_insample:
+            self.ppo_rew,self.opt_rew = [],[]
         for e in tqdm(iterable=range(self.episodes), desc="Running episodes..."):
  
             if e > 0 and self.universal_train:
@@ -188,8 +192,7 @@ class PPO_runner(MixinCore):
                     self.data_handler.estimate_parameters()
 
                 self.env.returns = self.data_handler.returns
-                if self.data_handler.datatype != "alpha_term_structure":
-                    self.env.factors = self.data_handler.factors
+                self.env.factors = self.data_handler.factors
                 if self.data_handler.datatype == "alpha_term_structure" and not self.MV_res:
                     action_range, _, _ = get_action_boundaries(
                         N_train=self.N_train,
@@ -234,6 +237,18 @@ class PPO_runner(MixinCore):
                 f.write('Runtime {} minutes'.format((end_time-self.start_time)/60))
             
             self.oos_test.save_series()
+
+        if self.store_insample:
+            ppo_rew = pd.DataFrame(data=self.ppo_rew,columns=['0'])
+            ppo_rew.to_parquet(os.path.join( self.savedpath,
+                             "AbsRew_IS_{}_{}.parquet.gzip".format(
+                                format_tousands(gin.query_parameter('%LEN_SERIES')), 'PPO')),
+                                compression="gzip")
+            gp_rew = pd.DataFrame(data=self.opt_rew,columns=['0'])
+            gp_rew.to_parquet(os.path.join( self.savedpath,
+                             "AbsRew_IS_{}_GP.parquet.gzip".format(
+                                format_tousands(gin.query_parameter('%LEN_SERIES')))),
+                                compression="gzip")
 
 
 
@@ -294,9 +309,13 @@ class PPO_runner(MixinCore):
 
     def collect_rollouts(self):
         state = self.env.reset()
+        if self.store_insample:
+            gp_temp = []
+            optstate = self.env.opt_reset()
+            optrate, discfactorloads = self.env.opt_trading_rate_disc_loads()
 
         self.train_agent.reset_experience()
-
+        
         for i in range(len(self.env.returns) - 2):
             dist, value = self.train_agent.act(state)
 
@@ -364,6 +383,20 @@ class PPO_runner(MixinCore):
 
             state = next_state
 
+            # # benchmark agent
+            if self.store_insample:
+                nextoptstate, optresult = self.env.opt_step(
+                    optstate, optrate, discfactorloads, i
+                )
+                optstate = nextoptstate
+                gp_temp.append(optresult['OptReward'])
+                
+        if self.store_insample:
+            self.ppo_rew.append(np.cumsum(self.train_agent.experience['reward'])[-1])
+            self.opt_rew.append(np.cumsum(gp_temp)[-1])
+
+
+
         _, self.next_value = self.train_agent.act(next_state)
         # compute the advantage estimate from the given rollout
         self.train_agent.compute_gae(self.next_value.detach().cpu().numpy().ravel())
@@ -385,7 +418,6 @@ class PPO_runner(MixinCore):
             if i == len(range(self.epochs)) - 1:
                 pass
             else:
-                pdb.set_trace()
                 self.train_agent.compute_gae(
                     self.next_value.detach().cpu().numpy().ravel(), recompute_value=True
                 )

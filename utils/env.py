@@ -131,17 +131,17 @@ class MarketEnv(gym.Env):
 
     def __init__(
         self,
-        HalfLife: Union[int or list or np.ndarray],
-        Startholding: Union[int or float],
+        HalfLife: Union[int , list , np.ndarray],
+        Startholding: Union[int , float],
         sigma: float,
         CostMultiplier: float,
         kappa: float,
         N_train: int,
         discount_rate: float,
-        f_param: Union[float or list or np.ndarray],
-        f_speed: Union[float or list or np.ndarray],
-        returns: Union[list or np.ndarray],
-        factors: Union[list or np.ndarray] = None,
+        f_param: Union[float , list , np.ndarray],
+        f_speed: Union[float , list , np.ndarray],
+        returns: Union[list , np.ndarray],
+        factors: Union[list , np.ndarray] = None,
         action_limit: int = None,
         inp_type: str = "ret",
         cost_type: str = 'quadratic',
@@ -254,7 +254,7 @@ class MarketEnv(gym.Env):
 
     def step(
         self,
-        currState: Union[Tuple or np.ndarray],
+        currState: Union[Tuple , np.ndarray],
         shares_traded: int,
         iteration: int,
         tag: str = "DQN",
@@ -277,7 +277,7 @@ class MarketEnv(gym.Env):
 
     def MV_res_step(
         self,
-        currState: Union[Tuple or np.ndarray],
+        currState: Union[Tuple, np.ndarray],
         shares_traded: int,
         iteration: int,
         tag: str = "DQN",
@@ -322,7 +322,7 @@ class MarketEnv(gym.Env):
 
     def discrete_step(
         self,
-        discretecurrState: Union[Tuple or np.ndarray],
+        discretecurrState: Union[Tuple , np.ndarray],
         shares_traded: int,
         iteration: int,
     ) -> Tuple[
@@ -482,12 +482,12 @@ class MarketEnv(gym.Env):
         idx = (np.abs(array - value)).argmin()
         return array[idx]
 
-    def _find_nearest_holding(self, value) -> Union[float or int]:
+    def _find_nearest_holding(self, value) -> Union[float , int]:
         array = np.asarray(self.holding_space.values)
         idx = (np.abs(array - value)).argmin()
         return array[idx]
 
-    def _totalcost(self, shares_traded: Union[float or int]) -> Union[float or int]:
+    def _totalcost(self, shares_traded: Union[float , int]) -> Union[float , int]:
         if self.cost_type == 'quadratic':
             Lambda = self.CostMultiplier * self.sigma ** 2
             cost = 0.5 * (shares_traded ** 2) * Lambda
@@ -502,8 +502,8 @@ class MarketEnv(gym.Env):
 
     def _getreward(
         self,
-        currState: Tuple[Union[float or int], Union[float or int]],
-        nextState: Tuple[Union[float or int], Union[float or int]],
+        currState: Tuple[Union[float , int], Union[float , int]],
+        nextState: Tuple[Union[float , int], Union[float , int]],
         iteration: int,
         tag: str,
         res_action: float = None,
@@ -544,8 +544,8 @@ class MarketEnv(gym.Env):
 
     def _get_opt_reward(
         self,
-        currOptState: Tuple[Union[float or int], Union[float or int]],
-        nextOptState: Tuple[Union[float or int], Union[float or int]],
+        currOptState: Tuple[Union[float , int], Union[float , int]],
+        nextOptState: Tuple[Union[float , int], Union[float , int]],
         tag: str,
     ) -> dict:
 
@@ -641,7 +641,7 @@ class CashMarketEnv(MarketEnv):
 
     def step(
         self,
-        currState: Union[Tuple or np.ndarray],
+        currState: Union[Tuple , np.ndarray],
         action: float,
         iteration: int,
         tag: str = "DQN",
@@ -676,7 +676,7 @@ class CashMarketEnv(MarketEnv):
 
     def MV_res_step(
         self,
-        currState: Union[Tuple or np.ndarray],
+        currState: Union[Tuple , np.ndarray],
         shares_traded: int,
         iteration: int,
         tag: str = "DQN",
@@ -823,8 +823,8 @@ class CashMarketEnv(MarketEnv):
 
     def _get_opt_reward(
         self,
-        currOptState: Tuple[Union[float or int], Union[float or int]],
-        nextOptState: Tuple[Union[float or int], Union[float or int]],
+        currOptState: Tuple[Union[float , int], Union[float , int]],
+        nextOptState: Tuple[Union[float , int], Union[float , int]],
         nextReturn: float,
         iteration: int,
         tag: str,
@@ -961,7 +961,7 @@ class MultiAssetCashMarketEnv(CashMarketEnv):
 
     def step(
         self,
-        currState: Union[Tuple or np.ndarray],
+        currState: Union[Tuple , np.ndarray],
         action: float,
         iteration: int,
         tag: str = "DQN",
@@ -996,7 +996,7 @@ class MultiAssetCashMarketEnv(CashMarketEnv):
 
     def MV_res_step(
         self,
-        currState: Union[Tuple or np.ndarray],
+        currState: Union[Tuple , np.ndarray],
         shares_traded: int,
         iteration: int,
         tag: str = "DQN",
@@ -1186,8 +1186,8 @@ class MultiAssetCashMarketEnv(CashMarketEnv):
 
     def _get_opt_reward(
         self,
-        currOptState: Tuple[Union[float or int], Union[float or int]],
-        nextOptState: Tuple[Union[float or int], Union[float or int]],
+        currOptState: Tuple[Union[float , int], Union[float , int]],
+        nextOptState: Tuple[Union[float , int], Union[float , int]],
         nextReturn: float,
         iteration: int,
         tag: str,
