@@ -138,10 +138,10 @@ class PPO_runner(MixinCore):
         self.logging.debug("Instantiating PPO model")
         input_shape = self.env.get_state_dim()
 
-        step_size = (
-            self.len_series / gin.query_parameter("PPO.batch_size")
-        ) * gin.query_parameter("%EPOCHS")
-        gin.bind_parameter("PPO.step_size", step_size)
+        # step_size = (
+        #     self.len_series / gin.query_parameter("PPO.batch_size")
+        # ) * gin.query_parameter("%EPOCHS")
+        # gin.bind_parameter("PPO.step_size", step_size)
 
         self.train_agent = PPO(
             input_shape=input_shape, action_space=self.action_space, rng=self.rng
@@ -193,6 +193,7 @@ class PPO_runner(MixinCore):
 
                 self.env.returns = self.data_handler.returns
                 self.env.factors = self.data_handler.factors
+                self.env.f_speed = self.data_handler.f_speed
                 if self.data_handler.datatype == "alpha_term_structure" and not self.MV_res:
                     action_range, _, _ = get_action_boundaries(
                         N_train=self.N_train,
@@ -315,7 +316,7 @@ class PPO_runner(MixinCore):
             optrate, discfactorloads = self.env.opt_trading_rate_disc_loads()
 
         self.train_agent.reset_experience()
-        
+
         for i in range(len(self.env.returns) - 2):
             dist, value = self.train_agent.act(state)
 

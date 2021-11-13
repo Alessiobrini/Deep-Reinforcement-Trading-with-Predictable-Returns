@@ -20,17 +20,17 @@ from scipy.stats import norm
 
 @gin.configurable()
 def get_action_boundaries(
-    HalfLife: Union[int or list or np.ndarray],
-    Startholding: Union[int or float],
+    HalfLife: Union[int , list , np.ndarray],
+    Startholding: Union[int , float],
     sigma: float,
     CostMultiplier: float,
     kappa: float,
     N_train: int,
     discount_rate: float,
-    f_param: Union[float or list or np.ndarray],
-    f_speed: Union[float or list or np.ndarray],
-    returns: Union[list or np.ndarray],
-    factors: Union[list or np.ndarray],
+    f_param: Union[float , list , np.ndarray],
+    f_speed: Union[float , list , np.ndarray],
+    returns: Union[list , np.ndarray],
+    factors: Union[list , np.ndarray],
     qts: list = [0.01, 0.99],
     action_type: str = "GP",
     disable: bool = True
@@ -123,8 +123,8 @@ def get_action_boundaries(
             CurrOptState = NextOptState
 
         action_quantiles = env.res_df["OptNextAction"].quantile(qts[:2]).values
-        action_quantiles_correct = action_quantiles.copy()
-        action_quantiles_gp = action_quantiles.copy()
+        # action_quantiles_correct = action_quantiles.copy()
+        # action_quantiles_gp = action_quantiles.copy()
 
         # #TODO temp code
         # CurrMVState = env.opt_reset()
@@ -139,7 +139,7 @@ def get_action_boundaries(
 
 
         if action_type == "GPext":
-            action_quantiles[0] = action_quantiles[0] - action_quantiles[0]*qts[2]
+            action_quantiles[0] = action_quantiles[0] + action_quantiles[0]*qts[2] #put - if you want to revert tot he previous cases
             action_quantiles[1] = action_quantiles[1] + action_quantiles[1]*qts[2]
         
             # action_quantiles_correct[0] = action_quantiles_correct[0] + action_quantiles_correct[0]*qts[2]
@@ -198,7 +198,7 @@ def get_action_boundaries(
 
 
 def CalculateLaggedSharpeRatio(
-    series: Union[pd.Series or np.ndarray],
+    series: Union[pd.Series , np.ndarray],
     lags: list,
     nameTag: str,
     seriestype: str = "price",
@@ -250,8 +250,8 @@ def CalculateLaggedSharpeRatio(
 
 
 def RunModels(
-    y: Union[pd.Series or pd.DataFrame],
-    X: Union[pd.Series or pd.DataFrame],
+    y: Union[pd.Series , pd.DataFrame],
+    X: Union[pd.Series , pd.DataFrame],
     mr_only: bool = False,
 ) -> Tuple[np.ndarray, np.ndarray]:  # TODO add instantiation of statsmodel output
     """
