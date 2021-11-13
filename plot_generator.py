@@ -934,37 +934,37 @@ def runmultiplot_distribution_seed(p):
                 with open(os.path.join(data_dir, "KStest.txt"), 'w') as f:
                     f.write("Ks Test: pvalue {:.2f} \n T Test: pvalue {:.2f} \n Number of simulations {}".format(p_V,p_t,p['n_seeds']))
                 
-                try:
-                    fig = plt.figure(figsize=set_size(width=1000.0))
-                    ax = fig.add_subplot()
-                    # sns.kdeplot(rewards['gp'].values, bw_method=0.2,ax=ax,color='tab:orange')
-                    sns.kdeplot(cumdiff, bw_method=0.2,ax=ax,color='tab:blue')
-                    ax.set_xlabel("Cumulative reward diff")
-                    ax.set_ylabel("KDE")
-                    ax.legend()
-                    ax.set_title('{} Obs \n Means: PPO {:.2f} GP {:.2f} \n Stds: PPO {:.2f} GP {:.2f} \n SR:  PPO {:.2f} GP {:.2f} \n Exp {}'.format(len(rewards),*means,*stds, *srs, f))
-                    ax.legend(labels=['gp','ppo'],loc=2)
-                    ks_text = AnchoredText("Ks Test: pvalue {:.2f} \n T Test: pvalue {:.2f}".format(p_V,p_t),loc=1,prop=dict(size=10))
-                    ax.add_artist(ks_text)
-                    fig.savefig(os.path.join(data_dir, "cumreward_diff_density_{}_{}.png".format(p['n_seeds'], f)), dpi=300)
-                    plt.close()
+                # try:
+                #     fig = plt.figure(figsize=set_size(width=1000.0))
+                #     ax = fig.add_subplot()
+                #     # sns.kdeplot(rewards['gp'].values, bw_method=0.2,ax=ax,color='tab:orange')
+                #     sns.kdeplot(cumdiff, bw_method=0.2,ax=ax,color='tab:blue')
+                #     ax.set_xlabel("Cumulative reward diff")
+                #     ax.set_ylabel("KDE")
+                #     ax.legend()
+                #     ax.set_title('{} Obs \n Means: PPO {:.2f} GP {:.2f} \n Stds: PPO {:.2f} GP {:.2f} \n SR:  PPO {:.2f} GP {:.2f} \n Exp {}'.format(len(rewards),*means,*stds, *srs, f))
+                #     ax.legend(labels=['gp','ppo'],loc=2)
+                #     ks_text = AnchoredText("Ks Test: pvalue {:.2f} \n T Test: pvalue {:.2f}".format(p_V,p_t),loc=1,prop=dict(size=10))
+                #     ax.add_artist(ks_text)
+                #     fig.savefig(os.path.join(data_dir, "cumreward_diff_density_{}_{}.png".format(p['n_seeds'], f)), dpi=300)
+                #     plt.close()
                         
                 
-                    fig = plt.figure(figsize=set_size(width=1000.0))
-                    ax = fig.add_subplot()
-                    sns.kdeplot(rewards['gp'].values, bw_method=0.2,ax=ax,color='tab:orange')
-                    sns.kdeplot(rewards['ppo'].values, bw_method=0.2,ax=ax,color='tab:blue')
-                    ax.set_xlabel("Cumulative reward")
-                    ax.set_ylabel("KDE")
-                    ax.legend()
-                    ax.set_title('{} Obs \n Means: PPO {:.2f} GP {:.2f} \n Stds: PPO {:.2f} GP {:.2f} \n SR:  PPO {:.2f} GP {:.2f} \n Exp {}'.format(len(rewards),*means,*stds, *srs, f))
-                    ax.legend(labels=['gp','ppo'],loc=2)        
-                    ks_text = AnchoredText("Ks Test: pvalue {:.2f} \n T Test: pvalue {:.2f}".format(p_V,p_t),loc=1,prop=dict(size=10))
-                    ax.add_artist(ks_text)
-                    fig.savefig(os.path.join(data_dir, "cumreward_density_{}_{}.png".format(p['n_seeds'], f)), dpi=300)
-                    plt.close()
-                except ZeroDivisionError:
-                    pass
+                #     fig = plt.figure(figsize=set_size(width=1000.0))
+                #     ax = fig.add_subplot()
+                #     sns.kdeplot(rewards['gp'].values, bw_method=0.2,ax=ax,color='tab:orange')
+                #     sns.kdeplot(rewards['ppo'].values, bw_method=0.2,ax=ax,color='tab:blue')
+                #     ax.set_xlabel("Cumulative reward")
+                #     ax.set_ylabel("KDE")
+                #     ax.legend()
+                #     ax.set_title('{} Obs \n Means: PPO {:.2f} GP {:.2f} \n Stds: PPO {:.2f} GP {:.2f} \n SR:  PPO {:.2f} GP {:.2f} \n Exp {}'.format(len(rewards),*means,*stds, *srs, f))
+                #     ax.legend(labels=['gp','ppo'],loc=2)        
+                #     ks_text = AnchoredText("Ks Test: pvalue {:.2f} \n T Test: pvalue {:.2f}".format(p_V,p_t),loc=1,prop=dict(size=10))
+                #     ax.add_artist(ks_text)
+                #     fig.savefig(os.path.join(data_dir, "cumreward_density_{}_{}.png".format(p['n_seeds'], f)), dpi=300)
+                #     plt.close()
+                # except ZeroDivisionError:
+                #     pass
                 
 
 
