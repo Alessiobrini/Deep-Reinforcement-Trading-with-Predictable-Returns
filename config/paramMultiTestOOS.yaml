@@ -61,33 +61,18 @@ modeltag: ['20211023_multi_alpha_architecture_n_assets_{}_hidden_units_actor_32_
 dist_to_plot: 'r' # r or w for reward or wealth
 ep_ppo: #'250' #'30' #'10'
 experiment_ppo: 'seed_{}' #'double_noise_True_sigmaf_1e-05_mv_res_True_seed_{}' #'cash_100000000000.0_seed_{}' #'mv_res_{}_double_noise_{}_sigmaf_{}_seed_{}'
-hyperparams_model_ppo: [0.001] #[True,1e-05] #['cara',2e-06,5e-06] #['sigma_corr_holding_cash'] #['mean_var', None]  # only for metrics and holding type of plot
+hyperparams_model_ppo: [3e-05] #[True,1e-05] #['cara',2e-06,5e-06] #['sigma_corr_holding_cash'] #['mean_var', None]  # only for metrics and holding type of plot
 hyperparams_exp_ppo: [35] #[False,None] # [31] #[True,1e-05] #['nondiff',0.005] #['500','0.98']# for policy and value type of plot
 outputModel_ppo: '20211110_multi3_insample' #'20211108_single_conv_mv_res_True' #'20211020_multi_alpha_nassets_cash_100000000000.0'  #'20210930_single_gpext_goodseeds' #'20210910_single_alpha_double_noise_True_sigmaf_1e-05_mv_res_True' #'20211020_multi_alpha_nassets_cash_100000000000.0' 
-outputModels_ppo:    ['20211112_single_convergence_mfree_lrstep3_exp_decay_rate_{}_step_size_100000', 
- '20211112_single_convergence_mfree_lrstep3_exp_decay_rate_{}_step_size_120000', 
- '20211112_single_convergence_mfree_lrstep3_exp_decay_rate_{}_step_size_150000', 
- '20211112_single_convergence_mfree_lrstep3_exp_decay_rate_{}_step_size_180000']
+outputModels_ppo:   ['20211114_fixalpha_mv_res_True']
+
+ # ['20211114_fixalpha_mv_res_True']
+
+ # ['20211113_mfree_fixalpha']
  
- 
- # ['20211112_single_convergence_mfree_lrstep3_exp_decay_rate_0.001_step_size_100000', 
- # '20211112_single_convergence_mfree_lrstep3_exp_decay_rate_0.001_step_size_120000', 
- # '20211112_single_convergence_mfree_lrstep3_exp_decay_rate_0.001_step_size_150000', 
- # '20211112_single_convergence_mfree_lrstep3_exp_decay_rate_0.001_step_size_180000', 
- # '20211112_single_convergence_mfree_lrstep3_exp_decay_rate_0.002_step_size_100000', 
- # '20211112_single_convergence_mfree_lrstep3_exp_decay_rate_0.002_step_size_120000', 
- # '20211112_single_convergence_mfree_lrstep3_exp_decay_rate_0.002_step_size_150000', 
- # '20211112_single_convergence_mfree_lrstep3_exp_decay_rate_0.002_step_size_180000', 
- # '20211112_single_convergence_mfree_lrstep3_exp_decay_rate_0.05_step_size_100000', 
- # '20211112_single_convergence_mfree_lrstep3_exp_decay_rate_0.05_step_size_120000', 
- # '20211112_single_convergence_mfree_lrstep3_exp_decay_rate_0.05_step_size_150000', 
- # '20211112_single_convergence_mfree_lrstep3_exp_decay_rate_0.05_step_size_180000', 
- # '20211112_single_convergence_mfree_lrstep3_exp_decay_rate_0.1_step_size_100000', 
- # '20211112_single_convergence_mfree_lrstep3_exp_decay_rate_0.1_step_size_120000', 
- # '20211112_single_convergence_mfree_lrstep3_exp_decay_rate_0.1_step_size_150000', 
- # '20211112_single_convergence_mfree_lrstep3_exp_decay_rate_0.1_step_size_180000']
 
 
+######################################################################################################
  #['20211108_single_conv_mv_res_True']
 
 

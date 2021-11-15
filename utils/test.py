@@ -39,6 +39,7 @@ class Out_sample_vs_gp:
         experiment_type: str,
         env_cls: object,
         MV_res: bool,
+        universal_train: bool = False,
     ):
 
         variables = []
@@ -57,9 +58,9 @@ class Out_sample_vs_gp:
         self.env_cls = env_cls
         self.MV_res = MV_res
 
+
     def run_test(self, test_agent: object, it: int = 0, return_output: bool = False):
-        rng = np.random.RandomState(self.rnd_state)
-        seeds = rng.choice(1000, self.n_seeds, replace=False)
+        
         self.rng_test = np.random.RandomState(self.rnd_state)
 
         avg_pnls = []
@@ -78,7 +79,7 @@ class Out_sample_vs_gp:
         abs_wealth_rl = []
         abs_wealth_gp = []
 
-        for s in seeds:
+        for s in range(self.n_seeds):
             if 'alpha' in gin.query_parameter('%INP_TYPE'):
                 data_handler = DataHandler(N_train=self.N_test, rng=self.rng_test)
             else:
@@ -87,6 +88,7 @@ class Out_sample_vs_gp:
             if self.experiment_type == "GP":
                 data_handler.generate_returns()
             else:
+                gin.bind_parameter('return_sampler_garch.seed',s)
                 data_handler.generate_returns()
                 data_handler.estimate_parameters()
             
@@ -100,7 +102,7 @@ class Out_sample_vs_gp:
 
                 gin.query_parameter("%ACTION_RANGE")[0] = action_range
                 test_agent.action_space = ActionSpace()
-            
+
             self.test_env = self.env_cls(
                 N_train=self.N_test,
                 f_speed=data_handler.f_speed,

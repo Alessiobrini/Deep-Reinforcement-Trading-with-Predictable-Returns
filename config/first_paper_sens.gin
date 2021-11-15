@@ -8,7 +8,7 @@ import agents.PPO
 # Macros:
 # ==============================================================================
 # Set up
-ALGO = 'DQN' # 'PPO', 'DQN' or 'DDPG'  
+ALGO = 'PPO' # 'PPO', 'DQN' or 'DDPG'  
 
 ENV_CLS = @MarketEnv 
 
@@ -17,20 +17,20 @@ EXPERIMENT_TYPE = 'Misspec' # GP or Misspec
 MV_RES = False # Decide which actions to take (trading quantity or MVresiduals)
 UNIVERSAL_TRAIN = True
 
-EPISODES =  None # episode to run the algorithm. Put None if you want to train DQN online
-N_TRAIN = 15000 #300000
-LEN_SERIES = None # 2000 # length of simulated series, if null the legth is N_train
+EPISODES =  200 # episode to run the algorithm. Put None if you want to train DQN online
+N_TRAIN = None #300000
+LEN_SERIES =  2000 # length of simulated series, if null the legth is N_train
 EPOCHS = 3
 OUTPUTDIR = 'outputs' # main directory for the experiment
 OUTPUTCLASS = %ALGO # first subdirectory
-OUTPUTMODEL = '20211003_DQNGARCH_sens2' # second subdirectory
+OUTPUTMODEL = '20211115_PPOGARCH_sens' # second subdirectory
 SAVE_FREQ = 1000  # number of checkpoints to save during training
-SEED = 34 #[740, 698, 158, 361,  88, 394, 930, 866, 309, 528, 431, 357] #[ 115]  # seed for reproducibility
+SEED = [88,158,309,357,361,394,431,528,698,740,866,930]  # seed for reproducibility
 START_TRAIN = 300 # steps after which the training starts
 USE_GPU = True
-VARYING_PARS = None #['%P_ARG', '%SEED'] 
+VARYING_PARS = ['%P_ARG', '%SEED'] 
 VARYING_TYPE = 'chunk'
-NUM_CORES = 60
+NUM_CORES = 42
 
 # spaces
 ACTION_RANGE =  [None, 9] # action range for standard RL [boundary,number of actions]
@@ -79,7 +79,7 @@ MEAN_PROCESS = 'AR' # choice for mean process ['AR', 'Constant']
 LAGS_MEAN_PROCESS = 1 # lag or list of lags for the autoregressive component in the mean return
 VOL_PROCESS = 'GARCH' # choice for volatility process ['GARCH', 'TGARCH', 'EGARCH', 'Constant']
 DISTR_NOISE = 'normal' #['normal','studt'] #['normal','studt'] # choice for noise distribution ['normal', 'studt', 'skewstud', 'ged']
-P_ARG = [0.075, 0.0505, 0.8815] # [[0.075, 0.0505, 0.8815], [0.075, 0.0518, 0.8779], [0.075, 0.0628, 0.8809], [0.075, 0.0529, 0.9114], [0.075, 0.0686, 0.9008], [0.075, 0.0889, 0.8743], [0.075, 0.0975, 0.8731], [0.075, 0.0821, 0.9033], [0.075, 0.0805, 0.9065], [0.075, 0.0986, 0.8872]] # 3 values for garch parameters
+P_ARG =  [[0.075, 0.0906, 0.8645], [0.075, 0.05, 0.8748], [0.075, 0.066, 0.9151], [0.075, 0.0504, 0.9048], [0.075, 0.0505, 0.8815], [0.075, 0.0518, 0.8779], [0.075, 0.0529, 0.9114], [0.075, 0.0628, 0.8809], [0.075, 0.0638, 0.9017], [0.075, 0.0686, 0.9008], [0.075, 0.0975, 0.8731], [0.075, 0.0828, 0.8906], [0.075, 0.0856, 0.8795], [0.075, 0.0889, 0.8743]] # 3 values for garch parameters
 
 
 # Parameters for main_runner:

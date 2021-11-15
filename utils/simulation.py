@@ -62,8 +62,9 @@ class DataHandler:
 
         elif self.datatype == "garch":
             self.returns, self.params = return_sampler_garch(
-                N_train=self.N_train + self.factor_lb[-1] + 2, disable_tqdm=disable_tqdm
+                N_train=self.N_train + self.factor_lb[-1] + 2, disable_tqdm=disable_tqdm, rng=self.rng
             )
+
 
         else:
             print("Datatype to simulate is not correct")
@@ -281,9 +282,9 @@ def return_sampler_garch(
     vol_process: str = "GARCH",
     distr_noise: str = "normal",
     seed: int = None,
-    seed_param: int = None,
     p_arg: list = None,
     disable_tqdm: bool = False,
+    rng: np.random.mtrand.RandomState = None,
 ) -> Tuple[np.ndarray, pd.Series]:
     # https://stats.stackexchange.com/questions/61824/how-to-interpret-garch-parameters
     # https://arch.readthedocs.io/en/latest/univariate/introduction.html
@@ -317,12 +318,6 @@ def return_sampler_garch(
 
     seed: int
         Seed for experiment reproducibility
-
-    seed_param: int
-        Seed for drawing randomly the parameters needed for the simulation. The
-        ranges provided are obtained as average lower and upper bounds of several
-        GARCH-type model fitting on real financial time-series.
-
     p_arg: pd.Series
         Pandas series of parameters that you want to pass explicitly.
         They need to be passed in the right order. Check documentation of the
@@ -337,16 +332,14 @@ def return_sampler_garch(
     names = []
     vals = []
 
-    if seed_param is None:
-        seed_param = seed
-
-    rng = np.random.RandomState(seed_param)
+    if not rng:
+        rng = np.random.RandomState(None)
 
     # choose mean process
     if mean_process == "Constant":
         model = ConstantMean(None)
         names.append("const")
-        if seed_param:
+        if rng:
             vals.append(rng.uniform(0.01, 0.09))
         else:
             vals.append(0.0)
@@ -355,7 +348,7 @@ def return_sampler_garch(
         model = ARX(None, lags=lags_mean_process)
         names.append("const")
         vals.append(0.0)
-        if seed_param:
+        if rng:
             for i in range(lags_mean_process):
                 names.append("lag{}".format(i))
                 vals.append(rng.uniform(-0.09, 0.09))
@@ -372,7 +365,7 @@ def return_sampler_garch(
     if vol_process == "GARCH":
         model.volatility = GARCH(p=1, q=1)
         names.extend(["omega", "alpha", "beta"])
-        if seed_param:
+        if rng:
             om = rng.uniform(0.03, 0.1)
             alph = rng.uniform(0.05, 0.1)
             b = rng.uniform(0.86, 0.92)
@@ -388,7 +381,7 @@ def return_sampler_garch(
         model.volatility = GARCH(p=1, q=0)
 
         names.extend(["omega", "alpha"])
-        if seed_param:
+        if rng:
             om = rng.uniform(1.4, 4.0)
             alph = rng.uniform(0.1, 0.6)
         else:
@@ -401,7 +394,7 @@ def return_sampler_garch(
         model.volatility = HARCH(lags=[1, 5, 22])
 
         names.extend(["omega", "alpha[1]", "alpha[5]", "alpha[22]"])
-        if seed_param:
+        if rng:
             om = rng.uniform(1.2, 0.5)
             alph1 = rng.uniform(0.01, 0.1)
             alph5 = rng.uniform(0.05, 0.3)
@@ -418,7 +411,7 @@ def return_sampler_garch(
         model.volatility = FIGARCH(p=1, q=1)
 
         names.extend(["omega", "phi", "d", "beta"])
-        if seed_param:
+        if rng:
             om = rng.uniform(0.05, 0.03)
             phi = rng.uniform(0.1, 0.35)
             d = rng.uniform(0.3, 0.5)
@@ -434,7 +427,7 @@ def return_sampler_garch(
     elif vol_process == "TGARCH":
         model.volatility = GARCH(p=1, o=1, q=1)
         names.extend(["omega", "alpha", "gamma", "beta"])
-        if seed_param:
+        if rng:
             om = rng.uniform(0.02, 0.15)
             alph = rng.uniform(0.01, 0.07)
             gamma = rng.uniform(0.03, 0.1)
@@ -450,7 +443,7 @@ def return_sampler_garch(
     elif vol_process == "EGARCH":
         model.volatility = EGARCH(p=1, o=1, q=1)
         names.extend(["omega", "alpha", "gamma", "beta"])
-        if seed_param:
+        if rng:
             om = rng.uniform(0.01, 0.03)
             alph = rng.uniform(0.06, 0.17)
             gamma = rng.uniform(-0.05, -0.02)
@@ -479,21 +472,21 @@ def return_sampler_garch(
     elif distr_noise == "studt":
         model.distribution = StudentsT(np.random.RandomState(seed))
         names.append("nu")
-        if seed_param:
+        if rng:
             vals.append(rng.randint(6.0, 10.0))
         else:
             vals.append(8.0)
     elif distr_noise == "skewstud":
         model.distribution = SkewStudent(np.random.RandomState(seed))
         names.extend(["nu", "lambda"])
-        if seed_param:
+        if rng:
             vals.extend([rng.uniform(6.0, 10.0), rng.uniform(-0.1, 0.1)])
         else:
             vals.extend([8.0, 0.05])
     elif distr_noise == "ged":
         model.distribution = GeneralizedError(np.random.RandomState(seed))
         names.append("nu")
-        if seed_param:
+        if rng:
             vals.append(rng.uniform(1.05, 3.0))
         else:
             vals.append(2.0)
