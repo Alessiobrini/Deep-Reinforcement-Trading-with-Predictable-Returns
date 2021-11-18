@@ -597,7 +597,7 @@ def plot_BestActions(
     query = gin.query_parameter
     # gin.bind_parameter('%DOUBLE_NOISE', False)
     # gin.bind_parameter('%SIGMAF', [None])
-    gin.bind_parameter('%INITIAL_ALPHA', [0.009])
+    # gin.bind_parameter('%INITIAL_ALPHA', [0.009])
     # gin.bind_parameter('%HALFLIFE', [35])
     
 
@@ -684,8 +684,6 @@ def plot_BestActions(
             data_handler = DataHandler(N_train=query('%LEN_SERIES'), rng=rng)
             data_handler.generate_returns()
             factors = data_handler.factors
-            # pdb.set_trace()
-
             # factors.sort()
         else:
             n_factors = len(query("%F_PARAM"))
@@ -725,6 +723,7 @@ def plot_BestActions(
                 dist, _ = model(states)
 
             unscaled_max_action = torch.nn.Tanh()(dist.mean)
+
             if query("%MV_RES"):
                 max_action = unscale_asymmetric_action(actions[0],actions[-1], unscaled_max_action).numpy().reshape(-1,)
             else:
@@ -815,8 +814,17 @@ def plot_BestActions(
                 ax.plot(holdings, optimal_policy, linewidth=1.5, label="GP Policy", color='tab:orange')
             else:
                 ax.plot(factors[:, 0]*10**4, optimal_policy, linewidth=1.5, label="GP Policy", color='tab:orange')
+                
+            OptNextHolding_mv = (1 / (kappa * (sigma) ** 2)) * np.sum(
+                f_param * factors, axis=1
+            )
+            # Compute optimal markovitz action
+            MV_policy = OptNextHolding_mv - holdings
 
-            
+            if holding == None:
+                ax.plot(holdings, MV_policy, linewidth=1.5, label="MV Policy", color='black')
+            else:
+                ax.plot(factors[:, 0]*10**4, MV_policy, linewidth=1.5, label="MV Policy", color='black')
 
 
 def plot_portfolio(r: pd.DataFrame, tag: str, ax2: object, tbox: bool = True,colors: list = ['tab:blue','tab:orange']):

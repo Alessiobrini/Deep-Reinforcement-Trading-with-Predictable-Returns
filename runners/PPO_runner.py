@@ -256,58 +256,6 @@ class PPO_runner(MixinCore):
         save_gin(os.path.join(self.savedpath, "config.gin"))
         logging.info("Config file saved")
 
-    # def testing_agent(self):
-
-    #     self.logging.debug("Loading Data")
-    #     df_train, df_test, df = self.load_data()
-
-    #     self.logging.debug("Instantiating action space")
-    #     self.action_space = ActionSpace()
-
-    #     self.test_env = self.env_cls(dataframe=df_test)
-
-    #     self.logging.debug("Instantiating benchmark agent")
-    #     self.benchmark_agent = self.bnch_agent_cls(
-    #         symbol=self.symbol,
-    #         start_year=self.start_year,
-    #         split_year=self.split_year,
-    #         end_year=self.end_year,
-    #         df=df,
-    #     )
-    #     self.benchmark_agent._get_parameters()
-    #     self.benchmark_test_env = self.bnch_env_cls(
-    #         dataframe=self.benchmark_agent.df_test
-    #     )
-
-    #     self.logging.debug("Loading pretrained model")
-    #     input_shape = self.test_env.get_state_dim()
-
-    #     self.train_agent = self.agent_cls(
-    #         input_shape=input_shape, action_space=self.action_space, rng=self.rng
-    #     )
-
-    #     self.train_agent.model.load_state_dict(
-    #         torch.load(
-    #             os.path.join(self.savedpath, "ckpt", "PPO_{}_ep_weights.pth".format(self.episodes))
-    #         )
-    #     )
-
-    #     self.logging.debug("Instantiating Out of sample tester")
-    #     self.oos_test = Out_sample_vs_gp(
-    #         test_agent=self.train_agent,
-    #         test_env=self.test_env,
-    #         benchmark_agent=self.benchmark_agent,
-    #         benchmark_env=self.benchmark_test_env,
-    #         savedpath=self.savedpath,
-    #         test_symbols = [self.symbol],
-    #         tag="PPO",
-    #     )
-
-    #     self.logging.debug("Testing...")
-    #     res_df, res_bench_df = self.oos_test.run_test(self.oos_test, return_output=True)
-
-    #     return res_df, res_bench_df
-
     def collect_rollouts(self):
         state = self.env.reset()
         if self.store_insample:
@@ -424,8 +372,15 @@ class PPO_runner(MixinCore):
                 )
 
     def _get_hyperparams_n_assets(self,n_assets,rng):
-        gin.bind_parameter('%HALFLIFE',[[rng.randint(low=5,high=150)] for _ in range(n_assets)])
-        gin.bind_parameter('%INITIAL_ALPHA',[[np.round(rng.uniform(low=0.05,high=0.1),5)] for _ in range(n_assets)])
+        # gin.bind_parameter('%HALFLIFE',[[rng.randint(low=5,high=150)] for _ in range(n_assets)])
+        # gin.bind_parameter('%INITIAL_ALPHA',[[np.round(rng.uniform(low=0.05,high=0.1),5)] for _ in range(n_assets)])
+        # gin.bind_parameter('%F_PARAM',[[1.0] for _ in range(n_assets)])
+        # gin.bind_parameter('%CORRELATION',list(np.round(rng.uniform(low=-0.8,
+        #                                                             high=0.8,
+        #                                                             size=(int((n_assets**2 - n_assets)/2))),5)))
+        rng = np.random.RandomState(self.seed)
+        gin.bind_parameter('%HALFLIFE',[[rng.randint(low=200,high=400)] for _ in range(n_assets)])
+        gin.bind_parameter('%INITIAL_ALPHA',[[np.round(rng.uniform(low=0.008,high=0.1),5)] for _ in range(n_assets)])
         gin.bind_parameter('%F_PARAM',[[1.0] for _ in range(n_assets)])
         gin.bind_parameter('%CORRELATION',list(np.round(rng.uniform(low=-0.8,
                                                                     high=0.8,
