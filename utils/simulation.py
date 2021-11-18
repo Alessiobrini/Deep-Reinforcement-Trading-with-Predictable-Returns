@@ -515,14 +515,18 @@ def alpha_term_structure_sampler(
     offset: int = 2,
     generate_plot:bool = False,
     multiasset: bool = False,
-    double_noise: bool = False):
+    double_noise: bool = False,
+    fixed_alpha: bool = False):
 
-
-    
+    tmp_rng = rng
+    if fixed_alpha:
+        rng=None
+        
     if multiasset:
         term_structures = []
         alpha_factor_terms = []
         speeds = []
+        
         for i in range(len(HalfLife)):
             init_a = initial_alpha[i]
             hl = HalfLife[i]
@@ -543,6 +547,9 @@ def alpha_term_structure_sampler(
             alpha_n = len(hl)
             f_speed =  np.log(2)/hl
             t = np.arange(0,N_train+offset).repeat(alpha_n).reshape(-1,alpha_n)
+
+            if fixed_alpha:
+                rng=tmp_rng
             if double_noise:
                 alpha_terms = init_a * np.e**(-f_speed*t) + sigma * rng.normal(size=(len(t),alpha_n))
             else:
@@ -554,18 +561,15 @@ def alpha_term_structure_sampler(
                 alpha_terms = alpha_terms + noise
 
 
-            
             if sum(fp) != 1.0:
                 print('Factor loadings for term structure do not sum to one.')
                 sys.exit()
             alpha_structure = np.sum(np.array(fp)* alpha_terms, axis=1)
  
-            
             term_structures.append(alpha_structure)
             speeds.append(f_speed)
             alpha_factor_terms.append(alpha_terms)
 
- 
         alpha_structure = np.transpose(np.array(term_structures,dtype='float')) 
         alpha_factor_terms = np.array(alpha_factor_terms,dtype='float')
 
@@ -575,12 +579,14 @@ def alpha_term_structure_sampler(
         else:
             alpha_terms = np.transpose(np.squeeze(alpha_factor_terms))
         f_speed = np.array(speeds, dtype='float')
-        if generate_plot:
-            fig,ax = plt.subplots()
-            ax.plot(alpha_structure)
-            # ax.plot(alpha_terms.sum(axis=1), ls='--')
-            ax.set_title('Alpha term structure')
-            # plt.show()
+        # generate_plot = True
+        # if generate_plot:
+        #     fig,ax = plt.subplots()
+        #     ax.plot(alpha_structure)
+        #     # ax.plot(alpha_terms.sum(axis=1), ls='--')
+        #     ax.set_title('Alpha term structure')
+        #     plt.show()
+
         return alpha_structure, alpha_terms, f_speed
     else:
         # single asset case where different alpha term structure can be combined in 
@@ -598,13 +604,12 @@ def alpha_term_structure_sampler(
                 HalfLife = np.array([rng.uniform(5,int(N_train * 0.75),1) for _ in initial_alpha]).reshape(-1,)
             else:
                 HalfLife = np.array([rng.uniform(val*(1-0.5),val*(1+0.5),1) for val in HalfLife]).reshape(-1,)
-            # print('init',initial_alpha)
-            # print('hl',HalfLife)
 
         alpha_n = len(HalfLife)
         f_speed =  np.log(2)/HalfLife
         t = np.arange(0,N_train+offset).repeat(alpha_n).reshape(-1,alpha_n)
-        
+        if fixed_alpha:
+            rng=tmp_rng
         if double_noise:
             alpha_terms = initial_alpha * np.e**(-f_speed*t) + sigma * rng.normal(size=(len(t),alpha_n))
         else:
@@ -621,7 +626,6 @@ def alpha_term_structure_sampler(
             sys.exit()
         alpha_structure = np.sum(np.array(f_param)* alpha_terms, axis=1)
         # generate_plot = True
-        
         if generate_plot:
             fig,ax = plt.subplots()
             ax.plot(alpha_terms)
@@ -630,6 +634,5 @@ def alpha_term_structure_sampler(
             ax.set_title('Alpha term structure')
             # plt.show()
 
-        # pdb.set_trace()
         return alpha_structure, alpha_terms, f_speed
 
