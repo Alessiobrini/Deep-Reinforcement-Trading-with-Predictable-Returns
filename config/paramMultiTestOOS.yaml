@@ -8,8 +8,8 @@
 # as long as the folder path in the list "outputModel" contains relevant experiment to plot
 # MULTI TEST OOS PARAMS
 ############################### LAUNCH SIMULATIONS ##############################
-N_test: 200 #200 # Length of OOS test
-n_seeds : 100 # Number of OOS test to perform for each agent at each checkpoint
+N_test: 1000 #200 # Length of OOS test
+n_seeds : 500 # Number of OOS test to perform for each agent at each checkpoint
 cores: 5
 random_state : 9071 #[593, 373, 788, 833, 745]  #324 #9071 #9071 seed for two pos # 556785 seed for two neg # 33  # Seed for experiment reproducibility OOS. Used to draw "n_seeds" for OOS testing
 use_GPU : False
@@ -23,14 +23,14 @@ color_gp : 'tab:orange'
 #########################################################################################################
 # FOLDER PARAMETERS
 algo :  ['PPO']
-plot_type: 'metrics_is' 
+plot_type: 'cdf' 
 fullpath : False
 generate_plot : False
 optimal : True
-holding: 0.0 #1e+7 #null #5000.0 # null #0.3e+5
+holding: 0.0 #-8e+9 #null #5000.0 # null #0.3e+5
 outputDir: 'outputs'
 outputClass: 'PPO'
-seed : '35' #'32764' #'221' #'35' #'423' #'35' #'765' #'35'
+seed : '178' #'32764' #'221' #'35' #'423' #'35' #'765' #'35'
 var_plots : [
     # "NetPnl_OOS_{}_{}.parquet.gzip",
     # "Reward_OOS_{}_{}.parquet.gzip",
@@ -54,23 +54,113 @@ hyperparams_exp_dqn: null #['250000','2.5', '0.2', 'False', 'f'] # for policy an
 outputModel_dqn: '20210503_GPGAUSS_1f_n_train_{}_halflife_{}_sigmaf_{}_mv_res_{}_inp_type_{}'
 outputModels_dqn: ['20211101_DQNGARCH_pickseeds']
 
-window: 100
-load_rewards: True
+window: 25 # 25
+load_rewards: False
 load_holdings: False
-modeltag: ['20211023_multi_alpha_architecture_n_assets_{}_hidden_units_actor_32_32','20211023_multi_alpha_architecture_n_assets_{}_hidden_units_actor_64_64','20211023_multi_alpha_architecture_n_assets_{}_hidden_units_actor_128_128','20211023_multi_alpha_architecture_n_assets_{}_hidden_units_actor_256_256']  #'20211020_multi_alpha_nassets_cash_100000000000.0' #,'20210917_multi_alpha_architecture_n_assets_{}_hidden_units_actor_64_64','20210917_multi_alpha_architecture_n_assets_{}_hidden_units_actor_128_128','20210917_multi_alpha_architecture_n_assets_{}_hidden_units_actor_256_256']
+modeltag: 
 dist_to_plot: 'r' # r or w for reward or wealth
-ep_ppo: #'250' #'30' #'10'
-experiment_ppo: 'seed_{}' #'double_noise_True_sigmaf_1e-05_mv_res_True_seed_{}' #'cash_100000000000.0_seed_{}' #'mv_res_{}_double_noise_{}_sigmaf_{}_seed_{}'
-hyperparams_model_ppo: [3e-05] #[True,1e-05] #['cara',2e-06,5e-06] #['sigma_corr_holding_cash'] #['mean_var', None]  # only for metrics and holding type of plot
-hyperparams_exp_ppo: [35] #[False,None] # [31] #[True,1e-05] #['nondiff',0.005] #['500','0.98']# for policy and value type of plot
-outputModel_ppo: '20211110_multi3_insample' #'20211108_single_conv_mv_res_True' #'20211020_multi_alpha_nassets_cash_100000000000.0'  #'20210930_single_gpext_goodseeds' #'20210910_single_alpha_double_noise_True_sigmaf_1e-05_mv_res_True' #'20211020_multi_alpha_nassets_cash_100000000000.0' 
-outputModels_ppo:   ['20211114_fixalpha_mv_res_True']
+ep_ppo: #2000 #'2000' #'30' #'10'
+experiment_ppo: 'double_noise_False_sigmaf_None_seed_178' #'mv_res_True_lr_0.0005_seed_178' #'mv_res_False_lr_0.0001_seed_687'] #'mv_res_False_lr_0.0001_seed_{}' #mv_res_True_lr_0.0005_seed_{}'
+hyperparams_model_ppo: [0.9] 
+hyperparams_exp_ppo: [178] # [206] 
+outputModel_ppo:  '20211117_fixconv_residual_multi_double_noise_False_sigmaf_None' #'20211116_fixconv_mv_res_True_lr_0.0005' #,'20211116_fixconv_mv_res_False_lr_0.0001'
+outputModels_ppo: ['20211117_fixconv_residual_multi_double_noise_False_sigmaf_None']
 
- # ['20211114_fixalpha_mv_res_True']
+# ['20211117_fixconv_residual_multi_double_noise_False_sigmaf_1e-05', 
+#  '20211117_fixconv_residual_multi_double_noise_False_sigmaf_None', 
+#  '20211117_fixconv_residual_multi_double_noise_True_sigmaf_1e-05', 
+#  '20211117_fixconv_residual_multi_double_noise_True_sigmaf_None']
 
- # ['20211113_mfree_fixalpha']
+
+
+
+# ['20211117_fixconv_mfree9_qts_0.0_1.0_0.0_exp_decay_rate_{}', 
+#  '20211117_fixconv_mfree9_qts_0.0_1.0_-0.2_exp_decay_rate_{}', 
+#  '20211117_fixconv_mfree9_qts_0.0_1.0_-0.4_exp_decay_rate_{}', 
+#  '20211117_fixconv_mfree9_qts_0.0_1.0_-0.6_exp_decay_rate_{}', ]
+
+
+# ['20211117_fixconv_mfree9_qts_0.0_1.0_-0.2_exp_decay_rate_0.5', 
+#  '20211117_fixconv_mfree9_qts_0.0_1.0_-0.2_exp_decay_rate_0.6', 
+#  '20211117_fixconv_mfree9_qts_0.0_1.0_-0.2_exp_decay_rate_0.7', 
+#  '20211117_fixconv_mfree9_qts_0.0_1.0_-0.2_exp_decay_rate_0.8', 
+#  '20211117_fixconv_mfree9_qts_0.0_1.0_-0.2_exp_decay_rate_0.9', 
+#  '20211117_fixconv_mfree9_qts_0.0_1.0_-0.4_exp_decay_rate_0.5', 
+#  '20211117_fixconv_mfree9_qts_0.0_1.0_-0.4_exp_decay_rate_0.6', 
+#  '20211117_fixconv_mfree9_qts_0.0_1.0_-0.4_exp_decay_rate_0.7', 
+#  '20211117_fixconv_mfree9_qts_0.0_1.0_-0.4_exp_decay_rate_0.8', 
+#  '20211117_fixconv_mfree9_qts_0.0_1.0_-0.4_exp_decay_rate_0.9', 
+#  '20211117_fixconv_mfree9_qts_0.0_1.0_-0.6_exp_decay_rate_0.5', 
+#  '20211117_fixconv_mfree9_qts_0.0_1.0_-0.6_exp_decay_rate_0.6', 
+#  '20211117_fixconv_mfree9_qts_0.0_1.0_-0.6_exp_decay_rate_0.7', 
+#  '20211117_fixconv_mfree9_qts_0.0_1.0_-0.6_exp_decay_rate_0.8', 
+#  '20211117_fixconv_mfree9_qts_0.0_1.0_-0.6_exp_decay_rate_0.9', 
+#  '20211117_fixconv_mfree9_qts_0.0_1.0_0.0_exp_decay_rate_0.5', 
+#  '20211117_fixconv_mfree9_qts_0.0_1.0_0.0_exp_decay_rate_0.6', 
+#  '20211117_fixconv_mfree9_qts_0.0_1.0_0.0_exp_decay_rate_0.7', 
+#  '20211117_fixconv_mfree9_qts_0.0_1.0_0.0_exp_decay_rate_0.8', 
+#  '20211117_fixconv_mfree9_qts_0.0_1.0_0.0_exp_decay_rate_0.9']
+
+
+# ['20211117_fixconv_residual_double_noise_False_sigmaf_1e-05', 
+#  '20211117_fixconv_residual_double_noise_False_sigmaf_None', 
+#  '20211117_fixconv_residual_double_noise_True_sigmaf_1e-05', 
+#  '20211117_fixconv_residual_double_noise_True_sigmaf_None']
+ 
  
 
+# ['20211117_fixconv_mfree_actionspace_qts_0.0_1.0_-0.2', 
+#  '20211117_fixconv_mfree_actionspace_qts_0.0_1.0_0.0', 
+#  '20211117_fixconv_mfree_actionspace_qts_0.0_1.0_0.1', 
+#  '20211117_fixconv_mfree_actionspace_qts_0.0_1.0_0.2', 
+#  '20211117_fixconv_mfree_actionspace_qts_0.0_1.0_0.3', 
+#  '20211117_fixconv_mfree_actionspace_qts_0.0_1.0_0.4', 
+#  '20211117_fixconv_mfree_actionspace_qts_0.0_1.0_0.5', 
+#  '20211117_fixconv_mfree_actionspace_qts_0.0_1.0_0.6', 
+#  '20211117_fixconv_mfree_actionspace_qts_0.0_1.0_0.7', 
+#  '20211117_fixconv_mfree_actionspace_qts_0.0_1.0_0.8', 
+#  '20211117_fixconv_mfree_actionspace_qts_0.0_1.0_0.9']
+
+
+ # '20211116_fixconv_mfree_lr_0.0002', 
+ # '20211116_fixconv_mfree_lr_0.0003', 
+ # '20211116_fixconv_mfree_lr_0.0004', 
+ # '20211116_fixconv_mfree_lr_0.0005']
+
+
+
+# ['20211116_fixconv_mv_res_False_lr_0.0001'] # ['20211116_fixconv_mv_res_True_lr_0.0005'] #,
+
+ # ['20211116_fixed_alphas_longer3_mv_res_True','20211116_fixed_alphas_longer3_mv_res_False'] #['20211116_fixed_alphas_longer3_mv_res_False'] #['20211116_fixed_alphas_longer2_mv_res_True',  ]
+
+# ['20211116_fixed_alphas_longer2_mv_res_False'] #['20211116_fixed_alphas_longer2_mv_res_True',  ]
+
+
+# ['20211116_fixed_alphas_longer_mv_res_True_lr_0.0005_tau_0.4', 
+# '20211116_fixed_alphas_longer_mv_res_False_lr_0.0005_tau_0.4', ]
+
+
+# ['20211116_fixed_alphas_longer_mv_res_False_lr_0.0001_tau_0.4', 
+#   '20211116_fixed_alphas_longer_mv_res_False_lr_0.0001_tau_0.99', 
+#   '20211116_fixed_alphas_longer_mv_res_False_lr_0.0005_tau_0.4', 
+#   '20211116_fixed_alphas_longer_mv_res_False_lr_0.0005_tau_0.99']
+ 
+ 
+ 
+  # '20211116_fixed_alphas_longer_mv_res_True_lr_0.0001_tau_0.4', 
+  # '20211116_fixed_alphas_longer_mv_res_True_lr_0.0001_tau_0.99', 
+  # '20211116_fixed_alphas_longer_mv_res_True_lr_0.0005_tau_0.4', 
+  # '20211116_fixed_alphas_longer_mv_res_True_lr_0.0005_tau_0.99']
+
+
+
+# ['20211115_fixalpha_sens1_mv_res_True_lr_0.0005','20211116_fixed_alphas_modelfree_epochs_3'] #['20211116_fixed_alphas_residual_epochs_6']
+
+
+
+ # ['20211115_fixalpha_sens1_mv_res_True_lr_0.0005'] # ['20211115_fixalpha_sens1_mv_res_False_lr_0.0001'] #['20211115_fixalpha_sens1_mv_res_True_lr_0.0005']
+
+# ['20211115_fixalpha_sens1_mv_res_False_lr_0.0002',]
 
 ######################################################################################################
  #['20211108_single_conv_mv_res_True']

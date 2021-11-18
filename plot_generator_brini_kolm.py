@@ -191,7 +191,7 @@ def runplot_metrics(p):
                     
                 # PERSONALIZE THE IMAGE WITH CORRECT LABELS
                 ax.get_figure().gca().set_title("") # no title
-                ax.set_ylim(-2.0*100,0.5*100)
+                # ax.set_ylim(-2.0*100,0.5*100)
                 
                 ax.set_xlabel('In-sample episodes')
                 ax.set_ylabel('Relative difference in reward (\%)')
@@ -274,6 +274,7 @@ def runplot_metrics_is(p):
         idxmax = dataframe.mean(1).idxmax()
         # pdb.set_trace()
 
+
         # PRODUCE COMPARISON PLOT
         select_agent = 'best'
         if select_agent == 'mean':
@@ -285,11 +286,10 @@ def runplot_metrics_is(p):
         elif select_agent == 'best':
             ppo = dataframe.loc[idxmax]
             gp = dataframe_opt.loc[idxmax]
-        # pdb.set_trace()
-        smooth_type = 'avgdiff' #avgdiff or diffavg
+
+        smooth_type = 'diffavg' #avgdiff or diffavg
         if smooth_type == 'avgdiff':
             reldiff_avg = (ppo-gp)/gp * 100
-            # pdb.set_trace()
             reldiff_avg_smooth = reldiff_avg.rolling(window).mean() 
             reldiff_std_smooth = reldiff_avg.rolling(window).std() 
         elif smooth_type == 'diffavg':
@@ -298,11 +298,9 @@ def runplot_metrics_is(p):
             # reldiff_std_smooth = reldiff_avg.rolling(window).std()/gp.rolling(window).std() *100
             # reldiff_std_smooth = reldiff_avg.rolling(window).std()
         
-       
-        reldiff_avg_smooth.iloc[0:len(reldiff_avg_smooth):1000].plot(color=colors[k],ax=ax)
-        # reldiff_avg_smooth.iloc[0:500:10].plot(color=colors[k],ax=ax)
-        # reldiff_avg.plot(color=colors[k],ax=ax)
-        # pdb.set_trace()
+
+        reldiff_avg_smooth.iloc[0:len(reldiff_avg_smooth):25].plot(color=colors[k],ax=ax)
+        # reldiff_avg_smooth.iloc[0:5000:100].plot(color=colors[k],ax=ax)
 
         # size_bwd = 1.0
         # under_line     = reldiff_avg_smooth - size_bwd*reldiff_std_smooth
@@ -317,7 +315,8 @@ def runplot_metrics_is(p):
         
     # PERSONALIZE THE IMAGE WITH CORRECT LABELS
     # ax.set_ylim(-2.0*100,0.5*100)
-    # ax.set_ylim(-0.005, 0.002)
+    # ax.set_ylim(-80, 3)
+    # ax.set_ylim(-5, 3)
     
     ax.set_xlabel('In-sample episodes')
     if smooth_type == 'avgdiff':
@@ -333,7 +332,7 @@ def runplot_metrics_is(p):
     fig.tight_layout()
     logging.info("Plot saved successfully...")
         
-    # fig.savefig("outputs/img_brini_kolm/exp_{}_{}.pdf".format(out_mode,var_plot.split('_')[0]), dpi=300, bbox_inches="tight")
+    fig.savefig("outputs/img_brini_kolm/exp_{}_{}.pdf".format(out_mode,var_plot.split('_')[0]), dpi=300, bbox_inches="tight")
 
 
 def runplot_holding(p):
@@ -377,7 +376,7 @@ def runplot_holding(p):
     ]
     latest_subdir = max(all_subdirs, key=os.path.getmtime)
     length = os.path.split(latest_subdir)[-1]
-    pdb.set_trace()
+
     experiment = [
         exp
         for exp in os.listdir("outputs/{}/{}/{}".format(outputClass, model, length))
@@ -466,7 +465,7 @@ def runplot_holding(p):
     # DOUBLE PICTURE
     for i in range(2):
         ax = axes[i]
-        oos_test.rnd_state = 1673
+        # oos_test.rnd_state = 1673
         # oos_test.rnd_state = np.random.choice(10000,1)
         # print(oos_test.rnd_state)
         res_df = oos_test.run_test(train_agent, return_output=True)
@@ -537,8 +536,8 @@ def runplot_multiholding(p):
     # seed = p["seed"]
     
     # manually inputed experiments weights and seeds
-    seeds = ['639','176'] #'176'
-    eps_ppo = ['200','4200']
+    seeds = ['206','206'] #'176'
+    eps_ppo = ['5000','5000']
     colors = [[p['color_res'],p['color_gp']],[p['color_mfree'],p['color_gp']]]
     
     if 'DQN' in tag:
@@ -659,7 +658,7 @@ def runplot_multiholding(p):
             MV_res=query("%MV_RES"),
             N_test=p['N_test']
         )
-        oos_test.rnd_state = 2345
+        oos_test.rnd_state = 5476567
         print(oos_test.rnd_state)
         res_df = oos_test.run_test(train_agent, return_output=True)
 
@@ -1017,11 +1016,11 @@ def runplot_distribution(p):
         if p['dist_to_plot'] == 'r':
             title = 'reward'
             rewards = Parallel(n_jobs=p['cores'])(delayed(parallel_test)(
-                    s, oos_test,train_agent,data_dir,p['fullpath']) for s in seeds)
+                    s, oos_test,train_agent,data_dir,p['fullpath'],mv_solution=True) for s in seeds)
         elif p['dist_to_plot'] == 'w':
             title= 'wealth'
             rewards = Parallel(n_jobs=p['cores'])(delayed(parallel_test_wealth)(
-                    s, oos_test,train_agent,data_dir,p['fullpath']) for s in seeds)
+                    s, oos_test,train_agent,data_dir,p['fullpath'],mv_solution=True) for s in seeds)
     
         if p['fullpath']:
             rewards_ppo = pd.concat(list(map(list, zip(*rewards)))[0],axis=1).cumsum()
@@ -1149,6 +1148,7 @@ def runplot_cdf_distribution(p):
     
         gin.parse_config_file(os.path.join(data_dir, "config.gin"), skip_unknown=True)
         gin.bind_parameter('alpha_term_structure_sampler.generate_plot', p['generate_plot'])
+        
         p['N_test'] = gin.query_parameter('%LEN_SERIES')
         
         # gin.bind_parameter('Out_sample_vs_gp.rnd_state',p['random_state'])
@@ -1202,7 +1202,7 @@ def runplot_cdf_distribution(p):
         else:
             print("Choose proper algorithm.")
             sys.exit()
-        
+
         
         if gin.query_parameter('%MULTIASSET'):
             if 'Short' in str(gin.query_parameter('%ENV_CLS')):
@@ -1218,7 +1218,8 @@ def runplot_cdf_distribution(p):
             experiment_type=query("%EXPERIMENT_TYPE"),
             env_cls=env,
             MV_res=query("%MV_RES"),
-            N_test=p['N_test']
+            N_test=p['N_test'],
+            mv_solution=True
         )
     
     
@@ -1227,12 +1228,12 @@ def runplot_cdf_distribution(p):
         if p['dist_to_plot'] == 'r':
             title = 'reward'
             rewards = Parallel(n_jobs=p['cores'])(delayed(parallel_test)(
-                    s, oos_test,train_agent,data_dir,p['fullpath']) for s in seeds)
+                    s, oos_test,train_agent,data_dir,p['fullpath'],mv_solution=True) for s in seeds)
         elif p['dist_to_plot'] == 'w':
             title= 'wealth'
             rewards = Parallel(n_jobs=p['cores'])(delayed(parallel_test_wealth)(
-                    s, oos_test,train_agent,data_dir,p['fullpath']) for s in seeds)
-    
+                    s, oos_test,train_agent,data_dir,p['fullpath'],mv_solution=True) for s in seeds)
+        
         if p['fullpath']:
             rewards_ppo = pd.concat(list(map(list, zip(*rewards)))[0],axis=1).cumsum()
             rewards_gp = pd.concat(list(map(list, zip(*rewards)))[1],axis=1).cumsum()
@@ -1246,10 +1247,9 @@ def runplot_cdf_distribution(p):
     
             fig.close()
         else:
-            rewards = pd.DataFrame(data=np.array(rewards), columns=['ppo','gp'])
+            rewards = pd.DataFrame(data=np.array(rewards), columns=['ppo','gp','mv'])
             rewards.replace([np.inf, -np.inf], np.nan,inplace=True)
     
-            cumdiff = rewards['ppo'].values - rewards['gp'].values
             # means, stds = rewards.mean().values, rewards.std().values
             # srs = means/stds
             KS, p_V = ks_2samp(rewards.values[:,0], rewards.values[:,1])
@@ -1267,10 +1267,11 @@ def runplot_cdf_distribution(p):
     # sns.kdeplot(cumdiff, bw_method=0.2,ax=ax2,color='tab:olive')
     sns.ecdfplot(rewards['ppo'].values,ax=ax,color='tab:blue') #tab:blue
     sns.ecdfplot(rewards['gp'].values,ax=ax,color='tab:orange',alpha=0.6,linestyle="--")
+    sns.ecdfplot(rewards['mv'].values,ax=ax,color='tab:olive')
     ax.set_xlabel("Cumulative reward (\$)")
     ax.ticklabel_format(axis="x", style="sci", scilimits=(0, 0),useMathText=True)
     # move_sn_x(offs=.03, side='right', dig=2)
-    ax.legend(labels=['Residual PPO','GP'],loc=4) 
+    ax.legend(labels=['Residual PPO','GP','MV'],loc=4) 
     # ax2.legend(labels=['Model-free PPO','GP']) 
 
 
@@ -1294,7 +1295,7 @@ def runplot_cdf_distribution(p):
     
     fig.subplots_adjust(wspace=0.05)
     fig.tight_layout()
-    fig.savefig(os.path.join('outputs','img_brini_kolm','TALK', "cdf_{}_{}.pdf".format(p['n_seeds'], outputModel)), dpi=300, bbox_inches="tight")
+    fig.savefig(os.path.join('outputs','img_brini_kolm', "cdf_{}_{}.pdf".format(p['n_seeds'], outputModel)), dpi=300, bbox_inches="tight")
     
 
 
@@ -1305,17 +1306,25 @@ def ecdf(a):
     return x, cusum / cusum[-1]
 
 
-def parallel_test(seed,test_class,train_agent,data_dir,fullpath=False):
+def parallel_test(seed,test_class,train_agent,data_dir,fullpath=False,mv_solution=False):
     gin.parse_config_file(os.path.join(data_dir, "config.gin"), skip_unknown=True)
     # change reward function in order to evaluate in the same way
+    # gin.bind_parameter('%COSTMULTIPLIER', 0.05)
+    gin.bind_parameter('alpha_term_structure_sampler.fixed_alpha', False)
     if gin.query_parameter('%REWARD_TYPE') == 'cara':
         gin.bind_parameter('%REWARD_TYPE', 'mean_var')
     test_class.rnd_state = seed
     res_df = test_class.run_test(train_agent, return_output=True)
     if fullpath:
-        return res_df['Reward_PPO'],res_df['OptReward']
+        if not mv_solution:
+            return res_df['Reward_PPO'],res_df['OptReward']
+        else:
+            return res_df['Reward_PPO'],res_df['OptReward'],res_df['MVReward']
     else:
-        return res_df['Reward_PPO'].cumsum().values[-1],res_df['OptReward'].cumsum().values[-1]
+        if not mv_solution:
+            return res_df['Reward_PPO'].cumsum().values[-1],res_df['OptReward'].cumsum().values[-1]
+        else:
+            return res_df['Reward_PPO'].cumsum().values[-1],res_df['OptReward'].cumsum().values[-1],res_df['MVReward'].cumsum().values[-1]
     
 def parallel_test_wealth(seed,test_class,train_agent,data_dir,fullpath=False):
     gin.parse_config_file(os.path.join(data_dir, "config.gin"), skip_unknown=True)
@@ -1432,22 +1441,13 @@ def runplot_time(p):
 def runplot_policies(p):
     
     colors = [p['color_res'],p['color_mfree']]
-    eps_ppo = [250,20000] #['200','4200'] #[250,20000] #
+    eps_ppo = p['ep_ppo']
     lines = [True,False]
     optimal = [False,True]
-    seeds =  [99231,99231] #[507,99231] #[8132,60915] ['639','176'] 
-    # outputModels = ['20211024_single_conv_res_higher_lr','20211011_single_conv_mv_res_{}_double_noise_False_sigmaf_None']
-    # experiments = ['seed_{}'.format(seeds[0]), 'mv_res_False_double_noise_False_sigmaf_None_seed_{}'.format(seeds[1])]
-    outputModels = ['20211011_single_conv_mv_res_True_double_noise_{}_sigmaf_{}'.format(*p["hyperparams_exp_ppo"]),
-                    '20211011_single_conv_mv_res_False_double_noise_{}_sigmaf_{}'.format(*p["hyperparams_exp_ppo"])]
-    experiments = ['mv_res_True_double_noise_{}_sigmaf_{}_seed_{}'.format(*p["hyperparams_exp_ppo"],seeds[0]), 
-                    'mv_res_False_double_noise_{}_sigmaf_{}_seed_{}'.format(*p["hyperparams_exp_ppo"],seeds[1])]
+    outputModels = p['outputModels_ppo']
+    experiments = p['experiment_ppo']
     
-    # outputModels = ['20210929_single_gpext_long2_mv_res_True', '20210929_single_gpext_long2_mv_res_False']
-    # experiments = ['mv_res_True_seed_{}'.format(seeds[0]), 
-    #                'mv_res_False_seed_{}'.format(seeds[1])]
-
-
+    
     # for ss in np.random.choice(1000,10,replace=False):
     fig = plt.figure(figsize=set_size(width=columnwidth))
     ax = fig.add_subplot()
@@ -1457,15 +1457,6 @@ def runplot_policies(p):
         tag = p["algo"]
         p['ep_ppo'] = ep
 
-        
-        # if 'DQN' in tag:
-        #     hp_exp = [lin] + p["hyperparams_exp_dqn"]
-        # elif 'PPO' in tag:
-        #     hp_exp = [lin] + p["hyperparams_exp_ppo"]
-    
-        # if hp_exp:
-        #     outputModel = outputModel.format(*hp_exp)
-        #     experiment = experiment.format(*hp_exp)
     
         modelpath = "outputs/{}/{}".format(outputClass, outputModel)
         # get the latest created folder "length"
@@ -1480,8 +1471,6 @@ def runplot_policies(p):
             outputClass, outputModel, length, experiment
         )
     
-
-    
         if "DQN" in tag:
             gin.parse_config_file(os.path.join(data_dir, "config.gin"), skip_unknown=True)
             if p['n_dqn']:
@@ -1489,7 +1478,7 @@ def runplot_policies(p):
             else:
                 model, actions = load_DQNmodel(data_dir, gin.query_parameter("%N_TRAIN"))      
             
-            plot_BestActions(model, p['holding'], ax=ax, optimal=p['optimal'],color=col)
+            plot_BestActions(model, p['holding'], ax=ax, optimal=p['optimal'],seed=gin.query_parameter("%SEED"),color=col)
     
             ax.set_xlabel("y")
             ax.set_ylabel("best $\mathregular{A_{t}}$")
@@ -1503,12 +1492,12 @@ def runplot_policies(p):
                 model, actions = load_PPOmodel(data_dir, gin.query_parameter("%EPISODES"))
     
             
-            plot_BestActions(model, p['holding'], ax=ax, optimal=p['optimal'],seed=p['random_state'], color=col) #3346
+            plot_BestActions(model, p['holding'], ax=ax, optimal=p['optimal'],seed=gin.query_parameter("%SEED"), color=col) #3346
 
 
     ax.set_xlabel("Alpha (bps)")
     ax.set_ylabel('Trade (\$)')
-    ax.legend(['Residual PPO', 'Model-free PPO', 'GP'])
+    ax.legend(['Residual PPO', 'Model-free PPO', 'GP', 'MV'])
     fig.tight_layout()
     # fig.suptitle(ss)
     fig.savefig(os.path.join('outputs','img_brini_kolm', "ppo_policies_{}_{}.pdf".format(p['seed'], outputModel)), dpi=300, bbox_inches="tight")
@@ -1546,6 +1535,7 @@ def runplot_alpha(p):
     ]
     latest_subdir = max(all_subdirs, key=os.path.getmtime)
     length = os.path.split(latest_subdir)[-1]
+
     experiment = [
         exp
         for exp in os.listdir("outputs/{}/{}/{}".format(outputClass, model, length))
@@ -1558,7 +1548,7 @@ def runplot_alpha(p):
     p['N_test'] = gin.query_parameter('%LEN_SERIES')
     
 
-    rng = np.random.RandomState(p['random_state'])
+    rng = np.random.RandomState(gin.query_parameter('%SEED'))
     
     data_handler = DataHandler(N_train=p['N_test'], rng=rng)
     data_handler.generate_returns()
@@ -1911,3 +1901,9 @@ if __name__ == "__main__":
         runplot_multialpha(p)
     elif p['plot_type'] == 'metrics_sens':
         runplot_metrics_sens(p)
+    elif p['plot_type'] == 'diagnostics':
+        runplot_alpha(p)
+        runplot_metrics_is(p)
+        # runplot_metrics(p)
+        runplot_cdf_distribution(p)
+        # runplot_policies(p)
