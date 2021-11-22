@@ -96,7 +96,7 @@ class PPO_runner(MixinCore):
             sys.exit()
 
     def set_up_training(self):
-
+        
         self.logging.debug("Simulating Data")
         # Modify hyperparams to deal with a large cross section
         n_assets = gin.query_parameter('%N_ASSETS')
@@ -179,6 +179,7 @@ class PPO_runner(MixinCore):
         """
 
         self.logging.debug("Start training...")
+        
         if self.store_insample:
             self.ppo_rew,self.opt_rew = [],[]
         for e in tqdm(iterable=range(self.episodes), desc="Running episodes..."):
@@ -257,7 +258,9 @@ class PPO_runner(MixinCore):
         logging.info("Config file saved")
 
     def collect_rollouts(self):
+        
         state = self.env.reset()
+
         if self.store_insample:
             gp_temp = []
             optstate = self.env.opt_reset()
@@ -334,18 +337,20 @@ class PPO_runner(MixinCore):
 
             # # benchmark agent
             if self.store_insample:
+                # pdb.set_trace()
                 nextoptstate, optresult = self.env.opt_step(
                     optstate, optrate, discfactorloads, i
                 )
                 optstate = nextoptstate
                 gp_temp.append(optresult['OptReward'])
+
                 
         if self.store_insample:
             self.ppo_rew.append(np.cumsum(self.train_agent.experience['reward'])[-1])
             self.opt_rew.append(np.cumsum(gp_temp)[-1])
 
-
-
+        
+        # pdb.set_trace()
         _, self.next_value = self.train_agent.act(next_state)
         # compute the advantage estimate from the given rollout
         self.train_agent.compute_gae(self.next_value.detach().cpu().numpy().ravel())
@@ -379,8 +384,8 @@ class PPO_runner(MixinCore):
         #                                                             high=0.8,
         #                                                             size=(int((n_assets**2 - n_assets)/2))),5)))
         rng = np.random.RandomState(self.seed)
-        gin.bind_parameter('%HALFLIFE',[[rng.randint(low=200,high=400)] for _ in range(n_assets)])
-        gin.bind_parameter('%INITIAL_ALPHA',[[np.round(rng.uniform(low=0.008,high=0.1),5)] for _ in range(n_assets)])
+        gin.bind_parameter('%HALFLIFE',[[rng.randint(low=50,high=800)] for _ in range(n_assets)])
+        gin.bind_parameter('%INITIAL_ALPHA',[[np.round(rng.uniform(low=0.003,high=0.01),5)] for _ in range(n_assets)])
         gin.bind_parameter('%F_PARAM',[[1.0] for _ in range(n_assets)])
         gin.bind_parameter('%CORRELATION',list(np.round(rng.uniform(low=-0.8,
                                                                     high=0.8,

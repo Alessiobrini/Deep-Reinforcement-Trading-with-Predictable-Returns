@@ -192,7 +192,28 @@ class MarketEnv(gym.Env):
             )
             self.n_assets = len(HalfLife)
             self.n_factors = len(HalfLife[0])
-  
+            
+            # Initialize all the names for the columns
+            cols=pd.Series(res_df.columns)
+            for dup in cols[cols.duplicated()].unique(): 
+                cols[cols[cols == dup].index.values.tolist()] = [dup + '.' + str(i) if i != 0 else dup for i in range(sum(cols == dup))]
+            res_df.columns=cols
+            # create names of the new columns
+            names1 = ['CurrHolding_PPO', 'NextHolding_PPO', 'Action_PPO', 'OptNextAction', 'OptNextHolding']
+            names1 = [n+'_{}'.format(i) for n in names1 for i in range(self.n_assets)]
+            names2 = ['GrossPNL_PPO', 'NetPNL_PPO', 'Risk_PPO', 'Cost_PPO', 
+             'Reward_PPO', 'TradedAmount_PPO', 'Cash_PPO', 'Wealth_PPO',
+             'OptGrossPNL', 'OptNetPNL', 'OptRisk', 'OptCost', 'OptReward', 
+             'OptTradedAmount', 'OptCash', 'OptWealth']
+            names = names1 + names2
+            res_df = res_df.reindex(columns=list(res_df.columns)+names)
+            
+            self.currholding_rl, self.nextholding_rl, self.action_rl, self.optaction, self.optholding = [],[],[],[],[]
+            (self.grosspnl_rl, self.netpnl_rl, self.risk_rl, self.cost_rl, self.reward_rl, 
+             self.tradedamount_rl, self.cash_rl, self.wealth_rl) = [],[],[],[],[],[],[],[]
+            (self.grosspnl_opt, self.netpnl_opt, self.risk_opt, self.cost_opt, 
+            self.reward_opt, self.tradedamount_opt, self.cash_opt, self.wealth_opt) = [],[],[],[],[],[],[],[]
+
             if self.cash:
     
                 self.holding_ts = [[self.Startholding]*self.n_assets]
@@ -385,6 +406,7 @@ class MarketEnv(gym.Env):
         return nextOptState, OptResult
 
     def store_results(self, Result: dict, iteration: int):
+
         if iteration == 0:
             for key in Result.keys():
                 if isinstance(Result[key],list) or isinstance(Result[key],np.ndarray):
@@ -787,6 +809,8 @@ class CashMarketEnv(MarketEnv):
             "Wealth_{}".format(tag): nextWealth,
         }
 
+        self.costs, self.traded_amount = 0.0, 0.0
+        
         if isinstance(res_action, float):
             Result["ResAction_{}".format(tag)] = res_action
         return Result
@@ -860,6 +884,8 @@ class CashMarketEnv(MarketEnv):
             "{}Cash".format(tag): NextOptcash,
             "{}Wealth".format(tag): nextWealth,
         }
+
+        self.costs, self.traded_amount = 0.0, 0.0
 
         return Result
 
@@ -1070,6 +1096,7 @@ class MultiAssetCashMarketEnv(CashMarketEnv):
         CurrFactors = self.factors[iteration].reshape(self.n_assets,self.n_factors)
         OptCurrHolding = np.array(currOptState[-1-self.n_assets:-1])
         # Optimal traded quantity between period
+        
         DiscFactors = CurrFactors/ (1+self.f_speed * ((OptRate * self.CostMultiplier) / self.kappa))
         OptNextHolding = np.dot(np.linalg.inv(self.cov_matrix* self.kappa), np.dot(
             DiscFactors,self.f_param[0]
@@ -1094,6 +1121,40 @@ class MultiAssetCashMarketEnv(CashMarketEnv):
         OptResult = self._get_opt_reward(
             currOptState, nextOptState, nextReturn, iteration, tag
         )
+        
+        return nextOptState, OptResult
+
+    def mv_step(
+        self, currOptState: Tuple, iteration: int, tag: str = "MV"
+    ) -> Tuple[np.ndarray, dict]:
+
+        CurrFactors = self.factors[iteration].reshape(self.n_assets,self.n_factors)
+        OptCurrHolding = np.array(currOptState[-1-self.n_assets:-1])
+
+        # Traded quantity as for the Markovitz framework  (Mean-Variance framework)
+        OptNextHolding = np.dot(np.linalg.inv(self.cov_matrix* self.kappa), np.dot(
+            CurrFactors,self.f_param[0]
+        ))
+
+        action = OptNextHolding - OptCurrHolding
+
+        # buy/sell here
+        OptTrades = []
+        for i,a in enumerate(action):
+            opt_t = self._opt_trade(
+                index=iteration, holding=currOptState[-1-self.n_assets+i], cash=currOptState[-1], action=a
+            )
+            OptTrades.append(opt_t)
+        OptNextHolding = np.array(OptTrades)  + OptCurrHolding * (1 + self.returns[iteration+1])
+        
+        nextCash = currOptState[-1] + self.traded_amount
+        nextReturn = self.returns[iteration + 1]
+        nextFactors = self.factors[iteration + 1]
+        nextOptState = list(nextFactors) + list(OptNextHolding) + [nextCash]
+
+        OptResult = self._get_opt_reward(
+            currOptState, nextOptState, nextReturn, iteration, tag
+        )
 
         return nextOptState, OptResult
 
@@ -1111,6 +1172,7 @@ class MultiAssetCashMarketEnv(CashMarketEnv):
         a = (-num1 + num2) / den
 
         OptRate = a / self.CostMultiplier
+        
 
         DiscFactorLoads = self.f_param 
 
@@ -1263,6 +1325,58 @@ class MultiAssetCashMarketEnv(CashMarketEnv):
             self.costs, self.traded_amount = 0.0, 0.0
 
             return shares_traded
+
+
+    def store_results(self, Result: dict, iteration: int):
+        if iteration == self.N_train:
+            if 'Opt' not in list(Result.keys())[0]:
+                self.res_df = self.res_df.iloc[:-2,:]
+                self.res_df[self.res_df.filter(like='CurrHolding_PPO').columns] = np.array(self.currholding_rl)
+                self.res_df[self.res_df.filter(like='NextHolding_PPO').columns] = np.array(self.nextholding_rl)
+                self.res_df[self.res_df.filter(like='Action_PPO').columns] = np.array(self.action_rl)
+                self.res_df['GrossPNL_PPO'] = self.grosspnl_rl
+                self.res_df['NetPNL_PPO'] = self.netpnl_rl
+                self.res_df['Risk_PPO'] = self.risk_rl
+                self.res_df['Cost_PPO'] = self.cost_rl
+                self.res_df['Reward_PPO'] = self.reward_rl
+                self.res_df['TradedAmount_PPO'] = self.tradedamount_rl
+                self.res_df['Cash_PPO'] = self.cash_rl
+                self.res_df['Wealth_PPO'] = self.wealth_rl
+            else:
+                self.res_df[self.res_df.filter(like='OptNextAction').columns] = np.array(self.optaction)
+                self.res_df[self.res_df.filter(like='OptNextHolding').columns] = np.array(self.optholding)
+                self.res_df['OptGrossPNL'] = self.grosspnl_opt
+                self.res_df['OptNetPNL'] = self.netpnl_opt
+                self.res_df['OptRisk'] = self.risk_opt
+                self.res_df['OptCost'] = self.cost_opt
+                self.res_df['OptReward'] = self.reward_opt
+                self.res_df['OptTradedAmount'] = self.tradedamount_opt
+                self.res_df['OptCash'] = self.cash_opt
+                self.res_df['OptWealth'] = self.wealth_opt
+        else:
+            if 'Opt' not in list(Result.keys())[0]:
+                self.currholding_rl.append(Result['CurrHolding_PPO'])
+                self.nextholding_rl.append(Result['NextHolding_PPO'])
+                self.action_rl.append(Result['Action_PPO'])
+                self.grosspnl_rl.append(Result['GrossPNL_PPO'])
+                self.netpnl_rl.append(Result['NetPNL_PPO'])
+                self.risk_rl.append(Result['Risk_PPO'])
+                self.cost_rl.append(Result['Cost_PPO'])
+                self.reward_rl.append(Result['Reward_PPO'])
+                self.tradedamount_rl.append(Result['TradedAmount_PPO'])
+                self.cash_rl.append(Result['Cash_PPO'])
+                self.wealth_rl.append(Result['Wealth_PPO'])
+            else:
+                self.optaction.append(Result['OptNextAction'])
+                self.optholding.append(Result['OptNextHolding'])
+                self.grosspnl_opt.append(Result['OptGrossPNL'])
+                self.netpnl_opt.append(Result['OptNetPNL'])
+                self.risk_opt.append(Result['OptRisk'])
+                self.cost_opt.append(Result['OptCost']) 
+                self.reward_opt.append(Result['OptReward'])
+                self.tradedamount_opt.append(Result['OptTradedAmount'])
+                self.cash_opt.append(Result['OptCash'])
+                self.wealth_opt.append(Result['OptWealth'])
 
 
 

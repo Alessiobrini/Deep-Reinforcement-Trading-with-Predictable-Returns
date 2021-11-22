@@ -40,6 +40,8 @@ class Out_sample_vs_gp:
         env_cls: object,
         MV_res: bool,
         universal_train: bool = False,
+        mv_solution: bool = False,
+        stochastic_policy: bool = True,
     ):
 
         variables = []
@@ -57,10 +59,12 @@ class Out_sample_vs_gp:
         self.experiment_type = experiment_type
         self.env_cls = env_cls
         self.MV_res = MV_res
+        self.mv_solution = mv_solution
+        self.stochastic_policy = stochastic_policy
 
 
     def run_test(self, test_agent: object, it: int = 0, return_output: bool = False):
-        
+
         self.rng_test = np.random.RandomState(self.rnd_state)
 
         avg_pnls = []
@@ -91,7 +95,7 @@ class Out_sample_vs_gp:
                 gin.bind_parameter('return_sampler_garch.seed',s)
                 data_handler.generate_returns()
                 data_handler.estimate_parameters()
-            
+
             if data_handler.datatype == "alpha_term_structure" and not self.MV_res:
                 action_range, _, _ = get_action_boundaries(
                     N_train=self.N_test,
@@ -112,9 +116,10 @@ class Out_sample_vs_gp:
 
             CurrState = self.test_env.reset()
 
-            
             CurrOptState = self.test_env.opt_reset()
             OptRate, DiscFactorLoads = self.test_env.opt_trading_rate_disc_loads()
+            if self.mv_solution:
+                CurrMVState = self.test_env.opt_reset()
 
             for i in tqdm(iterable=range(self.N_test + 1), desc="Testing DQNetwork"):
 
@@ -155,8 +160,11 @@ class Out_sample_vs_gp:
                         dist, qvalues = test_agent.model(CurrState.unsqueeze(0))
 
                     if test_agent.policy_type == "continuous":
-                        # action = dist.sample()
-                        action = dist.mean
+
+                        if self.stochastic_policy:
+                            action = dist.sample()
+                        else:
+                            action = dist.mean
                         action = nn.Tanh()(action).cpu().numpy().ravel()[0]
 
                         if self.MV_res:
@@ -209,7 +217,15 @@ class Out_sample_vs_gp:
                 self.test_env.store_results(OptResult, i)
 
                 CurrOptState = NextOptState
-            # pdb.set_trace()
+
+                if self.mv_solution:
+                    NextMVState, MVResult = self.test_env.mv_step(
+                        CurrMVState, i
+                    )
+                    self.test_env.store_results(MVResult, i)
+                    CurrMVState = NextMVState
+
+
             if return_output:
                 return self.test_env.res_df
 
