@@ -1,17 +1,3 @@
-# -*- coding: utf-8 -*-
-"""
-Created on Thu Sep  9 18:04:49 2021
-
-@author: alessiobrini
-"""
-
-# -*- coding: utf-8 -*-
-"""
-Created on Sat Dec 12 15:34:30 2020
-
-@author: alessiobrini
-"""
-
 import os
 
 if any("SPYDER" in name for name in os.environ):
@@ -22,13 +8,10 @@ if any("SPYDER" in name for name in os.environ):
 import os, logging, sys
 import pandas as pd
 import numpy as np
-import random
 import matplotlib.pyplot as plt
-from matplotlib.offsetbox import AnchoredText
-from mpl_toolkits.axes_grid1.inset_locator import inset_axes
 from matplotlib import gridspec
 import tensorflow as tf
-from scipy.stats import ks_2samp,kstest,ttest_ind,median_abs_deviation
+from scipy.stats import ks_2samp,ttest_ind,median_abs_deviation
 import pdb
 import glob
 import re
@@ -36,10 +19,7 @@ import seaborn as sns
 import gin
 gin.enter_interactive_mode()
 from joblib import Parallel, delayed
-from scipy.optimize import curve_fit
-from scipy.stats import pearsonr
 import matplotlib as mpl
-from matplotlib.texmanager import TexManager
 from utils.plot import (
     move_sn_x,
     plot_pct_metrics,
@@ -66,142 +46,119 @@ gpu_devices = tf.config.experimental.list_physical_devices("GPU")
 for device in gpu_devices:
     tf.config.experimental.set_memory_growth(device, True)
 
+
+def get_exp_length(modelpath):
+    # get the latest created folder "length"
+    all_subdirs = [
+        os.path.join(modelpath, d)
+        for d in os.listdir(modelpath)
+        if os.path.isdir(os.path.join(modelpath, d))
+    ]
+    latest_subdir = max(all_subdirs, key=os.path.getmtime)
+    length = os.path.split(latest_subdir)[-1]    
+    return length
+
+def get_all_subdirs(maindir):
+    filtered_dir = [
+        dirname
+        for dirname in os.listdir(maindir)
+        if os.path.isdir(os.path.join(os.getcwd(), maindir, dirname))
+    ]
+    return filtered_dir
+
+
+
+
 def runplot_metrics(p):
 
     N_test = p["N_test"]
     outputClass = p["outputClass"]
-    tag = p["algo"]
+    tag = p["algo"][0]
     if 'DQN' in tag:
         hp = p["hyperparams_model_dqn"]
         outputModels = p["outputModels_dqn"]
     elif 'PPO' in tag:
         hp = p["hyperparams_model_ppo"]
         outputModels = p["outputModels_ppo"]
-
-
     if hp is not None:
         outputModel = [exp.format(*hp) for exp in outputModels]
     else:
         outputModel = outputModels
-
     colors = [p['color_res'],p['color_mfree'],'red','yellow']
-
-    for t in tag:
-
-        
-        var_plot = [v.format(format_tousands(N_test), t) for v in p['var_plots'] ]
-
-        for it, v in enumerate(var_plot):
-
-            # read main folder
-            fig = plt.figure(figsize=set_size(width=columnwidth)) 
+ 
+    var_plot = [v.format(format_tousands(N_test), tag) for v in p['var_plots'] ]
+    
+    for it, v in enumerate(var_plot):
+        fig = plt.figure(figsize=set_size(width=columnwidth)) 
+        ax = fig.add_subplot()
+        for k, out_mode in enumerate(outputModel):
+            modelpath = "outputs/{}/{}".format(outputClass, out_mode)
+    
+            length = get_exp_length(modelpath)
+            data_dir = "outputs/{}/{}/{}".format(outputClass, out_mode, length)
+            filtered_dir = get_all_subdirs(data_dir)
             
-            # fig.subplots_adjust(wspace=0.2, hspace=0.6)
-            ax = fig.add_subplot()
-            for k, out_mode in enumerate(outputModel):
-                modelpath = "outputs/{}/{}".format(outputClass, out_mode)
-
-                # get the latest created folder "length"
-                all_subdirs = [
-                    os.path.join(modelpath, d)
-                    for d in os.listdir(modelpath)
-                    if os.path.isdir(os.path.join(modelpath, d))
-                ]
-                latest_subdir = max(all_subdirs, key=os.path.getmtime)
-                length = os.path.split(latest_subdir)[-1]
-
-                data_dir = "outputs/{}/{}/{}".format(outputClass, out_mode, length)
-                # Recover and plot generated multi test OOS ----------------------------------------------------------------
-                filtered_dir = [
-                    dirname
-                    for dirname in os.listdir(data_dir)
-                    if os.path.isdir(os.path.join(os.getcwd(), data_dir, dirname))
-                ]
-                logging.info(
-                    "Plotting experiment {} for variable {}...".format(out_mode, v)
+            logging.info(
+                "Plotting experiment {} for variable {}...".format(out_mode, v)
+            )
+            
+            dfs, dfs_opt = [], []
+            for exp in filtered_dir:
+                exp_path = os.path.join(data_dir, exp)
+                
+                df = pd.read_parquet(os.path.join(exp_path, v))
+                dfs.append(df)
+                df_opt = pd.read_parquet( os.path.join(exp_path, v.replace(tag, "GP")))
+                dfs_opt.append(df_opt)
+                filenamep = os.path.join(data_dir, exp, "config.gin")
+                
+            dataframe = pd.concat(dfs)
+            dataframe.index = range(len(dfs))
+            dataframe_opt = pd.concat(dfs_opt)
+            dataframe_opt.index = range(len(dfs_opt))
+            # pdb.set_trace()
+    
+            if 'PPO' in tag and p['ep_ppo']:
+                dataframe = dataframe.iloc[:,:dataframe.columns.get_loc(p['ep_ppo'])]
+    
+            if "Abs" in v:
+                plot_abs_metrics(
+                    ax,
+                    dataframe,
+                    dataframe_opt,
+                    data_dir,
+                    N_test,
+                    v,
+                    colors=colors[k],
+                    i=it,
+                    plt_type='diff'
+                )                    
+    
+            else:
+                plot_pct_metrics(
+                    ax,
+                    dataframe,
+                    data_dir,
+                    N_test,
+                    v,
+                    colors=colors[k],
+                    params_path=filenamep,
                 )
-                dfs = []
-                for exp in filtered_dir:
-                    exp_path = os.path.join(data_dir, exp)
-                    df = pd.read_parquet(os.path.join(exp_path, v))
 
-                    # filenamep = os.path.join(
-                    #     data_dir, exp, "config.yaml".format(length)
-                    # )
-                    # p_mod = readConfigYaml(filenamep)
-                    filenamep = os.path.join(data_dir, exp, "config.gin")
-
-                    dfs.append(df)
-
-                dataframe = pd.concat(dfs)
-                dataframe.index = range(len(dfs))
-                # pdb.set_trace()
-
-                if 'PPO' in tag and p['ep_ppo']:
-                    dataframe = dataframe.iloc[:,:dataframe.columns.get_loc(p['ep_ppo'])]
-
-                if "Abs" in v or 'Pdist' in v:
-
-                    dfs_opt = []
-                    for exp in filtered_dir:
-                        exp_path = os.path.join(data_dir, exp)
-                        df_opt = pd.read_parquet(
-                            os.path.join(exp_path, v.replace(t, "GP"))
-                        )
-                        dfs_opt.append(df_opt)
-                    dataframe_opt = pd.concat(dfs_opt)
-                    dataframe_opt.index = range(len(dfs_opt))
-                    
-                    # rng = np.random.RandomState(1344) #1344
-                    # ckpt = '13500'
-                    # for i in dataframe.index:
-                    #       df = dataframe.loc[i,ckpt:].copy()
-                    #       df[df <= 0.8e+8] = rng.uniform(dataframe.loc[:,ckpt].max(),dataframe_opt.iloc[0,0], 1)
-                    #       # df = df[df >= 0]
-                    #       dataframe.loc[i,ckpt:] = df.copy()
-                    
-                    if 'PPO' in tag and p['ep_ppo']:
-                        dataframe_opt = dataframe_opt.iloc[:,:dataframe_opt.columns.get_loc(p['ep_ppo'])]
-
-
-                    plot_abs_metrics(
-                        ax,
-                        dataframe,
-                        dataframe_opt,
-                        data_dir,
-                        N_test,
-                        v,
-                        colors=colors[k],
-                        i=it,
-                        plt_type='diff'
-                    )                    
-
-                else:
-                    plot_pct_metrics(
-                        ax,
-                        dataframe,
-                        data_dir,
-                        N_test,
-                        v,
-                        colors=colors[k],
-                        params_path=filenamep,
-                    )
-                    # ax.set_ylim(20, 150)
-                    
-                    
-                # PERSONALIZE THE IMAGE WITH CORRECT LABELS
-                ax.get_figure().gca().set_title("") # no title
-                # ax.set_ylim(-2.0*100,0.5*100)
                 
-                ax.set_xlabel('In-sample episodes')
-                ax.set_ylabel('Relative difference in reward (\%)')
-                # ax.ticklabel_format(axis="y", style="sci", scilimits=(0, 0),useMathText=True)
-                ax.legend(['Residual PPO','Model-free PPO'], loc=4)
-                
-                fig.tight_layout()
-                logging.info("Plot saved successfully...")
-                
-            fig.savefig("outputs/img_brini_kolm/exp_{}_{}.pdf".format(out_mode,v.split('_')[0]), dpi=300, bbox_inches="tight")
+            # PERSONALIZE THE IMAGE WITH CORRECT LABELS
+            ax.get_figure().gca().set_title("") # no title
+            # ax.set_ylim(-2.0*100,0.5*100)
+            
+            ax.set_xlabel('In-sample episodes')
+            ax.set_ylabel('Relative difference in reward (\%)')
+            # ax.ticklabel_format(axis="y", style="sci", scilimits=(0, 0),useMathText=True)
+            ax.legend(['Residual PPO','Model-free PPO'], loc=4)
+            
+            fig.tight_layout()
+            logging.info("Plot saved successfully...")
+            
+        fig.savefig("outputs/img_brini_kolm/exp_{}_{}.pdf".format(out_mode,v.split('_')[0]), dpi=300, bbox_inches="tight")
 
 
 def runplot_metrics_is(p):
@@ -227,32 +184,16 @@ def runplot_metrics_is(p):
     # read main folder
     fig = plt.figure(figsize=set_size(width=columnwidth)) 
     ax = fig.add_subplot()
-    # fig2 = plt.figure(figsize=set_size(width=columnwidth)) 
-    # ax2 = fig2.add_subplot()
     for k, out_mode in enumerate(outputModel):
         modelpath = "outputs/{}/{}".format(outputClass, out_mode)
-
-        # get the latest created folder "length"
-        all_subdirs = [
-            os.path.join(modelpath, d)
-            for d in os.listdir(modelpath)
-            if os.path.isdir(os.path.join(modelpath, d))
-        ]
-        latest_subdir = max(all_subdirs, key=os.path.getmtime)
-        length = os.path.split(latest_subdir)[-1]
-
+        length = get_exp_length(modelpath)
         data_dir = "outputs/{}/{}/{}".format(outputClass, out_mode, length)
-        # Recover and plot generated multi test OOS ----------------------------------------------------------------
-        filtered_dir = [
-            dirname
-            for dirname in os.listdir(data_dir)
-            if os.path.isdir(os.path.join(os.getcwd(), data_dir, dirname))
-        ]
+        filtered_dir = get_all_subdirs(data_dir)
+
         logging.info(
             "Plotting experiment {} for variable {}...".format(out_mode, var_plot)
         )
-        dfs = []
-        dfs_opt = []
+        dfs, dfs_opt = [], []
         for exp in filtered_dir:
             exp_path = os.path.join(data_dir, exp)
             df = pd.read_parquet(os.path.join(exp_path, var_plot))
@@ -274,7 +215,6 @@ def runplot_metrics_is(p):
         idxmax = dataframe.mean(1).idxmax()
         # pdb.set_trace()
 
-
         # PRODUCE COMPARISON PLOT
         select_agent = 'best'
         if select_agent == 'mean':
@@ -286,6 +226,7 @@ def runplot_metrics_is(p):
         elif select_agent == 'best':
             ppo = dataframe.loc[idxmax]
             gp = dataframe_opt.loc[idxmax]
+        # pdb.set_trace()
 
         smooth_type = 'diffavg' #avgdiff or diffavg
         if smooth_type == 'avgdiff':
@@ -336,10 +277,9 @@ def runplot_metrics_is(p):
 
 
 def runplot_holding(p):
-
+    
+    # Load parameters and get the path
     query = gin.query_parameter
-
-
     outputClass = p["outputClass"]
     tag = p["algo"]
     seed = p["seed"]
@@ -349,34 +289,15 @@ def runplot_holding(p):
     elif 'PPO' in tag:
         hp = p["hyperparams_model_ppo"]
         outputModels = p["outputModels_ppo"]
-
-
     if hp is not None:
         outputModel = [exp.format(*hp) for exp in outputModels]
     else:
         outputModel = outputModels
-
-
-    fig = plt.figure(figsize=set_size(width=columnwidth))
-    # ax1 = fig.add_subplot()
-    gs = gridspec.GridSpec(ncols=1, nrows=2, figure=fig)
-    ax1 = fig.add_subplot(gs[0])
-    ax2 = fig.add_subplot(gs[1])
-    axes = [ax1, ax2]
-    fig.subplots_adjust(hspace=0.25)
     
     model = outputModel[0]
 
     modelpath = "outputs/{}/{}".format(outputClass, model)
-    # get the latest created folder "length"
-    all_subdirs = [
-        os.path.join(modelpath, d)
-        for d in os.listdir(modelpath)
-        if os.path.isdir(os.path.join(modelpath, d))
-    ]
-    latest_subdir = max(all_subdirs, key=os.path.getmtime)
-    length = os.path.split(latest_subdir)[-1]
-
+    length = get_exp_length(modelpath)
     experiment = [
         exp
         for exp in os.listdir("outputs/{}/{}/{}".format(outputClass, model, length))
@@ -385,13 +306,12 @@ def runplot_holding(p):
     data_dir = "outputs/{}/{}/{}/{}".format(outputClass, model, length, experiment)
 
     gin.parse_config_file(os.path.join(data_dir, "config.gin"), skip_unknown=True)
-    gin.bind_parameter('alpha_term_structure_sampler.generate_plot', p['generate_plot'])
+    gin.bind_parameter('alpha_term_structure_sampler.generate_plot', p['generate_plot'])  
     p['N_test'] = gin.query_parameter('%LEN_SERIES')
-    
-    gin.bind_parameter('Out_sample_vs_gp.rnd_state',p['random_state'])
+    # gin.bind_parameter('Out_sample_vs_gp.rnd_state',p['random_state'])
     rng = np.random.RandomState(query("%SEED"))
 
-
+    # Load the elements for producing the plot
     if query("%MV_RES"):
         action_space = ResActionSpace()
     else:
@@ -430,7 +350,6 @@ def runplot_holding(p):
                 )
 
     elif "PPO" in tag:
-        
         train_agent = PPO(
             input_shape=input_shape, action_space=action_space, rng=rng
         )
@@ -461,6 +380,14 @@ def runplot_holding(p):
             N_test=p['N_test']
         )
 
+
+    # PRODUCE THE FIGURE
+    fig = plt.figure(figsize=set_size(width=columnwidth))
+    gs = gridspec.GridSpec(ncols=1, nrows=2, figure=fig)
+    ax1 = fig.add_subplot(gs[0])
+    ax2 = fig.add_subplot(gs[1])
+    axes = [ax1, ax2]
+    fig.subplots_adjust(hspace=0.25)
     
     # DOUBLE PICTURE
     for i in range(2):
@@ -471,54 +398,18 @@ def runplot_holding(p):
         res_df = oos_test.run_test(train_agent, return_output=True)
     
         if gin.query_parameter('%MULTIASSET'):
-    
             plot_portfolio(res_df, tag[0], ax, tbox=False)
             if len(gin.query_parameter('%HALFLIFE'))>2:
                 ax1.get_legend().remove()
-            # ax.legend(['PPO','benchmark'], fontsize=8)
         else:
-    
             plot_portfolio(res_df, tag[0], ax, tbox=False)
             ax.legend(['PPO','benchmark'], fontsize=8)
     
     ax.set_xlabel('Timestep')
     ax.ticklabel_format(axis="y", style="sci", scilimits=(0, 0),useMathText=True)
-    # ax.set_ylabel('Holding')
     fig.text(0.03, 0.35, 'Holding (\$)', ha='center', rotation='vertical')
-    
-    
     axes[0].get_xaxis().set_visible(False)
             
-    # SINGLE PICTURE      
-    # oos_test.rnd_state = 3524
-    # oos_test.rnd_state = np.random.choice(10000,1)
-    # print(oos_test.rnd_state)
-    # res_df = oos_test.run_test(train_agent, return_output=True)
-
-    # if gin.query_parameter('%MULTIASSET'):
-
-    #     plot_portfolio(res_df, tag[0], ax1)
-    #     split = model.split("mv_res")
-
-    #     ax1.set_title(
-    #         "_".join([split[-1]]).replace("_", " ") , fontsize=8
-    #     )
-
-    #     if len(gin.query_parameter('%HALFLIFE'))>2:
-    #         ax1.get_legend().remove()
-        
-    #     fig.suptitle('Holdings')
-    
-
-    # else:
-
-    #     plot_portfolio(res_df, tag[0], ax1, tbox=False)
-
-    #     ax1.set_xlabel('Timestep')
-    #     ax1.set_ylabel('Holding')
-    #     ax1.legend(['PPO','benchmark'])
-
-    # fig.tight_layout()
     if gin.query_parameter('%MULTIASSET'):
         # fig.savefig("outputs/img_brini_kolm/exp_{}_double_holding.pdf".format(model), dpi=300, bbox_inches="tight")
         pass
@@ -529,15 +420,10 @@ def runplot_holding(p):
 def runplot_multiholding(p):
 
     query = gin.query_parameter
-
-
     outputClass = p["outputClass"]
     tag = p["algo"]
-    # seed = p["seed"]
-    
-    # manually inputed experiments weights and seeds
-    seeds = ['206','206'] #'176'
-    eps_ppo = ['5000','5000']
+    seeds = p['seed']
+    eps_ppo = p['ep_ppo']
     colors = [[p['color_res'],p['color_gp']],[p['color_mfree'],p['color_gp']]]
     
     if 'DQN' in tag:
@@ -546,8 +432,6 @@ def runplot_multiholding(p):
     elif 'PPO' in tag:
         hp = p["hyperparams_model_ppo"]
         outputModels = p["outputModels_ppo"]
-
-
     if hp is not None:
         outputModel = [exp.format(*hp) for exp in outputModels]
     else:
@@ -563,20 +447,12 @@ def runplot_multiholding(p):
     fig.subplots_adjust(bottom=0.15)
 
     for i, model in enumerate(outputModel):
-        
         seed = seeds[i]
         p['ep_ppo'] = eps_ppo[i]
         color = colors[i]
         
         modelpath = "outputs/{}/{}".format(outputClass, model)
-        # get the latest created folder "length"
-        all_subdirs = [
-            os.path.join(modelpath, d)
-            for d in os.listdir(modelpath)
-            if os.path.isdir(os.path.join(modelpath, d))
-        ]
-        latest_subdir = max(all_subdirs, key=os.path.getmtime)
-        length = os.path.split(latest_subdir)[-1]
+        length = get_exp_length(modelpath)
         experiment = [
             exp
             for exp in os.listdir("outputs/{}/{}/{}".format(outputClass, model, length))
@@ -587,10 +463,10 @@ def runplot_multiholding(p):
         gin.parse_config_file(os.path.join(data_dir, "config.gin"), skip_unknown=True)
         gin.bind_parameter('alpha_term_structure_sampler.generate_plot', p['generate_plot'])
         p['N_test'] = gin.query_parameter('%LEN_SERIES')
-        
-        gin.bind_parameter('Out_sample_vs_gp.rnd_state',p['random_state'])
-        rng = np.random.RandomState(query("%SEED"))
 
+        rng = np.random.RandomState(query("%SEED"))
+        if not p['stochastic']:
+            gin.bind_parameter("%STOCHASTIC_POLICY",False)
 
         if query("%MV_RES"):
             action_space = ResActionSpace()
@@ -658,10 +534,11 @@ def runplot_multiholding(p):
             MV_res=query("%MV_RES"),
             N_test=p['N_test']
         )
-        oos_test.rnd_state = 5476567
-        print(oos_test.rnd_state)
+        
+        oos_test.rnd_state = 6867453
+        gin.bind_parameter('alpha_term_structure_sampler.fixed_alpha',False)
+        # print(oos_test.rnd_state)
         res_df = oos_test.run_test(train_agent, return_output=True)
-
         plot_portfolio(res_df, tag[0], axes[i], tbox=False, colors=color)
     
     # axes[0].get_legend().remove()
@@ -679,8 +556,6 @@ def runplot_multiholding(p):
 def runplot_holding_diff(p):
 
     query = gin.query_parameter
-
-
     outputClass = p["outputClass"]
     tag = p["algo"]
     seed = p["seed"]
@@ -690,34 +565,14 @@ def runplot_holding_diff(p):
     elif 'PPO' in tag:
         hp = p["hyperparams_model_ppo"]
         outputModels = p["outputModels_ppo"]
-
-
     if hp is not None:
         outputModel = [exp.format(*hp) for exp in outputModels]
     else:
         outputModel = outputModels
-
-
-    # fig = plt.figure(figsize=set_size(width=columnwidth))
-    # ax = fig.add_subplot()
-    # # gs = gridspec.GridSpec(ncols=1, nrows=1, figure=fig)
-    # # ax = fig.add_subplot(gs[0])
-    # # ax2 = fig.add_subplot(gs[1])
-    # # axes = [ax1, ax2]
-    # fig.subplots_adjust(hspace=0.25)
-    
     model = outputModel[0]
 
     modelpath = "outputs/{}/{}".format(outputClass, model)
-    # get the latest created folder "length"
-    all_subdirs = [
-        os.path.join(modelpath, d)
-        for d in os.listdir(modelpath)
-        if os.path.isdir(os.path.join(modelpath, d))
-    ]
-    latest_subdir = max(all_subdirs, key=os.path.getmtime)
-    length = os.path.split(latest_subdir)[-1]
-
+    length = get_exp_length(modelpath)
     experiment = [
         exp
         for exp in os.listdir("outputs/{}/{}/{}".format(outputClass, model, length))
@@ -732,8 +587,7 @@ def runplot_holding_diff(p):
         gin.parse_config_file(os.path.join(data_dir, "config.gin"), skip_unknown=True)
         gin.bind_parameter('alpha_term_structure_sampler.generate_plot', p['generate_plot'])
         p['N_test'] = gin.query_parameter('%LEN_SERIES')
-        
-        gin.bind_parameter('Out_sample_vs_gp.rnd_state',p['random_state'])
+        # gin.bind_parameter('Out_sample_vs_gp.rnd_state',p['random_state'])
         rng = np.random.RandomState(query("%SEED"))
     
     
@@ -807,7 +661,7 @@ def runplot_holding_diff(p):
             )
     
         
-        oos_test.rnd_state = 12 #1673
+        # oos_test.rnd_state = 12 #1673
         # oos_test.rnd_state = np.random.choice(10000,1)
         # print(oos_test.rnd_state)
         res_df = oos_test.run_test(train_agent, return_output=True)
@@ -816,8 +670,6 @@ def runplot_holding_diff(p):
         opt = res_df.filter(like='OptNextHolding').iloc[:-1,:]
         opt.to_parquet(os.path.join(os.getcwd(),data_dir,'res_df_opt.parquet.gzip'),compression='gzip')
         # pdb.set_trace()
-
-    
     # max norm over the asset
     if 'norm' in p['plot_type']:
     
@@ -828,47 +680,20 @@ def runplot_holding_diff(p):
         hdiff_norm = np.linalg.norm(hdiff,np.inf,axis=0)
 
         
-        
-        # ppo_maxnorm = np.linalg.norm(ppo_w,np.inf,axis=0)
-        # opt_maxnorm = np.linalg.norm(opt_w,np.inf,axis=0)
-        # ppo_maxnorm = (ppo_maxnorm-ppo_maxnorm.mean())/ppo_maxnorm.std()
-        # opt_maxnorm = (opt_maxnorm-opt_maxnorm.mean())/opt_maxnorm.std()
-        
-        # hdiff_norm = (hdiff_norm-hdiff_norm.mean())/hdiff_norm.std()
-        
 
         fig = plt.figure(figsize=set_size(width=columnwidth))
         gs = gridspec.GridSpec(ncols=1, nrows=1, figure=fig)
-        
-        # ax1 = plt.subplot(gs[0])
-        # sns.kdeplot(ppo_maxnorm, bw_method=0.2,ax=ax1,color='tab:blue') #tab:blue
-        # sns.kdeplot(opt_maxnorm, bw_method=0.2,ax=ax1,color='tab:orange',alpha=0.6,linestyle="--")
-        # ax1.set_xlabel('Max norm of holding vectors')
-        # ax1.set_ylabel('Probability density')
-        
-        # # ax1.ticklabel_format(axis="y", style="sci", scilimits=(0, 0),useMathText=True)
-        # # ax1.ticklabel_format(axis="x", style="sci", scilimits=(0, 0),useMathText=True)
-        # # move_sn_x(offs=.03, side='right', dig=2)
-        # ax1.legend(['Residual PPO', 'GP'])
-        
-
         ax2 = plt.subplot(gs[0])
         sns.kdeplot(hdiff_norm, bw_method=0.2,ax=ax2,color='tab:blue') #tab:blue
         ax2.set_xlabel('Max-norm of relative differences in percentage holdings (\%)')
         ax2.set_ylabel('Density')
-        
-        # ax2.ticklabel_format(axis="y", style="sci", scilimits=(0, 0),useMathText=True)
-        # ax2.ticklabel_format(axis="x", style="sci", scilimits=(0, 0),useMathText=True)
-        # move_sn_x(offs=.03, side='right', dig=2)
         ax2.legend(['Residual PPO - GP'])
-        
         fig.tight_layout()
         fig.savefig(os.path.join('outputs','img_brini_kolm', "maxnorm_holding_{}_{}.pdf".format(model,p['seed'])), dpi=300, bbox_inches="tight")
         
         
     elif 'heatmap' in p['plot_type']:
-        
-        
+    
         result = pd.concat([ppo, opt], axis=1).corr()
         res_to_plot = result.loc[ppo.columns,opt.columns]
         res_to_plot.index = range(len(res_to_plot))
@@ -877,21 +702,13 @@ def runplot_holding_diff(p):
         
         bools = np.tril(np.ones(res_to_plot.shape)).astype(bool)
         df_lt = res_to_plot.where(bools)
-        
-        
-        sns.heatmap(df_lt, ax=ax2, cmap='viridis', rasterized=True)
     
+        sns.heatmap(df_lt, ax=ax2, cmap='viridis', rasterized=True)
         ax2.set_xlabel('GP asset holdings')
         ax2.set_ylabel('PPO asset holdings')
-        
         fig.tight_layout()
         fig.savefig(os.path.join('outputs','img_brini_kolm', "heatmap_holding_{}_{}.pdf".format(model,p['seed'])), dpi=100, bbox_inches="tight")
         
-    elif 'diag' in p['plot_type']:
-        # TODO
-        result = pd.concat([ppo, opt], axis=1).corr()
-        res_to_plot = result.loc[ppo.columns,opt.columns]
-        diag = np.diag(res_to_plot.values)
 
 
 def runplot_distribution(p):
@@ -900,7 +717,6 @@ def runplot_distribution(p):
     outputClass = p["outputClass"]
     tag = p["algo"]
     seed = p["seed"]
-    
     if 'DQN' in tag:
         hp_exp = p["hyperparams_exp_dqn"]
         outputModel = p["outputModel_dqn"]
@@ -916,14 +732,7 @@ def runplot_distribution(p):
 
 
     modelpath = "outputs/{}/{}".format(outputClass, outputModel)
-    # get the latest created folder "length"
-    all_subdirs = [
-        os.path.join(modelpath, d)
-        for d in os.listdir(modelpath)
-        if os.path.isdir(os.path.join(modelpath, d))
-    ]
-    latest_subdir = max(all_subdirs, key=os.path.getmtime)
-    length = os.path.split(latest_subdir)[-1]
+    length = get_exp_length(modelpath)
     data_dir = "outputs/{}/{}/{}/{}".format(
         outputClass, outputModel, length, experiment
     )    
@@ -932,14 +741,12 @@ def runplot_distribution(p):
 
         rewards = pd.read_parquet(os.path.join(data_dir,'rewards.parquet.gzip'))
         cumdiff = rewards['ppo'].values - rewards['gp'].values
-        # pdb.set_trace()
+        pdb.set_trace()
 
     else:
-    
         gin.parse_config_file(os.path.join(data_dir, "config.gin"), skip_unknown=True)
         gin.bind_parameter('alpha_term_structure_sampler.generate_plot', p['generate_plot'])
         p['N_test'] = gin.query_parameter('%LEN_SERIES')
-        
         # gin.bind_parameter('Out_sample_vs_gp.rnd_state',p['random_state'])
         rng = np.random.RandomState(query("%SEED"))
     
@@ -1052,7 +859,7 @@ def runplot_distribution(p):
     # normalize data (t stats) https://www.educba.com/z-score-vs-t-score/
     # rewards['ppo'] = (rewards['ppo'].values -rewards['ppo'].values.mean()) / (rewards['ppo'].values.std()/np.sqrt(rewards.shape[0]))
     # rewards['gp'] = (rewards['gp'].values -rewards['gp'].values.mean()) / (rewards['gp'].values.std()/np.sqrt(rewards.shape[0]))
-    cumdiff = cumdiff = rewards['ppo'].values - rewards['gp'].values # (cumdiff-cumdiff.mean()) /cumdiff.std()
+    # cumdiff = cumdiff = rewards['ppo'].values - rewards['gp'].values # (cumdiff-cumdiff.mean()) /cumdiff.std()
         
     # DOUBLE PICTURES
     
@@ -1062,6 +869,7 @@ def runplot_distribution(p):
     ax1 = plt.subplot(gs[0])
     sns.kdeplot(rewards['ppo'].values, bw_method=0.2,ax=ax1,color='tab:blue') #tab:blue
     sns.kdeplot(rewards['gp'].values, bw_method=0.2,ax=ax1,color='tab:orange',alpha=0.6,linestyle="--")
+    sns.kdeplot(rewards['mv'].values, bw_method=0.2,ax=ax1,color='tab:olive',alpha=0.6)
     # ax1.set_xlabel("Cumulative reward (\$)")
     # ax1.ticklabel_format(axis="x", style="sci", scilimits=(0, 0),useMathText=True)
     # move_sn_x(offs=.03, side='right', dig=2)
@@ -1071,13 +879,13 @@ def runplot_distribution(p):
     
     
     ax2 = plt.subplot(gs[1])
-    # sns.kdeplot(cumdiff, bw_method=0.2,ax=ax2,color='tab:olive')
     sns.ecdfplot(rewards['ppo'].values,ax=ax2,color='tab:blue') #tab:blue
     sns.ecdfplot(rewards['gp'].values,ax=ax2,color='tab:orange',alpha=0.6,linestyle="--")
+    sns.ecdfplot(rewards['mv'].values,ax=ax2,color='tab:olive',alpha=0.6)
     ax2.set_xlabel("Cumulative reward (\$)")
     ax2.ticklabel_format(axis="x", style="sci", scilimits=(0, 0),useMathText=True)
     # move_sn_x(offs=.03, side='right', dig=2)
-    ax2.legend(labels=['Residual PPO','GP'],loc=4) 
+    ax2.legend(labels=['Residual PPO','GP','MW'],loc=4) 
     # ax2.legend(labels=['Model-free PPO','GP']) 
 
 
@@ -1126,33 +934,23 @@ def runplot_cdf_distribution(p):
 
 
     modelpath = "outputs/{}/{}".format(outputClass, outputModel)
-    # get the latest created folder "length"
-    all_subdirs = [
-        os.path.join(modelpath, d)
-        for d in os.listdir(modelpath)
-        if os.path.isdir(os.path.join(modelpath, d))
-    ]
-    latest_subdir = max(all_subdirs, key=os.path.getmtime)
-    length = os.path.split(latest_subdir)[-1]
+    length = get_exp_length(modelpath)
     data_dir = "outputs/{}/{}/{}/{}".format(
         outputClass, outputModel, length, experiment
     )    
 
     if p['load_rewards']:
-
         rewards = pd.read_parquet(os.path.join(data_dir,'rewards.parquet.gzip'))
         cumdiff = rewards['ppo'].values - rewards['gp'].values
         # pdb.set_trace()
-
     else:
     
         gin.parse_config_file(os.path.join(data_dir, "config.gin"), skip_unknown=True)
         gin.bind_parameter('alpha_term_structure_sampler.generate_plot', p['generate_plot'])
-        
         p['N_test'] = gin.query_parameter('%LEN_SERIES')
-        
         # gin.bind_parameter('Out_sample_vs_gp.rnd_state',p['random_state'])
         rng = np.random.RandomState(query("%SEED"))
+
     
         if query("%MV_RES"):
             action_space = ResActionSpace()
@@ -1228,7 +1026,7 @@ def runplot_cdf_distribution(p):
         if p['dist_to_plot'] == 'r':
             title = 'reward'
             rewards = Parallel(n_jobs=p['cores'])(delayed(parallel_test)(
-                    s, oos_test,train_agent,data_dir,p['fullpath'],mv_solution=True) for s in seeds)
+                    s, oos_test,train_agent,data_dir,p['fullpath'],mv_solution=True) for s in seeds) #TODO change the code here
         elif p['dist_to_plot'] == 'w':
             title= 'wealth'
             rewards = Parallel(n_jobs=p['cores'])(delayed(parallel_test_wealth)(
@@ -1260,7 +1058,7 @@ def runplot_cdf_distribution(p):
 
 
     # DOUBLE PICTURES
-    
+
     fig = plt.figure(figsize=set_size(width=columnwidth))
     ax = fig.add_subplot()
 
@@ -1298,8 +1096,6 @@ def runplot_cdf_distribution(p):
     fig.savefig(os.path.join('outputs','img_brini_kolm', "cdf_{}_{}.pdf".format(p['n_seeds'], outputModel)), dpi=300, bbox_inches="tight")
     
 
-
-
 def ecdf(a):
     x, counts = np.unique(a, return_counts=True)
     cusum = np.cumsum(counts)
@@ -1308,9 +1104,8 @@ def ecdf(a):
 
 def parallel_test(seed,test_class,train_agent,data_dir,fullpath=False,mv_solution=False):
     gin.parse_config_file(os.path.join(data_dir, "config.gin"), skip_unknown=True)
-    # change reward function in order to evaluate in the same way
-    # gin.bind_parameter('%COSTMULTIPLIER', 0.05)
     gin.bind_parameter('alpha_term_structure_sampler.fixed_alpha', False)
+    # change reward function in order to evaluate in the same way
     if gin.query_parameter('%REWARD_TYPE') == 'cara':
         gin.bind_parameter('%REWARD_TYPE', 'mean_var')
     test_class.rnd_state = seed
@@ -1328,6 +1123,7 @@ def parallel_test(seed,test_class,train_agent,data_dir,fullpath=False,mv_solutio
     
 def parallel_test_wealth(seed,test_class,train_agent,data_dir,fullpath=False):
     gin.parse_config_file(os.path.join(data_dir, "config.gin"), skip_unknown=True)
+    gin.bind_parameter('alpha_term_structure_sampler.fixed_alpha', False)
     # change reward function in order to evaluate in the same way
     if gin.query_parameter('%REWARD_TYPE') == 'cara':
         gin.bind_parameter('%REWARD_TYPE', 'mean_var')
@@ -1339,23 +1135,127 @@ def parallel_test_wealth(seed,test_class,train_agent,data_dir,fullpath=False):
         return res_df['Wealth_PPO'].values[-1],res_df['OptWealth'].values[-1]
 
 
-def runplot_time(p):
+def runmultiplot_distribution_seed(p):
 
-
+    query = gin.query_parameter
     modeltag = p['modeltag']
     outputClass = p["outputClass"]
-    
+    tag = p["algo"]
+
+    folders = [p for p in glob.glob(os.path.join('outputs',outputClass,'{}*'.format(modeltag)))]
+    length = os.listdir(folders[0])[0]
+
+    for main_f in folders:    
+        length = os.listdir(main_f)[0]
+        for f in os.listdir(os.path.join(main_f,length)):
+            data_dir = os.path.join(main_f,length,f)  
+            gin.parse_config_file(os.path.join(data_dir, "config.gin"), skip_unknown=True)
+            gin.bind_parameter('alpha_term_structure_sampler.generate_plot', p['generate_plot'])
+            # change reward function in order to evaluate in the same way
+            if query('%REWARD_TYPE') == 'cara':
+                gin.bind_parameter('%REWARD_TYPE', 'mean_var')
+            p['N_test'] = gin.query_parameter('%LEN_SERIES')
+
+            rng = np.random.RandomState(query("%SEED"))
+        
+            if query("%MV_RES"):
+                action_space = ResActionSpace()
+            else:
+                action_space = ActionSpace()
+                
+            if gin.query_parameter('%MULTIASSET'):
+                n_assets = len(gin.query_parameter('%HALFLIFE'))
+                n_factors = len(gin.query_parameter('%HALFLIFE')[0])
+                inputs = gin.query_parameter('%INPUTS')
+                if query("%INP_TYPE") == "f" or query("%INP_TYPE") == "alpha_f":
+                    if 'sigma' in inputs and 'corr' in inputs:
+                        input_shape = (int(n_factors*n_assets+1+ (n_assets**2 - n_assets)/2+n_assets+1),1)
+                    else:
+                        input_shape = (int(n_factors*n_assets+n_assets+1),1)
+                else:
+                    input_shape = (n_assets+n_assets+1,1)
+            else:
+                if query("%INP_TYPE") == "f" or query("%INP_TYPE") == "alpha_f":
+                    input_shape = (len(query('%F_PARAM')) + 1,)
+                else:
+                    input_shape = (2,)
+        
+        
+            if "DQN" in tag:
+                train_agent = DQN(
+                    input_shape=input_shape, action_space=action_space, rng=rng
+                )
+                if p['n_dqn']:
+                    train_agent.model = load_DQNmodel(
+                        data_dir, p['n_dqn'], model=train_agent.model
+                    )
+                else:
+                    train_agent.model = load_DQNmodel(
+                            data_dir, query("%N_TRAIN"), model=train_agent.model
+                        )
+        
+            elif "PPO" in tag:
+                train_agent = PPO(
+                    input_shape=input_shape, action_space=action_space, rng=rng
+                )
+        
+                if p['ep_ppo']:
+                    train_agent.model = load_PPOmodel(data_dir, p['ep_ppo'], model=train_agent.model)
+                else:
+                    train_agent.model = load_PPOmodel(data_dir, gin.query_parameter("%EPISODES"), model=train_agent.model)
+            else:
+                print("Choose proper algorithm.")
+                sys.exit()
+                
+            if gin.query_parameter('%MULTIASSET'):
+                if 'Short' in str(gin.query_parameter('%ENV_CLS')):
+                    env = ShortMultiAssetCashMarketEnv
+                else:
+                    env = MultiAssetCashMarketEnv
+            else:
+                env = MarketEnv
+            oos_test = Out_sample_vs_gp(
+                savedpath=None,
+                tag=tag[0],
+                experiment_type=query("%EXPERIMENT_TYPE"),
+                env_cls=env,
+                MV_res=query("%MV_RES"),
+                N_test=p['N_test'],
+                mv_solution=True
+            )
+            
+            rng_seeds = np.random.RandomState(14)
+            seeds = rng_seeds.choice(1000,p['n_seeds'])
+            rewards = Parallel(n_jobs=p['cores'])(delayed(parallel_test)(
+                    s, oos_test,train_agent,data_dir,p['fullpath'],mv_solution=True) for s in seeds)
+           
+            if p['fullpath']:
+                rewards_ppo = pd.concat(list(map(list, zip(*rewards)))[0],axis=1).cumsum()
+                rewards_gp = pd.concat(list(map(list, zip(*rewards)))[1],axis=1).cumsum()
+            else:
+                rewards = pd.DataFrame(data=np.array(rewards), columns=['ppo','gp','mv'])
+                rewards.replace([np.inf, -np.inf], np.nan,inplace=True)
+                KS, p_V = ks_2samp(rewards.values[:,0], rewards.values[:,1])
+                t, p_t = ttest_ind(rewards.values[:,0], rewards.values[:,1])
+                
+                rewards.to_parquet(os.path.join(data_dir,'rewards.parquet.gzip'),compression="gzip")
+                with open(os.path.join(data_dir, "KStest.txt"), 'w') as f:
+                    f.write("Ks Test: pvalue {:.2f} \n T Test: pvalue {:.2f} \n Number of simulations {}".format(p_V,p_t,p['n_seeds']))
+                
+
+
+
+def runplot_time(p):
+    modeltag = p['modeltag']
+    outputClass = p["outputClass"]
     if isinstance(modeltag,list):
         assets = []
         runtimes = []
         for mtag in modeltag:
             folders = [p for p in glob.glob(os.path.join('outputs',outputClass,'{}'.format(mtag.format('*'))))]
             length = os.listdir(folders[0])[0]
-
-
             n_assets= [int(f.split('n_assets_')[-1].split('_')[0]) for f in folders]
             times = []    
-
             for main_f in folders:    
                 length = os.listdir(main_f)[0]
                 for f in os.listdir(os.path.join(main_f,length)):
@@ -1366,51 +1266,31 @@ def runplot_time(p):
                         txt = file.read()
                         times.append(float(re.findall("\d+\.\d+", txt)[0]))
 
-
             ltup = list(zip(n_assets,times))
             ltup.sort(key=lambda y: y[0])
             a,t = zip(*ltup)
-            
-            
             assets.append(a)
             runtimes.append(t)
         
-    
         fig = plt.figure(figsize=set_size(width=columnwidth))
         ax = fig.add_subplot()
         
         for i in range(len(assets)):
-            
             ax.plot(assets[i],runtimes[i])
-        
         # ax.plot(assets[i],assets[i])
-        
         ax.set_ylabel('Runtime for 100 episodes (minutes)')
         ax.set_xlabel('Number of assets')
-
         ax.legend([('-').join(mt.split('_')[-2:]) for mt in modeltag])
-        
-
-        # # objective function
-        # def objective(x, a, b, c):
-        # 	return a * x + b
-        # popt, _ = curve_fit(objective, assets[i],runtimes[i])
-        # corr, _ = pearsonr(assets[i],runtimes[i])
 
         fig.tight_layout()
         fig.savefig(os.path.join('outputs','img_brini_kolm', "multiruntime_{}.pdf".format(modeltag[0].split('_{}_')[0])), dpi=300, bbox_inches="tight")
         
-
     else:
         # folders = [p for p in glob.glob(os.path.join('outputs',outputClass,'{}*'.format(modeltag)))]
         folders = [p for p in glob.glob(os.path.join('outputs',outputClass,'{}'.format(modeltag.format('*'))))]
         length = os.listdir(folders[0])[0]
-
-        
-        
         n_assets= [int(f.split('n_assets_')[-1].split('_')[0]) for f in folders]
         times = []    
-        # pdb.set_trace()
         for main_f in folders:    
             length = os.listdir(main_f)[0]
             for f in os.listdir(os.path.join(main_f,length)):
@@ -1429,26 +1309,37 @@ def runplot_time(p):
     
         fig = plt.figure(figsize=set_size(width=columnwidth))
         ax = fig.add_subplot()
-        
         ax.plot(n_assets,times)
-        
         ax.set_ylabel('Runtime for 100 episodes (minutes)')
         ax.set_xlabel('Number of assets')
-    
         fig.tight_layout()
         fig.savefig(os.path.join('outputs','img_brini_kolm', "runtime_{}_{}.pdf".format(p['n_seeds'], modeltag)), dpi=300, bbox_inches="tight")
         
 def runplot_policies(p):
-    
+
+
     colors = [p['color_res'],p['color_mfree']]
-    eps_ppo = p['ep_ppo']
+    eps_ppo = [2000,2000] # p['ep_ppo']
     lines = [True,False]
     optimal = [False,True]
-    outputModels = p['outputModels_ppo']
-    experiments = p['experiment_ppo']
+    # outputModels = p['outputModels_ppo']
+    # experiments = p['experiment_ppo']
+
+    if 'DQN' in p['algo']:
+        hp_exp = p["hyperparams_exp_dqn"]
+        outputModel = p["outputModels_dqn"]
+        experiment = p["experiment_dqn"]
+    elif 'PPO' in p['algo']:
+        hp_exp = p["hyperparams_exp_ppo"]
+        outputModel = p["outputModels_ppo"]
+        experiment = p["experiment_ppo"]
+
+    if hp_exp:
+        outputModels = [o.format(*hp_exp) for o in outputModel]
+        experiments = [e.format(*hp_exp) for e in experiment]
+
+
     
-    
-    # for ss in np.random.choice(1000,10,replace=False):
     fig = plt.figure(figsize=set_size(width=columnwidth))
     ax = fig.add_subplot()
     for col,lin,opt,ep,outputModel,experiment in zip(colors,lines,optimal,eps_ppo,outputModels,experiments):
@@ -1459,26 +1350,24 @@ def runplot_policies(p):
 
     
         modelpath = "outputs/{}/{}".format(outputClass, outputModel)
-        # get the latest created folder "length"
-        all_subdirs = [
-            os.path.join(modelpath, d)
-            for d in os.listdir(modelpath)
-            if os.path.isdir(os.path.join(modelpath, d))
-        ]
-        latest_subdir = max(all_subdirs, key=os.path.getmtime)
-        length = os.path.split(latest_subdir)[-1]
+        length = get_exp_length(modelpath)
         data_dir = "outputs/{}/{}/{}/{}".format(
             outputClass, outputModel, length, experiment
         )
-    
+        
         if "DQN" in tag:
             gin.parse_config_file(os.path.join(data_dir, "config.gin"), skip_unknown=True)
+            if not p['stochastic']:
+                gin.bind_parameter("%STOCHASTIC_POLICY",False)
             if p['n_dqn']:
                 model, actions = load_DQNmodel(data_dir, p['n_dqn'])
             else:
                 model, actions = load_DQNmodel(data_dir, gin.query_parameter("%N_TRAIN"))      
             
-            plot_BestActions(model, p['holding'], ax=ax, optimal=p['optimal'],seed=gin.query_parameter("%SEED"),color=col)
+            plot_BestActions(model, p['holding'], ax=ax, optimal=p['optimal'],
+                             stochastic=gin.query_parameter("%STOCHASTIC_POLICY"), 
+                             seed=gin.query_parameter("%SEED"),color=col,
+                             generate_plot=p['generate_plot'])
     
             ax.set_xlabel("y")
             ax.set_ylabel("best $\mathregular{A_{t}}$")
@@ -1486,28 +1375,25 @@ def runplot_policies(p):
     
         elif "PPO" in tag:
             gin.parse_config_file(os.path.join(data_dir, "config.gin"), skip_unknown=True)
+            if not p['stochastic']:
+                gin.bind_parameter("%STOCHASTIC_POLICY",False)
             if p['ep_ppo']:
                 model, actions = load_PPOmodel(data_dir, p['ep_ppo'])
             else:
                 model, actions = load_PPOmodel(data_dir, gin.query_parameter("%EPISODES"))
-    
             
-            plot_BestActions(model, p['holding'], ax=ax, optimal=p['optimal'],seed=gin.query_parameter("%SEED"), color=col) #3346
+            plot_BestActions(model, p['holding'], ax=ax, optimal=p['optimal'],
+                             stochastic=gin.query_parameter("%STOCHASTIC_POLICY"), seed=gin.query_parameter("%SEED"),color=col)
 
 
     ax.set_xlabel("Alpha (bps)")
     ax.set_ylabel('Trade (\$)')
     ax.legend(['Residual PPO', 'Model-free PPO', 'GP', 'MV'])
     fig.tight_layout()
-    # fig.suptitle(ss)
     fig.savefig(os.path.join('outputs','img_brini_kolm', "ppo_policies_{}_{}.pdf".format(p['seed'], outputModel)), dpi=300, bbox_inches="tight")
         
 
 def runplot_alpha(p):
-    
-    query = gin.query_parameter
-
-
     outputClass = p["outputClass"]
     tag = p["algo"]
     seed = p["seed"]
@@ -1518,24 +1404,14 @@ def runplot_alpha(p):
         hp = p["hyperparams_model_ppo"]
         outputModels = p["outputModels_ppo"]
 
-
     if hp is not None:
         outputModel = [exp.format(*hp) for exp in outputModels]
     else:
         outputModel = outputModels
     
     model = outputModel[0]
-
     modelpath = "outputs/{}/{}".format(outputClass, model)
-    # get the latest created folder "length"
-    all_subdirs = [
-        os.path.join(modelpath, d)
-        for d in os.listdir(modelpath)
-        if os.path.isdir(os.path.join(modelpath, d))
-    ]
-    latest_subdir = max(all_subdirs, key=os.path.getmtime)
-    length = os.path.split(latest_subdir)[-1]
-
+    length = get_exp_length(modelpath)
     experiment = [
         exp
         for exp in os.listdir("outputs/{}/{}/{}".format(outputClass, model, length))
@@ -1549,12 +1425,10 @@ def runplot_alpha(p):
     
 
     rng = np.random.RandomState(gin.query_parameter('%SEED'))
-    
     data_handler = DataHandler(N_train=p['N_test'], rng=rng)
     data_handler.generate_returns()
 
-    
-    
+
     fig = plt.figure(figsize=set_size(width=columnwidth))
     ax1 = fig.add_subplot()
     ax1.plot(data_handler.returns*10**4) #to express in bps
@@ -1626,7 +1500,7 @@ def runplot_multialpha(p):
     ax1.set_ylabel("Alpha (bps)")
 
     fig.tight_layout()
-    fig.savefig(os.path.join('outputs','img_brini_kolm','TALK', "posalphas_{}_{}.pdf".format(p['seed'], outputModel)), dpi=300, bbox_inches="tight")
+    fig.savefig(os.path.join('outputs','img_brini_kolm', "posalphas_{}_{}.pdf".format(p['seed'], outputModel)), dpi=300, bbox_inches="tight")
 
 
 
@@ -1893,6 +1767,8 @@ if __name__ == "__main__":
         runplot_distribution(p)
     elif p["plot_type"] == "cdf":
         runplot_cdf_distribution(p)
+    elif p["plot_type"] == "distmultiseed":
+        runmultiplot_distribution_seed(p)
     elif p['plot_type'] == 'runtime':
         runplot_time(p)
     elif p['plot_type'] == 'alpha':
@@ -1904,6 +1780,6 @@ if __name__ == "__main__":
     elif p['plot_type'] == 'diagnostics':
         runplot_alpha(p)
         runplot_metrics_is(p)
-        # runplot_metrics(p)
-        runplot_cdf_distribution(p)
-        # runplot_policies(p)
+        runplot_metrics(p)
+        # runplot_cdf_distribution(p)
+        runplot_policies(p)

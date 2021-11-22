@@ -325,27 +325,42 @@ def plot_abs_metrics(
 ):
 
     if plt_type == 'diff':
+
+        idxmax = df.mean(1).idxmax()
+        select_agent = 'best'
+        if select_agent == 'mean':
+            ppo = df.mean(0)
+            gp = df_opt.mean(0)
+        elif select_agent == 'median':
+            ppo = df.median(0)
+            gp = df_opt.median(0)
+        elif select_agent == 'best':
+            ppo = df.loc[idxmax]
+            gp = df_opt.loc[idxmax]
+
+
+        reldiff_avg = (ppo-gp)/gp * 100
+
+            
+        # df = ((df-df_opt)/df_opt)*100
+        # df_median = df.median(axis=0)
+        # mad = median_abs_deviation(df)
+        # if 'Pdist' not in variable:
+        #     df_opt = df_opt.median(axis=0)
         
 
-        df = ((df-df_opt)/df_opt)*100
-        df_median = df.median(axis=0)
-        mad = median_abs_deviation(df)
-        if 'Pdist' not in variable:
-            df_opt = df_opt.median(axis=0)
-        
-    
-        idxs = [int(i) for i in df.iloc[0, :].index]
+        idxs = [int(i) for i in reldiff_avg.index]
         ax1.plot(
             idxs,
-            df_median.values,
+            reldiff_avg.values,
             color=colors,
             linewidth=2,
             label="{}".format("_".join(data_dir.split("/")[-2].split("_")[2:])),
         )
-        sz=1.0
-        under_line     = df_median - sz *mad
-        over_line      = df_median + sz *mad
-        ax1.fill_between(idxs, under_line, over_line, color=colors, alpha=0.25, linewidth=0, label='')
+        # sz=1.0
+        # under_line     = df_median - sz *mad
+        # over_line      = df_median + sz *mad
+        # ax1.fill_between(idxs, under_line, over_line, color=colors, alpha=0.25, linewidth=0, label='')
 
     elif plt_type == 'abs':
 
@@ -572,7 +587,8 @@ def optimal_vf(states, discount_rate, kappa, costmultiplier, f_param, halflife, 
 
 
 def plot_BestActions(
-    model, holding: float, ax: object = None, optimal: bool = False, seed: int = 324345, color='tab:blue'
+    model, holding: float, ax: object = None, optimal: bool = False, 
+    stochastic:bool = True, seed: int = 324345, color='tab:blue', generate_plot=False
 ):
 
     """
@@ -599,7 +615,7 @@ def plot_BestActions(
     # gin.bind_parameter('%SIGMAF', [None])
     # gin.bind_parameter('%INITIAL_ALPHA', [0.009])
     # gin.bind_parameter('%HALFLIFE', [35])
-    
+    gin.bind_parameter('alpha_term_structure_sampler.generate_plot', generate_plot)
 
     def opt_trading_rate_disc_loads(
         discount_rate, kappa, CostMultiplier, f_param, f_speed
@@ -627,6 +643,7 @@ def plot_BestActions(
         actions = ActionSpace(
             query("%ACTION_RANGE"), query("%ZERO_ACTION"), query("%SIDE_ONLY")
         ).values
+        
     rng = np.random.RandomState(seed)
     if query("%INP_TYPE") == "ret" or query("%INP_TYPE") == "alpha":
         if query("%INP_TYPE") == "alpha":
@@ -659,8 +676,11 @@ def plot_BestActions(
             with torch.no_grad():
                 dist, _ = model(states)
             
-            unscaled_max_action = torch.nn.Tanh()(dist.mean)
-            
+            if stochastic:
+                unscaled_max_action = torch.nn.Tanh()(dist.sample())
+            else:
+                unscaled_max_action = torch.nn.Tanh()(dist.mean)
+                
             if query("%MV_RES"):
                 max_action = unscale_asymmetric_action(actions[0],actions[-1], unscaled_max_action)
             else:
@@ -684,6 +704,7 @@ def plot_BestActions(
             data_handler = DataHandler(N_train=query('%LEN_SERIES'), rng=rng)
             data_handler.generate_returns()
             factors = data_handler.factors
+            
             # factors.sort()
         else:
             n_factors = len(query("%F_PARAM"))
@@ -722,7 +743,10 @@ def plot_BestActions(
             with torch.no_grad():
                 dist, _ = model(states)
 
-            unscaled_max_action = torch.nn.Tanh()(dist.mean)
+            if stochastic:
+                unscaled_max_action = torch.nn.Tanh()(dist.sample())
+            else:
+                unscaled_max_action = torch.nn.Tanh()(dist.mean)
 
             if query("%MV_RES"):
                 max_action = unscale_asymmetric_action(actions[0],actions[-1], unscaled_max_action).numpy().reshape(-1,)

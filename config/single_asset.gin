@@ -13,7 +13,7 @@ ENV_CLS = @MarketEnv #ShortMultiAssetCash
 
 
 EXPERIMENT_TYPE = 'GP' # GP or Misspec
-MV_RES = True # Decide which actions to take (trading quantity or MVresiduals)
+MV_RES = [True,False] # Decide which actions to take (trading quantity or MVresiduals)
 UNIVERSAL_TRAIN = False #True
 
 EPISODES = 2000 #None # episode to run the algorithm. Put None if you want to train DQN online
@@ -22,14 +22,14 @@ LEN_SERIES = 1000 #None # length of simulated series, if null the legth is N_tra
 EPOCHS = 3
 OUTPUTDIR = 'outputs' # main directory for the experiment
 OUTPUTCLASS = %ALGO # first subdirectory
-OUTPUTMODEL = '20211117_fixconv_residual'
-SAVE_FREQ = 100 #200  # number of checkpoints to save during training
-SEED =  [178] #[20, 87, 102, 121, 178, 199, 206, 210, 215, 235, 241, 287, 290, 294, 333, 354, 416, 437, 459, 466, 472, 476, 529, 541, 542, 597, 604, 687, 743, 744]
+OUTPUTMODEL = '20211119_fixconv_stochpol'
+SAVE_FREQ = 50 #200  # number of checkpoints to save during training
+SEED =  [178,687,206]
 START_TRAIN = 300 # steps after which the training starts
 USE_GPU = True
-VARYING_PARS =  ['%DOUBLE_NOISE', '%SIGMAF','%SEED']  #['%DOUBLE_NOISE', '%SIGMAF', '%SEED'] 
+VARYING_PARS =  ['%MV_RES','%DOUBLE_NOISE', '%SIGMAF','PPO.lr','%SEED']  #['%DOUBLE_NOISE', '%SIGMAF', '%SEED'] 
 VARYING_TYPE = 'chunk'
-NUM_CORES = 4
+NUM_CORES = 60
 
 # spaces
 ACTION_RANGE =  [None, 9] # action range for standard RL [boundary,number of actions]
@@ -58,6 +58,7 @@ COST_TYPE = 'quadratic' # quadratic or nondiff
 REWARD_TYPE = 'mean_var' #['cara','mean_var'] # 'mean_var' 'cara'
 CASH = None #1e+6
 
+STOCHASTIC_POLICY = True
 DT = 1.0
 ROLLOUT_PCT_NUM = 1.0
 MULTIASSET = False
@@ -183,8 +184,8 @@ PPO.vf_c = 0.5 # coefficient for the value error
 PPO.ent_c = 0.001 # coefficient for entropy
 PPO.hidden_units_value = [128,64]
 PPO.hidden_units_actor = [128,64]
-PPO.batch_size =  100 #50
-PPO.lr = 0.0005 # initial learning rate
+PPO.batch_size =  250 #50
+PPO.lr = [0.0005,0.00025] # initial learning rate
 PPO.activation = 'tanh'
 PPO.batch_norm_input = True # batch norm at input layer level
 PPO.batch_norm_value_out = False # normalize value function output
@@ -198,8 +199,8 @@ PPO.beta_1 = 0.9 # first parameter for adaptive optimizers
 PPO.beta_2 = 0.999 # second parameter for adaptive optimizers
 PPO.eps_opt = 1e-8 # corrective parameter for adaptive optimizers
 PPO.lr_schedule = ''
-PPO.exp_decay_rate = 0.001
-PPO.step_size = 20000 
+PPO.exp_decay_rate = 0.5
+PPO.step_size = 10000
 PPO.store_diagnostics = False
 
 
@@ -285,4 +286,5 @@ alpha_term_structure_sampler.fixed_alpha = %FIXED_ALPHA
 Out_sample_vs_gp.n_seeds = 1
 Out_sample_vs_gp.N_test = %LEN_SERIES
 Out_sample_vs_gp.rnd_state =  %SEED #3425657
+Out_sample_vs_gp.stochastic_policy =  %STOCHASTIC_POLICY
 

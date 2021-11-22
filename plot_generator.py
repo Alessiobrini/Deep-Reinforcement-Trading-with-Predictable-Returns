@@ -1,4 +1,4 @@
-ru# -*- coding: utf-8 -*-
+# -*- coding: utf-8 -*-
 """
 Created on Sat Dec 12 15:34:30 2020
 
@@ -364,17 +364,26 @@ def runplot_policy(p):
     # )
 
 
-def parallel_test(seed,test_class,train_agent,data_dir,fullpath=False):
+def parallel_test(seed,test_class,train_agent,data_dir,fullpath=False,mv_solution=False):
     gin.parse_config_file(os.path.join(data_dir, "config.gin"), skip_unknown=True)
     # change reward function in order to evaluate in the same way
+    # gin.bind_parameter('%COSTMULTIPLIER', 0.05)
+    gin.bind_parameter('alpha_term_structure_sampler.fixed_alpha', False)
     if gin.query_parameter('%REWARD_TYPE') == 'cara':
         gin.bind_parameter('%REWARD_TYPE', 'mean_var')
     test_class.rnd_state = seed
     res_df = test_class.run_test(train_agent, return_output=True)
     if fullpath:
-        return res_df['Reward_PPO'],res_df['OptReward']
+        if not mv_solution:
+            return res_df['Reward_PPO'],res_df['OptReward']
+        else:
+            return res_df['Reward_PPO'],res_df['OptReward'],res_df['MVReward']
     else:
-        return res_df['Reward_PPO'].cumsum().values[-1],res_df['OptReward'].cumsum().values[-1]
+        if not mv_solution:
+            return res_df['Reward_PPO'].cumsum().values[-1],res_df['OptReward'].cumsum().values[-1]
+        else:
+            return res_df['Reward_PPO'].cumsum().values[-1],res_df['OptReward'].cumsum().values[-1],res_df['MVReward'].cumsum().values[-1]
+   
     
 def parallel_test_wealth(seed,test_class,train_agent,data_dir,fullpath=False):
     gin.parse_config_file(os.path.join(data_dir, "config.gin"), skip_unknown=True)
@@ -787,7 +796,7 @@ def runmultiplot_distribution_seed(p):
     modeltag = p['modeltag']
     outputClass = p["outputClass"]
     tag = p["algo"]
-    seed = p["seed"]
+
     
     folders = [p for p in glob.glob(os.path.join('outputs',outputClass,'{}*'.format(modeltag)))]
     length = os.listdir(folders[0])[0]
@@ -871,59 +880,24 @@ def runmultiplot_distribution_seed(p):
                 experiment_type=query("%EXPERIMENT_TYPE"),
                 env_cls=env,
                 MV_res=query("%MV_RES"),
-                N_test=p['N_test']
+                N_test=p['N_test'],
+                mv_solution=True
             )
             
         
             rng_seeds = np.random.RandomState(14)
             seeds = rng_seeds.choice(1000,p['n_seeds'])
             rewards = Parallel(n_jobs=p['cores'])(delayed(parallel_test)(
-                    s, oos_test,train_agent,data_dir,p['fullpath']) for s in seeds)
+                    s, oos_test,train_agent,data_dir,p['fullpath'],mv_solution=True) for s in seeds)
            
             if p['fullpath']:
-        
                 rewards_ppo = pd.concat(list(map(list, zip(*rewards)))[0],axis=1).cumsum()
                 rewards_gp = pd.concat(list(map(list, zip(*rewards)))[1],axis=1).cumsum()
-                fig = plt.figure(figsize=set_size(width=1000.0))
-                ax = fig.add_subplot()
-                # rewards.loc[:,:].cumsum().plot(ax=ax)
-                # rewards.loc[:len(rewards)//2,:].cumsum().plot(ax=ax)
-                rewards_ppo.mean(axis=1).plot(ax=ax, label='ppo_mean')
-                # ci = 2 * rewards_ppo.std(axis=1)
-                # ax.fill_between(list(rewards_ppo.index),(rewards_ppo.mean(axis=1) - ci), (rewards_ppo.mean(axis=1) + ci), color='tab:blue', alpha=0.5)
-                rewards_gp.mean(axis=1).plot(ax=ax, label='gp_mean')
-                # ci = 2 * rewards_gp.std(axis=1)
-                # ax.fill_between(list(rewards_ppo.index),(rewards_gp.mean(axis=1) - ci), (rewards_gp.mean(axis=1) + ci), color='tab:orange', alpha=0.5)
-                ax.set_xlabel("Cumulative reward")
-                ax.set_ylabel("Frequency")
-                ax.legend()
-        
-                # fig = plt.figure(figsize=set_size(width=1000.0))
-                # ax = fig.add_subplot()
-                # rewards.loc[:,:].plot(ax=ax)
-                # rewards.loc[:len(rewards)//2,:].plot(ax=ax)
-                # ax.set_xlabel("Cumulative reward")
-                # ax.set_ylabel("Frequency")
-                # ax.legend()
-                fig.close()
             else:
-                rewards = pd.DataFrame(data=np.array(rewards), columns=['ppo','gp'])
+                rewards = pd.DataFrame(data=np.array(rewards), columns=['ppo','gp','mv'])
                 rewards.replace([np.inf, -np.inf], np.nan,inplace=True)
         
-                # fig = plt.figure(figsize=set_size(width=1000.0))
-                # ax = fig.add_subplot()
-                # rewards['gp'].plot(ax=ax, kind='hist', alpha=0.7,color='tab:orange',bins=50)
-                # rewards['ppo'].plot(ax=ax, kind='hist', color='tab:blue',bins=50)
-                # ax.set_xlabel("Cumulative reward")
-                # ax.set_ylabel("Frequency")
-                # ax.legend()
-                # means, stds = rewards.mean().values, rewards.std().values
-                # srs = means/stds
-                # ax.set_title('{} Obs \n Means: PPO {:.2f} GP {:.2f} \n Stds: PPO {:.2f} GP {:.2f} \n SR:  PPO {:.2f} GP {:.2f} \n Exp {}'.format(len(rewards),*means,*stds, *srs, f))
-                # fig.savefig(os.path.join(data_dir, "cumreward_hist_{}_{}.png".format(p['n_seeds'], f)), dpi=300)
-                # plt.close()
             
-                    
                 cumdiff = rewards['ppo'].values - rewards['gp'].values
                 means, stds = rewards.mean().values, rewards.std().values
                 srs = means/stds
@@ -934,37 +908,6 @@ def runmultiplot_distribution_seed(p):
                 with open(os.path.join(data_dir, "KStest.txt"), 'w') as f:
                     f.write("Ks Test: pvalue {:.2f} \n T Test: pvalue {:.2f} \n Number of simulations {}".format(p_V,p_t,p['n_seeds']))
                 
-                # try:
-                #     fig = plt.figure(figsize=set_size(width=1000.0))
-                #     ax = fig.add_subplot()
-                #     # sns.kdeplot(rewards['gp'].values, bw_method=0.2,ax=ax,color='tab:orange')
-                #     sns.kdeplot(cumdiff, bw_method=0.2,ax=ax,color='tab:blue')
-                #     ax.set_xlabel("Cumulative reward diff")
-                #     ax.set_ylabel("KDE")
-                #     ax.legend()
-                #     ax.set_title('{} Obs \n Means: PPO {:.2f} GP {:.2f} \n Stds: PPO {:.2f} GP {:.2f} \n SR:  PPO {:.2f} GP {:.2f} \n Exp {}'.format(len(rewards),*means,*stds, *srs, f))
-                #     ax.legend(labels=['gp','ppo'],loc=2)
-                #     ks_text = AnchoredText("Ks Test: pvalue {:.2f} \n T Test: pvalue {:.2f}".format(p_V,p_t),loc=1,prop=dict(size=10))
-                #     ax.add_artist(ks_text)
-                #     fig.savefig(os.path.join(data_dir, "cumreward_diff_density_{}_{}.png".format(p['n_seeds'], f)), dpi=300)
-                #     plt.close()
-                        
-                
-                #     fig = plt.figure(figsize=set_size(width=1000.0))
-                #     ax = fig.add_subplot()
-                #     sns.kdeplot(rewards['gp'].values, bw_method=0.2,ax=ax,color='tab:orange')
-                #     sns.kdeplot(rewards['ppo'].values, bw_method=0.2,ax=ax,color='tab:blue')
-                #     ax.set_xlabel("Cumulative reward")
-                #     ax.set_ylabel("KDE")
-                #     ax.legend()
-                #     ax.set_title('{} Obs \n Means: PPO {:.2f} GP {:.2f} \n Stds: PPO {:.2f} GP {:.2f} \n SR:  PPO {:.2f} GP {:.2f} \n Exp {}'.format(len(rewards),*means,*stds, *srs, f))
-                #     ax.legend(labels=['gp','ppo'],loc=2)        
-                #     ks_text = AnchoredText("Ks Test: pvalue {:.2f} \n T Test: pvalue {:.2f}".format(p_V,p_t),loc=1,prop=dict(size=10))
-                #     ax.add_artist(ks_text)
-                #     fig.savefig(os.path.join(data_dir, "cumreward_density_{}_{}.png".format(p['n_seeds'], f)), dpi=300)
-                #     plt.close()
-                # except ZeroDivisionError:
-                #     pass
                 
 
 

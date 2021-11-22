@@ -579,13 +579,14 @@ def alpha_term_structure_sampler(
         else:
             alpha_terms = np.transpose(np.squeeze(alpha_factor_terms))
         f_speed = np.array(speeds, dtype='float')
-        # generate_plot = True
-        # if generate_plot:
-        #     fig,ax = plt.subplots()
-        #     ax.plot(alpha_structure)
-        #     # ax.plot(alpha_terms.sum(axis=1), ls='--')
-        #     ax.set_title('Alpha term structure')
-        #     plt.show()
+
+        # generate_plot=True
+        if generate_plot:
+            fig,ax = plt.subplots(figsize=(10,5))
+            ax.plot(alpha_structure)
+            # ax.plot(alpha_terms.sum(axis=1), ls='--')
+            ax.set_title('Alpha term structure')
+            plt.show()
 
         return alpha_structure, alpha_terms, f_speed
     else:
@@ -625,9 +626,9 @@ def alpha_term_structure_sampler(
             print('Factor loadings for term structure do not sum to one.')
             sys.exit()
         alpha_structure = np.sum(np.array(f_param)* alpha_terms, axis=1)
-        # generate_plot = True
+
         if generate_plot:
-            fig,ax = plt.subplots()
+            fig,ax = plt.subplots(figsize=(10,5))
             ax.plot(alpha_terms)
             ax.plot(alpha_structure, ls='--')
             # ax.plot(alpha_terms.sum(axis=1), ls='--')
