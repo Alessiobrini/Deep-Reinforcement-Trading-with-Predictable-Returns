@@ -16,6 +16,7 @@ import pdb
 import glob
 import re
 import seaborn as sns
+from natsort import natsorted
 import gin
 gin.enter_interactive_mode()
 from joblib import Parallel, delayed
@@ -120,7 +121,7 @@ def runplot_metrics(p):
     
             if 'PPO' in tag and p['ep_ppo']:
                 dataframe = dataframe.iloc[:,:dataframe.columns.get_loc(p['ep_ppo'])]
-    
+            # pdb.set_trace()
             if "Abs" in v:
                 plot_abs_metrics(
                     ax,
@@ -149,6 +150,7 @@ def runplot_metrics(p):
             # PERSONALIZE THE IMAGE WITH CORRECT LABELS
             ax.get_figure().gca().set_title("") # no title
             # ax.set_ylim(-2.0*100,0.5*100)
+            ax.set_ylim(ymax=0.5)
             
             ax.set_xlabel('In-sample episodes')
             ax.set_ylabel('Relative difference in reward (\%)')
@@ -175,7 +177,7 @@ def runplot_metrics_is(p):
         outputModel = [exp.format(*hp) for exp in outputModels]
     else:
         outputModel = outputModels
-    colors = [p['color_res'],p['color_mfree'],'red','yellow','black','cyan','violet']
+    colors = [p['color_res'],p['color_mfree'],'red','yellow','black','cyan','violet','brown','orange','bisque','skyblue']
     window=p['window']
   
     var_plot = 'AbsRew_IS_{}_{}.parquet.gzip'.format(format_tousands(N_test), outputClass)
@@ -240,7 +242,8 @@ def runplot_metrics_is(p):
             # reldiff_std_smooth = reldiff_avg.rolling(window).std()
         
 
-        reldiff_avg_smooth.iloc[0:len(reldiff_avg_smooth):25].plot(color=colors[k],ax=ax)
+
+        reldiff_avg_smooth.iloc[0:len(reldiff_avg_smooth):50].plot(color=colors[k],ax=ax)
         # reldiff_avg_smooth.iloc[0:5000:100].plot(color=colors[k],ax=ax)
 
         # size_bwd = 1.0
@@ -256,8 +259,8 @@ def runplot_metrics_is(p):
         
     # PERSONALIZE THE IMAGE WITH CORRECT LABELS
     # ax.set_ylim(-2.0*100,0.5*100)
-    # ax.set_ylim(-80, 3)
-    # ax.set_ylim(-5, 3)
+    # ax.set_ylim(-3000, 3)
+    # ax.set_ylim(-2.5, 0.5)
     
     ax.set_xlabel('In-sample episodes')
     if smooth_type == 'avgdiff':
@@ -273,7 +276,7 @@ def runplot_metrics_is(p):
     fig.tight_layout()
     logging.info("Plot saved successfully...")
         
-    fig.savefig("outputs/img_brini_kolm/exp_{}_{}.pdf".format(out_mode,var_plot.split('_')[0]), dpi=300, bbox_inches="tight")
+    fig.savefig("outputs/img_brini_kolm/exp_{}_{}_insample.pdf".format(out_mode,var_plot.split('_')[0]), dpi=300, bbox_inches="tight")
 
 
 def runplot_holding(p):
@@ -741,7 +744,7 @@ def runplot_distribution(p):
 
         rewards = pd.read_parquet(os.path.join(data_dir,'rewards.parquet.gzip'))
         cumdiff = rewards['ppo'].values - rewards['gp'].values
-        pdb.set_trace()
+        # pdb.set_trace()
 
     else:
         gin.parse_config_file(os.path.join(data_dir, "config.gin"), skip_unknown=True)
@@ -823,11 +826,11 @@ def runplot_distribution(p):
         if p['dist_to_plot'] == 'r':
             title = 'reward'
             rewards = Parallel(n_jobs=p['cores'])(delayed(parallel_test)(
-                    s, oos_test,train_agent,data_dir,p['fullpath'],mv_solution=True) for s in seeds)
+                    s, oos_test,train_agent,data_dir,p['fullpath'],mv_solution=p['mv_solution']) for s in seeds)
         elif p['dist_to_plot'] == 'w':
             title= 'wealth'
             rewards = Parallel(n_jobs=p['cores'])(delayed(parallel_test_wealth)(
-                    s, oos_test,train_agent,data_dir,p['fullpath'],mv_solution=True) for s in seeds)
+                    s, oos_test,train_agent,data_dir,p['fullpath'],mv_solution=p['mv_solution']) for s in seeds)
     
         if p['fullpath']:
             rewards_ppo = pd.concat(list(map(list, zip(*rewards)))[0],axis=1).cumsum()
@@ -868,7 +871,7 @@ def runplot_distribution(p):
 
     ax1 = plt.subplot(gs[0])
     sns.kdeplot(rewards['ppo'].values, bw_method=0.2,ax=ax1,color='tab:blue') #tab:blue
-    sns.kdeplot(rewards['gp'].values, bw_method=0.2,ax=ax1,color='tab:orange',alpha=0.6,linestyle="--")
+    sns.kdeplot(rewards['gp'].values, bw_method=0.2,ax=ax1,color='tab:orange',linestyle="--")
     sns.kdeplot(rewards['mv'].values, bw_method=0.2,ax=ax1,color='tab:olive',alpha=0.6)
     # ax1.set_xlabel("Cumulative reward (\$)")
     # ax1.ticklabel_format(axis="x", style="sci", scilimits=(0, 0),useMathText=True)
@@ -880,7 +883,7 @@ def runplot_distribution(p):
     
     ax2 = plt.subplot(gs[1])
     sns.ecdfplot(rewards['ppo'].values,ax=ax2,color='tab:blue') #tab:blue
-    sns.ecdfplot(rewards['gp'].values,ax=ax2,color='tab:orange',alpha=0.6,linestyle="--")
+    sns.ecdfplot(rewards['gp'].values,ax=ax2,color='tab:orange',linestyle="--")
     sns.ecdfplot(rewards['mv'].values,ax=ax2,color='tab:olive',alpha=0.6)
     ax2.set_xlabel("Cumulative reward (\$)")
     ax2.ticklabel_format(axis="x", style="sci", scilimits=(0, 0),useMathText=True)
@@ -903,7 +906,10 @@ def runplot_distribution(p):
 
     
     if not p['load_rewards']:
-        rewards.to_parquet(os.path.join(data_dir,'rewards.parquet.gzip'),compression="gzip")
+        if p['dist_to_plot'] == 'r':
+            rewards.to_parquet(os.path.join(data_dir,'rewards.parquet.gzip'),compression="gzip")
+        elif p['dist_to_plot'] == 'w':
+            rewards.to_parquet(os.path.join(data_dir,'wealth.parquet.gzip'),compression="gzip")
         with open(os.path.join(data_dir, "KStest.txt"), 'w') as f:
             f.write("Ks Test density: pvalue {:.2f} \n T Test density: pvalue {:.2f} \n Ks Test cdf: pvalue {:.2f} \n T Test cdf: pvalue {:.2f} \n Number of simulations {}".format(p_V,p_t,p_V_cdf,p_t_cdf,p['n_seeds']))
     
@@ -941,8 +947,7 @@ def runplot_cdf_distribution(p):
 
     if p['load_rewards']:
         rewards = pd.read_parquet(os.path.join(data_dir,'rewards.parquet.gzip'))
-        cumdiff = rewards['ppo'].values - rewards['gp'].values
-        # pdb.set_trace()
+        pdb.set_trace()
     else:
     
         gin.parse_config_file(os.path.join(data_dir, "config.gin"), skip_unknown=True)
@@ -950,6 +955,7 @@ def runplot_cdf_distribution(p):
         p['N_test'] = gin.query_parameter('%LEN_SERIES')
         # gin.bind_parameter('Out_sample_vs_gp.rnd_state',p['random_state'])
         rng = np.random.RandomState(query("%SEED"))
+        pdb.set_trace()
 
     
         if query("%MV_RES"):
@@ -1017,7 +1023,7 @@ def runplot_cdf_distribution(p):
             env_cls=env,
             MV_res=query("%MV_RES"),
             N_test=p['N_test'],
-            mv_solution=True
+            mv_solution=p['mv_solution']
         )
     
     
@@ -1026,11 +1032,11 @@ def runplot_cdf_distribution(p):
         if p['dist_to_plot'] == 'r':
             title = 'reward'
             rewards = Parallel(n_jobs=p['cores'])(delayed(parallel_test)(
-                    s, oos_test,train_agent,data_dir,p['fullpath'],mv_solution=True) for s in seeds) #TODO change the code here
+                    s, oos_test,train_agent,data_dir,p['fullpath'],mv_solution=p['mv_solution']) for s in seeds) #TODO change the code here
         elif p['dist_to_plot'] == 'w':
             title= 'wealth'
             rewards = Parallel(n_jobs=p['cores'])(delayed(parallel_test_wealth)(
-                    s, oos_test,train_agent,data_dir,p['fullpath'],mv_solution=True) for s in seeds)
+                    s, oos_test,train_agent,data_dir,p['fullpath'],mv_solution=p['mv_solution']) for s in seeds)
         
         if p['fullpath']:
             rewards_ppo = pd.concat(list(map(list, zip(*rewards)))[0],axis=1).cumsum()
@@ -1064,8 +1070,8 @@ def runplot_cdf_distribution(p):
 
     # sns.kdeplot(cumdiff, bw_method=0.2,ax=ax2,color='tab:olive')
     sns.ecdfplot(rewards['ppo'].values,ax=ax,color='tab:blue') #tab:blue
-    sns.ecdfplot(rewards['gp'].values,ax=ax,color='tab:orange',alpha=0.6,linestyle="--")
-    sns.ecdfplot(rewards['mv'].values,ax=ax,color='tab:olive')
+    sns.ecdfplot(rewards['gp'].values,ax=ax,color='tab:orange',linestyle="--")
+    sns.ecdfplot(rewards['mv'].values,ax=ax,color='tab:olive',alpha=0.6)
     ax.set_xlabel("Cumulative reward (\$)")
     ax.ticklabel_format(axis="x", style="sci", scilimits=(0, 0),useMathText=True)
     # move_sn_x(offs=.03, side='right', dig=2)
@@ -1121,7 +1127,7 @@ def parallel_test(seed,test_class,train_agent,data_dir,fullpath=False,mv_solutio
         else:
             return res_df['Reward_PPO'].cumsum().values[-1],res_df['OptReward'].cumsum().values[-1],res_df['MVReward'].cumsum().values[-1]
     
-def parallel_test_wealth(seed,test_class,train_agent,data_dir,fullpath=False):
+def parallel_test_wealth(seed,test_class,train_agent,data_dir,fullpath=False,mv_solution=False):
     gin.parse_config_file(os.path.join(data_dir, "config.gin"), skip_unknown=True)
     gin.bind_parameter('alpha_term_structure_sampler.fixed_alpha', False)
     # change reward function in order to evaluate in the same way
@@ -1130,9 +1136,15 @@ def parallel_test_wealth(seed,test_class,train_agent,data_dir,fullpath=False):
     test_class.rnd_state = seed
     res_df = test_class.run_test(train_agent, return_output=True)
     if fullpath:
-        return res_df['Wealth_PPO'],res_df['OptWealth']
+        if not mv_solution:
+            return res_df['Wealth_PPO'],res_df['OptWealth']
+        else:
+            return res_df['Wealth_PPO'],res_df['OptWealth'],res_df['MVWealth']
     else:
-        return res_df['Wealth_PPO'].values[-1],res_df['OptWealth'].values[-1]
+        if not mv_solution:
+            return res_df['Wealth_PPO'].values[-1],res_df['OptWealth'].values[-1]
+        else:
+            return res_df['Wealth_PPO'].values[-1],res_df['OptWealth'].values[-1],res_df['MVWealth'].values[-1]
 
 
 def runmultiplot_distribution_seed(p):
@@ -1221,13 +1233,13 @@ def runmultiplot_distribution_seed(p):
                 env_cls=env,
                 MV_res=query("%MV_RES"),
                 N_test=p['N_test'],
-                mv_solution=True
+                mv_solution=p['mv_solution']
             )
             
             rng_seeds = np.random.RandomState(14)
             seeds = rng_seeds.choice(1000,p['n_seeds'])
             rewards = Parallel(n_jobs=p['cores'])(delayed(parallel_test)(
-                    s, oos_test,train_agent,data_dir,p['fullpath'],mv_solution=True) for s in seeds)
+                    s, oos_test,train_agent,data_dir,p['fullpath'],mv_solution=p['mv_solution']) for s in seeds)
            
             if p['fullpath']:
                 rewards_ppo = pd.concat(list(map(list, zip(*rewards)))[0],axis=1).cumsum()
@@ -1381,7 +1393,7 @@ def runplot_policies(p):
                 model, actions = load_PPOmodel(data_dir, p['ep_ppo'])
             else:
                 model, actions = load_PPOmodel(data_dir, gin.query_parameter("%EPISODES"))
-            
+            # pdb.set_trace()
             plot_BestActions(model, p['holding'], ax=ax, optimal=p['optimal'],
                              stochastic=gin.query_parameter("%STOCHASTIC_POLICY"), seed=gin.query_parameter("%SEED"),color=col)
 
@@ -1392,6 +1404,49 @@ def runplot_policies(p):
     fig.tight_layout()
     fig.savefig(os.path.join('outputs','img_brini_kolm', "ppo_policies_{}_{}.pdf".format(p['seed'], outputModel)), dpi=300, bbox_inches="tight")
         
+
+def runplot_std(p):
+
+
+    colors = [p['color_res'],p['color_mfree'],'red','yellow','black','cyan','violet','brown','orange','bisque','skyblue']
+    hp_exp = p["hyperparams_exp_ppo"]
+    outputModel = p["outputModels_ppo"]
+    experiment = p["experiment_ppo"]
+    if hp_exp:
+        outputModels = [o.format(*hp_exp) for o in outputModel]
+        experiments = [e.format(*hp_exp) for e in experiment]
+        
+    fig = plt.figure(figsize=set_size(width=columnwidth))
+    ax = fig.add_subplot()
+    for col,outputModel,experiment in zip(colors,outputModels,experiments):
+        outputClass = p["outputClass"]
+        modelpath = "outputs/{}/{}".format(outputClass, outputModel)
+        length = get_exp_length(modelpath)
+        data_dir = "outputs/{}/{}/{}/{}".format(
+            outputClass, outputModel, length, experiment
+        )
+        
+        ckpts_paths = natsorted(os.listdir(os.path.join(data_dir,'ckpt')))
+        ckpts = [int(re.findall('\d+', str1 )[0]) for str1 in ckpts_paths]
+
+        stds = []
+        for cp in ckpts:
+            gin.parse_config_file(os.path.join(data_dir, "config.gin"), skip_unknown=True)
+            model, actions = load_PPOmodel(data_dir, cp)
+            stds.append(model.log_std.exp().detach().numpy())
+
+        stds = np.array(stds).reshape(-1)
+        ax.plot(ckpts, stds, color=col)
+
+    ax.set_xlabel("In-sample episodes")
+    ax.set_ylabel('Std Dev parameter')
+    ax.legend(['Residual PPO', 'Model-free PPO'])
+    fig.tight_layout()
+    fig.savefig(os.path.join('outputs','img_brini_kolm', "stds_{}_{}.pdf".format(p['seed'], outputModel)), dpi=300, bbox_inches="tight")
+        
+
+
+
 
 def runplot_alpha(p):
     outputClass = p["outputClass"]
@@ -1777,9 +1832,11 @@ if __name__ == "__main__":
         runplot_multialpha(p)
     elif p['plot_type'] == 'metrics_sens':
         runplot_metrics_sens(p)
+    elif p['plot_type'] == 'std':
+        runplot_std(p)
     elif p['plot_type'] == 'diagnostics':
         runplot_alpha(p)
         runplot_metrics_is(p)
         runplot_metrics(p)
         # runplot_cdf_distribution(p)
-        runplot_policies(p)
+        # runplot_policies(p)

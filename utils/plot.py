@@ -325,7 +325,7 @@ def plot_abs_metrics(
 ):
 
     if plt_type == 'diff':
-
+        # pdb.set_trace()
         idxmax = df.mean(1).idxmax()
         select_agent = 'best'
         if select_agent == 'mean':
@@ -512,7 +512,7 @@ def plot_vf(
         V = optimal_vf(
             states, discount_rate, kappa, costmultiplier, f_param, halflife, sigma
         )
-        pdb.set_trace()
+        
         ax.plot(factors[:, 0], V, linewidth=1.5, label="GP Vf")
 
     ax.legend()
@@ -753,7 +753,7 @@ def plot_BestActions(
             else:
                 max_action = unscale_action(actions[-1], unscaled_max_action).numpy().reshape(-1,)
             
-
+        
         if query("%MV_RES"):
             discount_rate, kappa, costmultiplier, f_param, halflife, sigma = (
                 query("%DISCOUNT_RATE"),
