@@ -518,6 +518,7 @@ def alpha_term_structure_sampler(
     double_noise: bool = False,
     fixed_alpha: bool = False):
 
+    # pdb.set_trace()
     tmp_rng = rng
     if fixed_alpha:
         rng=None
@@ -559,7 +560,9 @@ def alpha_term_structure_sampler(
                 noise_magnitude = (np.array(sigmaf) * np.sqrt(t)).reshape(-1,alpha_n)
                 noise = noise_magnitude * rng.normal(size=(len(t),alpha_n))
                 alpha_terms = alpha_terms + noise
-
+            if fixed_alpha:
+                tmp_rng = rng
+                rng = None
 
             if sum(fp) != 1.0:
                 print('Factor loadings for term structure do not sum to one.')

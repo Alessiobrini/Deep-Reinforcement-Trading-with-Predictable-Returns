@@ -100,8 +100,10 @@ class PPO_runner(MixinCore):
         self.logging.debug("Simulating Data")
         # Modify hyperparams to deal with a large cross section
         n_assets = gin.query_parameter('%N_ASSETS')
-        if n_assets:
+        if n_assets and n_assets>3:
             self._get_hyperparams_n_assets(n_assets,self.rng)
+            self.start_time = time.time()
+        elif n_assets and n_assets<=3:
             self.start_time = time.time()
 
         self.data_handler = DataHandler(N_train=self.len_series, rng=self.rng)
@@ -181,7 +183,7 @@ class PPO_runner(MixinCore):
         self.logging.debug("Start training...")
         
         if self.store_insample:
-            self.ppo_rew,self.opt_rew = [],[]
+            self.ppo_rew,self.opt_rew, self.mw_rew = [],[],[]
         for e in tqdm(iterable=range(self.episodes), desc="Running episodes..."):
  
             if e > 0 and self.universal_train:
@@ -222,22 +224,17 @@ class PPO_runner(MixinCore):
                 )
 
                 self.logging.debug("Testing...")
-                n_assets = gin.query_parameter('%N_ASSETS')
-                if n_assets == None:
-                    self.oos_test.run_test(it=e + 1, test_agent=self.train_agent)
-                else:
-                    if e+1== self.episodes:
-                        self.oos_test.run_test(it=e + 1, test_agent=self.train_agent)
+                # n_assets = gin.query_parameter('%N_ASSETS')
+                self.oos_test.run_test(it=e + 1, test_agent=self.train_agent)
+
         
         n_assets = gin.query_parameter('%N_ASSETS')
         if n_assets == None:
             self.oos_test.save_series()
-            # self.train_agent.save_diagnostics(path=self.savedpath)
         else:
             end_time = time.time()
             with open(os.path.join(self.savedpath, "runtime.txt"), 'w') as f:
                 f.write('Runtime {} minutes'.format((end_time-self.start_time)/60))
-            
             self.oos_test.save_series()
 
         if self.store_insample:
@@ -249,6 +246,11 @@ class PPO_runner(MixinCore):
             gp_rew = pd.DataFrame(data=self.opt_rew,columns=['0'])
             gp_rew.to_parquet(os.path.join( self.savedpath,
                              "AbsRew_IS_{}_GP.parquet.gzip".format(
+                                format_tousands(gin.query_parameter('%LEN_SERIES')))),
+                                compression="gzip")
+            mw_rew = pd.DataFrame(data=self.mw_rew,columns=['0'])
+            mw_rew.to_parquet(os.path.join( self.savedpath,
+                             "AbsRew_IS_{}_MW.parquet.gzip".format(
                                 format_tousands(gin.query_parameter('%LEN_SERIES')))),
                                 compression="gzip")
 
@@ -265,6 +267,9 @@ class PPO_runner(MixinCore):
             gp_temp = []
             optstate = self.env.opt_reset()
             optrate, discfactorloads = self.env.opt_trading_rate_disc_loads()
+
+            mw_temp = []
+            mwstate = self.env.opt_reset()
 
         self.train_agent.reset_experience()
 
@@ -344,10 +349,17 @@ class PPO_runner(MixinCore):
                 optstate = nextoptstate
                 gp_temp.append(optresult['OptReward'])
 
+                nextmwstate, mwresult = self.env.mv_step(
+                    mwstate, i
+                )
+                mwstate = nextmwstate
+                mw_temp.append(mwresult['MVReward'])
+
                 
         if self.store_insample:
             self.ppo_rew.append(np.cumsum(self.train_agent.experience['reward'])[-1])
             self.opt_rew.append(np.cumsum(gp_temp)[-1])
+            self.mw_rew.append(np.cumsum(mw_temp)[-1])
 
         
         # pdb.set_trace()
