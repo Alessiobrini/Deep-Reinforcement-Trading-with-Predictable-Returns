@@ -177,7 +177,7 @@ def runplot_metrics_is(p):
         outputModel = [exp.format(*hp) for exp in outputModels]
     else:
         outputModel = outputModels
-    colors = [p['color_res'],p['color_mfree'],'red','yellow','black','cyan','violet','brown','orange','bisque','skyblue']
+    colors = [p['color_res'],p['color_mfree'],'red','yellow','black','cyan','violet','brown','orange','bisque','skyblue','lime']
     window=p['window']
   
     var_plot = 'AbsRew_IS_{}_{}.parquet.gzip'.format(format_tousands(N_test), outputClass)
@@ -215,6 +215,7 @@ def runplot_metrics_is(p):
         
         # PICK THE BEST PERFOMING SEED
         idxmax = dataframe.mean(1).idxmax()
+        print(idxmax)
         # pdb.set_trace()
 
         # PRODUCE COMPARISON PLOT
@@ -229,6 +230,7 @@ def runplot_metrics_is(p):
             ppo = dataframe.loc[idxmax]
             gp = dataframe_opt.loc[idxmax]
         # pdb.set_trace()
+
 
         smooth_type = 'diffavg' #avgdiff or diffavg
         if smooth_type == 'avgdiff':
@@ -259,8 +261,8 @@ def runplot_metrics_is(p):
         
     # PERSONALIZE THE IMAGE WITH CORRECT LABELS
     # ax.set_ylim(-2.0*100,0.5*100)
-    # ax.set_ylim(-3000, 3)
-    # ax.set_ylim(-2.5, 0.5)
+    ax.set_ylim(-200, 100)
+    # ax.set_ylim(-500, 100)
     
     ax.set_xlabel('In-sample episodes')
     if smooth_type == 'avgdiff':
@@ -270,6 +272,7 @@ def runplot_metrics_is(p):
 
     # ax.ticklabel_format(axis="y", style="sci", scilimits=(0, 0),useMathText=True)
     # ax.legend(['Residual PPO','Model-free PPO'], loc=4)
+    # ax.legend(outputModel)
     
     # ax.set_ylim(-500,100)
     
@@ -385,33 +388,51 @@ def runplot_holding(p):
 
 
     # PRODUCE THE FIGURE
-    fig = plt.figure(figsize=set_size(width=columnwidth))
-    gs = gridspec.GridSpec(ncols=1, nrows=2, figure=fig)
-    ax1 = fig.add_subplot(gs[0])
-    ax2 = fig.add_subplot(gs[1])
-    axes = [ax1, ax2]
-    fig.subplots_adjust(hspace=0.25)
+    # fig = plt.figure(figsize=set_size(width=columnwidth))
+    # gs = gridspec.GridSpec(ncols=1, nrows=2, figure=fig)
+    # ax1 = fig.add_subplot(gs[0])
+    # ax2 = fig.add_subplot(gs[1])
+    # axes = [ax1, ax2]
+    # fig.subplots_adjust(hspace=0.25)
     
-    # DOUBLE PICTURE
-    for i in range(2):
-        ax = axes[i]
-        # oos_test.rnd_state = 1673
-        # oos_test.rnd_state = np.random.choice(10000,1)
-        # print(oos_test.rnd_state)
-        res_df = oos_test.run_test(train_agent, return_output=True)
+    # # DOUBLE PICTURE
+    # for i in range(2):
+    #     ax = axes[i]
+    #     # oos_test.rnd_state = 435465
+    #     # oos_test.rnd_state = np.random.choice(10000,1)
+    #     # print(oos_test.rnd_state)
+    #     res_df = oos_test.run_test(train_agent, return_output=True)
+    #     # pdb.set_trace()
     
-        if gin.query_parameter('%MULTIASSET'):
-            plot_portfolio(res_df, tag[0], ax, tbox=False)
-            if len(gin.query_parameter('%HALFLIFE'))>2:
-                ax1.get_legend().remove()
-        else:
-            plot_portfolio(res_df, tag[0], ax, tbox=False)
-            ax.legend(['PPO','benchmark'], fontsize=8)
+    #     if gin.query_parameter('%MULTIASSET'):
+    #         plot_portfolio(res_df, tag[0], ax, tbox=False)
+    #         if len(gin.query_parameter('%HALFLIFE'))>2:
+    #             ax1.get_legend().remove()
+    #     else:
+    #         plot_portfolio(res_df, tag[0], ax, tbox=False)
+    #         # ax.legend(['PPO','benchmark'], fontsize=8)
+    #         ax.legend(fontsize=8)
+
+    fig,ax = plt.subplots(figsize=set_size(width=columnwidth))
+    # oos_test.rnd_state = 435465
+    # oos_test.rnd_state = np.random.choice(10000,1)
+    # print(oos_test.rnd_state)
+    res_df = oos_test.run_test(train_agent, return_output=True)
+    # pdb.set_trace()
+
+    if gin.query_parameter('%MULTIASSET'):
+        plot_portfolio(res_df, tag[0], ax, tbox=False)
+        if len(gin.query_parameter('%HALFLIFE'))>2:
+            ax.get_legend().remove()
+    else:
+        plot_portfolio(res_df, tag[0], ax, tbox=False)
+        # ax.legend(['PPO','benchmark'], fontsize=8)
+        ax.legend(fontsize=8)
     
     ax.set_xlabel('Timestep')
     ax.ticklabel_format(axis="y", style="sci", scilimits=(0, 0),useMathText=True)
     fig.text(0.03, 0.35, 'Holding (\$)', ha='center', rotation='vertical')
-    axes[0].get_xaxis().set_visible(False)
+
             
     if gin.query_parameter('%MULTIASSET'):
         # fig.savefig("outputs/img_brini_kolm/exp_{}_double_holding.pdf".format(model), dpi=300, bbox_inches="tight")
@@ -955,7 +976,7 @@ def runplot_cdf_distribution(p):
         p['N_test'] = gin.query_parameter('%LEN_SERIES')
         # gin.bind_parameter('Out_sample_vs_gp.rnd_state',p['random_state'])
         rng = np.random.RandomState(query("%SEED"))
-        pdb.set_trace()
+        # pdb.set_trace()
 
     
         if query("%MV_RES"):
@@ -1071,7 +1092,7 @@ def runplot_cdf_distribution(p):
     # sns.kdeplot(cumdiff, bw_method=0.2,ax=ax2,color='tab:olive')
     sns.ecdfplot(rewards['ppo'].values,ax=ax,color='tab:blue') #tab:blue
     sns.ecdfplot(rewards['gp'].values,ax=ax,color='tab:orange',linestyle="--")
-    sns.ecdfplot(rewards['mv'].values,ax=ax,color='tab:olive',alpha=0.6)
+    # sns.ecdfplot(rewards['mv'].values,ax=ax,color='tab:olive',alpha=0.6)
     ax.set_xlabel("Cumulative reward (\$)")
     ax.ticklabel_format(axis="x", style="sci", scilimits=(0, 0),useMathText=True)
     # move_sn_x(offs=.03, side='right', dig=2)
@@ -1331,7 +1352,7 @@ def runplot_policies(p):
 
 
     colors = [p['color_res'],p['color_mfree']]
-    eps_ppo = [2000,2000] # p['ep_ppo']
+    eps_ppo = [7000,7000] # p['ep_ppo']
     lines = [True,False]
     optimal = [False,True]
     # outputModels = p['outputModels_ppo']

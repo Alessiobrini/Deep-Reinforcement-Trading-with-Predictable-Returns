@@ -8,8 +8,8 @@
 # as long as the folder path in the list "outputModel" contains relevant experiment to plot
 # MULTI TEST OOS PARAMS
 ############################### LAUNCH SIMULATIONS ##############################
-N_test: 1000 #200 # Length of OOS test
-n_seeds : 250 # Number of OOS test to perform for each agent at each checkpoint
+N_test: 200 #200 # Length of OOS test
+n_seeds : 1000 # Number of OOS test to perform for each agent at each checkpoint
 cores: 5
 random_state : 9071 #[593, 373, 788, 833, 745]  #324 #9071 #9071 seed for two pos # 556785 seed for two neg # 33  # Seed for experiment reproducibility OOS. Used to draw "n_seeds" for OOS testing
 use_GPU : False
@@ -27,10 +27,10 @@ plot_type: 'metrics_is'
 fullpath : False
 generate_plot : False
 optimal : True
-holding: 0.0 #-8e+9 #null #5000.0 # null #0.3e+5
+holding: 0 # 5e+9 #null #5000.0 # null #0.3e+5
 outputDir: 'outputs'
 outputClass: 'PPO'
-seed : '692' #['178','687'] #'32764' 
+seed : '741' # ['893','602'] #['178','317'] #'32764' 
 var_plots : [
     # "NetPnl_OOS_{}_{}.parquet.gzip",
     # "Reward_OOS_{}_{}.parquet.gzip",
@@ -54,60 +54,309 @@ hyperparams_exp_dqn: null #['250000','2.5', '0.2', 'False', 'f'] # for policy an
 outputModel_dqn: '20210503_GPGAUSS_1f_n_train_{}_halflife_{}_sigmaf_{}_mv_res_{}_inp_type_{}'
 outputModels_dqn: ['20211101_DQNGARCH_pickseeds']
 
-stochastic: False
+stochastic: True
 window: 25 # 25
 load_rewards: False
+mv_solution: True
 load_holdings: False
 modeltag: '20211118_fixconv_residual_multi100'
 dist_to_plot: 'r' # r or w for reward or wealth
-ep_ppo: #┤[2000,2000] 
-experiment_ppo: 'seed_692' #['mv_res_True_double_noise_{}_sigmaf_{}_lr_0.0005_seed_178','seed_317'] #,'mv_res_False_double_noise_{}_sigmaf_{}_lr_0.00025_seed_687'] #'mv_res_True_lr_0.0005_seed_178' #'mv_res_False_lr_0.0001_seed_687'] #'mv_res_False_lr_0.0001_seed_{}' #mv_res_True_lr_0.0005_seed_{}'
-hyperparams_model_ppo: [False,None] #[True,1e-05] #[False,None] 
-hyperparams_exp_ppo: [False,None]
-outputModel_ppo:  '20211118_fixconv_residual_multi100' #'20211119_fixconv_stochpol_mv_res_False_double_noise_{}_sigmaf_{}_lr_0.00025' #'20211116_fixconv_mv_res_True_lr_0.0005' #,'20211116_fixconv_mv_res_False_lr_0.0001'
-outputModels_ppo: ['20211119_fixconv_residual_multi100_sens_kappa_0.01_sigma_0.005_sigmaf_1e-05'] #['20211119_fixconv_stochpol_mv_res_True_double_noise_{}_sigmaf_{}_lr_0.0005','20211119_fixconv_mfree_seeds']
+ep_ppo: #7600 #7000 #[4000,2000] 
+experiment_ppo: 'lr_0.00025_cm2_0.000225_seed_468' #'mv_res_True_lr_0.0005_seed_893' #['mv_res_True_double_noise_{}_sigmaf_{}_lr_0.0005_seed_178','seed_317'] #'['mv_res_True_double_noise_{}_sigmaf_{}_lr_0.0005_seed_178','seed_317'] #,'mv_res_False_double_noise_{}_sigmaf_{}_lr_0.00025_seed_687'] #'mv_res_True_lr_0.0005_seed_178' #'mv_res_False_lr_0.0001_seed_687'] #'mv_res_False_lr_0.0001_seed_{}' #mv_res_True_lr_0.0005_seed_{}'
+hyperparams_model_ppo: [0.0005] #['32_32'] #[0.99,0.98,'64_64','128_64'] #[False,None]  #[True,1e-05] #[True,1e-05] #[False,None] 
+hyperparams_exp_ppo: [False,None]  #[True,1e-05]
+outputModel_ppo:  '20211215_convergence_res_universal_costs_lr_lr_0.00025_cm2_0.000225' #'20211119_fixconv_stochpol_mv_res_True_double_noise_{}_sigmaf_{}_lr_0.0005' #'20211119_fixconv_stochpol_mv_res_False_double_noise_{}_sigmaf_{}_lr_0.00025' #'20211116_fixconv_mv_res_True_lr_0.0005' #,'20211116_fixconv_mv_res_False_lr_0.0001'
+outputModels_ppo:     ['20211224_convergence_res5_hidden_units_actor_32_64_lr_0.0001', 
+  '20211224_convergence_res5_hidden_units_actor_32_64_lr_0.00025', 
+  '20211224_convergence_res5_hidden_units_actor_32_64_lr_0.00075', 
+  '20211224_convergence_res5_hidden_units_actor_64_64_lr_0.0001', 
+  '20211224_convergence_res5_hidden_units_actor_64_64_lr_0.00025', 
+  '20211224_convergence_res5_hidden_units_actor_64_64_lr_0.00075', 
+  '20211224_convergence_res5_hidden_units_actor_8_8_lr_0.0001', 
+  '20211224_convergence_res5_hidden_units_actor_8_8_lr_0.00025', 
+  '20211224_convergence_res5_hidden_units_actor_8_8_lr_0.00075']
 
-# ['20211119_fixconv_residual_multi100_sens_kappa_0.01_sigma_0.001_sigmaf_0.0002', 
-#   '20211119_fixconv_residual_multi100_sens_kappa_0.01_sigma_0.001_sigmaf_1e-05', 
-#   '20211119_fixconv_residual_multi100_sens_kappa_0.01_sigma_0.005_sigmaf_0.0002', 
-#   '20211119_fixconv_residual_multi100_sens_kappa_0.01_sigma_0.005_sigmaf_1e-05', 
-#   '20211119_fixconv_residual_multi100_sens_kappa_0.01_sigma_0.01_sigmaf_0.0002', 
-#   '20211119_fixconv_residual_multi100_sens_kappa_0.01_sigma_0.01_sigmaf_1e-05', 
-#   '20211119_fixconv_residual_multi100_sens_kappa_0.1_sigma_0.001_sigmaf_0.0002', 
-#   '20211119_fixconv_residual_multi100_sens_kappa_0.1_sigma_0.001_sigmaf_1e-05', 
-#   '20211119_fixconv_residual_multi100_sens_kappa_0.1_sigma_0.005_sigmaf_0.0002', 
-#   '20211119_fixconv_residual_multi100_sens_kappa_0.1_sigma_0.005_sigmaf_1e-05', 
-#   '20211119_fixconv_residual_multi100_sens_kappa_0.1_sigma_0.01_sigmaf_0.0002', 
-#   '20211119_fixconv_residual_multi100_sens_kappa_0.1_sigma_0.01_sigmaf_1e-05', 
-#   '20211119_fixconv_residual_multi100_sens_kappa_0.5_sigma_0.001_sigmaf_0.0002', 
-#   '20211119_fixconv_residual_multi100_sens_kappa_0.5_sigma_0.001_sigmaf_1e-05', 
-#   '20211119_fixconv_residual_multi100_sens_kappa_0.5_sigma_0.005_sigmaf_0.0002', 
-#   '20211119_fixconv_residual_multi100_sens_kappa_0.5_sigma_0.005_sigmaf_1e-05', 
-#   '20211119_fixconv_residual_multi100_sens_kappa_0.5_sigma_0.01_sigmaf_0.0002', 
-#   '20211119_fixconv_residual_multi100_sens_kappa_0.5_sigma_0.01_sigmaf_1e-05']
+
+
+
+   
+
+
+# [ '20211224_convergence_res5_hidden_units_actor_128_128_lr_0.0001', 
+#  '20211224_convergence_res5_hidden_units_actor_128_128_lr_0.00025', 
+#  '20211224_convergence_res5_hidden_units_actor_128_128_lr_0.00075', 
+#  '20211224_convergence_res5_hidden_units_actor_128_64_lr_0.0001', 
+#  '20211224_convergence_res5_hidden_units_actor_128_64_lr_0.00025', 
+#  '20211224_convergence_res5_hidden_units_actor_128_64_lr_0.00075', 
+#  '20211224_convergence_res5_hidden_units_actor_16_16_lr_0.0001', 
+#  '20211224_convergence_res5_hidden_units_actor_16_16_lr_0.00025', 
+#  '20211224_convergence_res5_hidden_units_actor_16_16_lr_0.00075', 
+#  '20211224_convergence_res5_hidden_units_actor_16_8_lr_0.0001', 
+#  '20211224_convergence_res5_hidden_units_actor_16_8_lr_0.00025', 
+#  '20211224_convergence_res5_hidden_units_actor_16_8_lr_0.00075']
+ 
+ 
+
+
+
+
+ # ['20211224_convergence_res4_hidden_units_actor_128_128', 
+ # '20211224_convergence_res4_hidden_units_actor_128_64', 
+ # '20211224_convergence_res4_hidden_units_actor_16_16', 
+ # '20211224_convergence_res4_hidden_units_actor_16_8', 
+ # '20211224_convergence_res4_hidden_units_actor_32_16', 
+ # '20211224_convergence_res4_hidden_units_actor_32_32', 
+ # '20211224_convergence_res4_hidden_units_actor_32_32_32', 
+ # '20211224_convergence_res4_hidden_units_actor_32_64', 
+ # '20211224_convergence_res4_hidden_units_actor_64_64', 
+ # '20211224_convergence_res4_hidden_units_actor_8_8']
+
+# ['20211224_convergence_res3_lr_0.00025', '20211224_convergence_res3_lr_0.0005']
+
+# [ '20211224_convergence_res2_lr_{}_batch_size_50']
+ 
+ 
+ # '20211224_convergence_res2_lr_0.00025_batch_size_10', 
+ # '20211224_convergence_res2_lr_0.00025_batch_size_100.2', 
+ # '20211224_convergence_res2_lr_0.00025_batch_size_25', 
+ # '20211224_convergence_res2_lr_0.00025_batch_size_5', 
+ # '20211224_convergence_res2_lr_0.00025_batch_size_50', 
+ # '20211224_convergence_res2_lr_0.00025_batch_size_75', 
+ # '20211224_convergence_res2_lr_0.0005_batch_size_10', 
+ # '20211224_convergence_res2_lr_0.0005_batch_size_100.2', 
+ # '20211224_convergence_res2_lr_0.0005_batch_size_25', 
+ # '20211224_convergence_res2_lr_0.0005_batch_size_5', 
+ # '20211224_convergence_res2_lr_0.0005_batch_size_50', 
+ # '20211224_convergence_res2_lr_0.0005_batch_size_75', 
+ # '20211224_convergence_res2_lr_8e-05_batch_size_10', 
+ # '20211224_convergence_res2_lr_8e-05_batch_size_100.2', 
+ # '20211224_convergence_res2_lr_8e-05_batch_size_25', 
+ # '20211224_convergence_res2_lr_8e-05_batch_size_5', 
+ # '20211224_convergence_res2_lr_8e-05_batch_size_50', 
+ # '20211224_convergence_res2_lr_8e-05_batch_size_75']
+
+ 
+# ['20211224_convergence_res_cost_type_nondiff_time_dependent_False', 
+#  '20211224_convergence_res_cost_type_nondiff_time_dependent_True', 
+#  '20211224_convergence_res_cost_type_quadratic_time_dependent_False', 
+#  '20211224_convergence_res_cost_type_quadratic_time_dependent_True']
+
+
+# ['20211223_convergence_rescosts_cost_type_nondiff', '20211223_convergence_rescosts_cost_type_quadratic']
+
+# ['20211223_convergence_reg_mv_penalty_coef_2.5e-11', '20211223_convergence_reg_mv_penalty_coef_2.5e-12', '20211223_convergence_reg_mv_penalty_coef_2.5e-13']
+
+
+ # ['20211223_convergence_mv_res_False_time_dependent_False', 
+ # '20211223_convergence_mv_res_False_time_dependent_True', ]
+
+
+ # [ '20211223_convergence_mv_res_True_time_dependent_False', 
+ # '20211223_convergence_mv_res_True_time_dependent_True']
+
+# ['20211221_convergence_res_lr_0.00025']
+
+# [ '20211222_convergence_reg_mv_penalty_coef_1e-08', 
+#  '20211222_convergence_reg_mv_penalty_coef_2.5e-08', 
+#  '20211222_convergence_reg_mv_penalty_coef_5e-08']
+
+
+# ['20211222_convergence_mfree']
+
+# ['20211221_convergence_res_lr_0.0001', '20211221_convergence_res_lr_0.00025', '20211221_convergence_res_lr_0.0005']
+
+
+ # ['20211214_convergence_mv_res_True_lr_0.0005']
+
+
+#######################################################################################################################
+# ['20211215_convergence_mfree_actor2_lr_0.0001', 
+#  '20211215_convergence_mfree_actor2_lr_0.00025', 
+#  '20211215_convergence_mfree_actor2_lr_0.0005', 
+#  '20211215_convergence_mfree_actor2_lr_7.5e-05']
+
+
+
+ # ['20211215_convergence_mfree_actor_hidden_units_actor_128_64', 
+ # '20211215_convergence_mfree_actor_hidden_units_actor_16_16', 
+ # '20211215_convergence_mfree_actor_hidden_units_actor_16_8', 
+ # '20211215_convergence_mfree_actor_hidden_units_actor_32_16', 
+ # '20211215_convergence_mfree_actor_hidden_units_actor_32_32', 
+ # '20211215_convergence_mfree_actor_hidden_units_actor_32_64', 
+ # '20211215_convergence_mfree_actor_hidden_units_actor_64_64', 
+ # '20211215_convergence_mfree_actor_hidden_units_actor_8_8']
+
+# ['20211216_convergence_res_universal_batch_size_{}_lr_{}_cm2_0.000225', 
+#  '20211216_convergence_res_universal_batch_size_{}_lr_{}_cm2_0.000791', 
+#  '20211216_convergence_res_universal_batch_size_{}_lr_{}_cm2_0.00108']
+ 
+
+# ['20211215_convergence_res_universal_costs_lr_lr_0.0001_cm2_0.000225', 
+#  '20211215_convergence_res_universal_costs_lr_lr_0.0001_cm2_0.000791', 
+#  '20211215_convergence_res_universal_costs_lr_lr_0.0001_cm2_0.00108', 
+#  '20211215_convergence_res_universal_costs_lr_lr_0.00025_cm2_0.000225', 
+#  '20211215_convergence_res_universal_costs_lr_lr_0.00025_cm2_0.000791', 
+#  '20211215_convergence_res_universal_costs_lr_lr_0.00025_cm2_0.00108', 
+#  '20211215_convergence_res_universal_costs_lr_lr_5e-05_cm2_0.000225', 
+#  '20211215_convergence_res_universal_costs_lr_lr_5e-05_cm2_0.000791', 
+#  '20211215_convergence_res_universal_costs_lr_lr_5e-05_cm2_0.00108']
+
+
+# ['20211215_convergence_res_universal_costs_positive_cm2_0.000225', 
+# '20211215_convergence_res_universal_costs_positive_cm2_0.000791', 
+# '20211215_convergence_res_universal_costs_positive_cm2_0.00108']
+
+
+  # ['20211214_convergence_mv_res_True_lr_0.0005', 
+  #  '20211214_convergence_mv_res_False_lr_0.0005', ]
+
+
+
+#  ['20211214_convergence_res_params2_hidden_units_actor_64_64_hidden_units_value_128_64', 
+#     '20211214_convergence_res_params2_hidden_units_actor_64_64_hidden_units_value_64_64',
+#   '20211214_convergence_res_params2_hidden_units_actor_32_64_hidden_units_value_128_128', 
+#     '20211214_convergence_res_params2_hidden_units_actor_32_64_hidden_units_value_16_16' ,
+# '20211214_convergence_res_params2_hidden_units_actor_32_32_hidden_units_value_16_16' ,
+#   '20211214_convergence_res_params2_hidden_units_actor_32_16_hidden_units_value_128_128', 
+#   '20211214_convergence_res_params2_hidden_units_actor_32_16_hidden_units_value_128_64', 
+#   '20211214_convergence_res_params2_hidden_units_actor_32_16_hidden_units_value_16_16']
+
+
+  # ['20211214_convergence_mv_res_True_lr_{}', 
+  # '20211214_convergence_mv_res_False_lr_{}', ]
+
+
+
+# [  '20211214_convergence_res_params2_hidden_units_actor_16_16_hidden_units_value_128_64', 
+#    '20211214_convergence_res_params2_hidden_units_actor_16_16_hidden_units_value_32_16' ,
+# '20211214_convergence_res_params2_hidden_units_actor_128_64_hidden_units_value_16_16', 
+#   '20211214_convergence_res_params2_hidden_units_actor_128_64_hidden_units_value_32_32', 
+#   '20211214_convergence_res_params2_hidden_units_actor_128_64_hidden_units_value_64_64',
+# '20211214_convergence_res_params2_hidden_units_actor_128_128_hidden_units_value_128_128', 
+#   '20211214_convergence_res_params2_hidden_units_actor_128_128_hidden_units_value_16_16', 
+#   '20211214_convergence_res_params2_hidden_units_actor_128_128_hidden_units_value_32_64']
+
+
+#   ['20211214_convergence_res_params2_hidden_units_actor_64_64_hidden_units_value_128_64', 
+#     '20211214_convergence_res_params2_hidden_units_actor_64_64_hidden_units_value_64_64',
+#   '20211214_convergence_res_params2_hidden_units_actor_32_64_hidden_units_value_128_128', 
+#     '20211214_convergence_res_params2_hidden_units_actor_32_64_hidden_units_value_16_16' ,
+# '20211214_convergence_res_params2_hidden_units_actor_32_32_hidden_units_value_16_16' ,
+#   '20211214_convergence_res_params2_hidden_units_actor_32_16_hidden_units_value_128_128', 
+#   '20211214_convergence_res_params2_hidden_units_actor_32_16_hidden_units_value_128_64', 
+#   '20211214_convergence_res_params2_hidden_units_actor_32_16_hidden_units_value_16_16']
+
+
+#   [  '20211214_convergence_res_params2_hidden_units_actor_16_16_hidden_units_value_128_64', 
+#    '20211214_convergence_res_params2_hidden_units_actor_16_16_hidden_units_value_32_16' ,
+# '20211214_convergence_res_params2_hidden_units_actor_128_64_hidden_units_value_16_16', 
+#   '20211214_convergence_res_params2_hidden_units_actor_128_64_hidden_units_value_32_32', 
+#   '20211214_convergence_res_params2_hidden_units_actor_128_64_hidden_units_value_64_64',, 
+# '20211214_convergence_res_params2_hidden_units_actor_128_128_hidden_units_value_128_128', 
+#   '20211214_convergence_res_params2_hidden_units_actor_128_128_hidden_units_value_16_16', 
+#   '20211214_convergence_res_params2_hidden_units_actor_128_128_hidden_units_value_32_64']
+
+
+
+# ['20211214_convergence_res_params_batch_size_25_gamma_{}_tau_{}_hidden_units_actor_{}_hidden_units_value_{}',
+# '20211214_convergence_res_params_batch_size_50_gamma_{}_tau_{}_hidden_units_actor_{}_hidden_units_value_{}',
+# '20211214_convergence_res_params_batch_size_100_gamma_{}_tau_{}_hidden_units_actor_{}_hidden_units_value_{}',]
+
+
+
+ # ['20211213_convergence_res_lr_0.0005']
+
+
+# ['20211213_fixconv2_mv_res_False_lr_2.5e-05', 
+#  '20211213_fixconv2_mv_res_False_lr_5e-05']
+
+########################################################################################################
+# ['20211126_fixconv_mfree_penalty_mv_penalty_coef_0.0001', 
+#  '20211126_fixconv_mfree_penalty_mv_penalty_coef_0.0005', 
+#  '20211126_fixconv_mfree_penalty_mv_penalty_coef_0.001', 
+#  '20211126_fixconv_mfree_penalty_mv_penalty_coef_0.005', 
+#  '20211126_fixconv_mfree_penalty_mv_penalty_coef_0.01', 
+#  '20211126_fixconv_mfree_penalty_mv_penalty_coef_0.05', 
+#  '20211126_fixconv_mfree_penalty_mv_penalty_coef_0.1', 
+  # '20211126_fixconv_mfree_penalty_mv_penalty_coef_1e-05', 
+  # '20211126_fixconv_mfree_penalty_mv_penalty_coef_1e-06', 
+  # '20211126_fixconv_mfree_penalty_mv_penalty_coef_1e-07', 
+  # '20211126_fixconv_mfree_penalty_mv_penalty_coef_5e-05', 
+  # '20211126_fixconv_mfree_penalty_mv_penalty_coef_5e-06', 
+  # '20211126_fixconv_mfree_penalty_mv_penalty_coef_5e-07']
+
+
+
+
+# ['20211119_fixconv_mfree_seeds'] # ['20211119_fixconv_stochpol_mv_res_True_double_noise_{}_sigmaf_{}_lr_0.0005','20211119_fixconv_mfree_seeds'] 
+
+# ['20211124_fixconv_mfree_exploration_ent_c_{}_init_pol_std_-0.5', 
+#   '20211124_fixconv_mfree_exploration_ent_c_{}_init_pol_std_0.0', 
+#   '20211124_fixconv_mfree_exploration_ent_c_{}_init_pol_std_0.5', 
+#   '20211124_fixconv_mfree_exploration_ent_c_{}_init_pol_std_1.0']
+  
+   # ['20211124_fixconv_mfree_exploration_ent_c_0.0001_init_pol_std_{}', 
+   # '20211124_fixconv_mfree_exploration_ent_c_0.001_init_pol_std_{}', 
+   # '20211124_fixconv_mfree_exploration_ent_c_0.005_init_pol_std_{}', 
+   # '20211124_fixconv_mfree_exploration_ent_c_0.05_init_pol_std_{}',
+   # '20211124_fixconv_mfree_exploration_ent_c_0.1_init_pol_std_{}']
+
+
+# ['20211124_fixconv_mfree_exploration_ent_c_0.0001_init_pol_std_-0.5', 
+#   '20211124_fixconv_mfree_exploration_ent_c_0.0001_init_pol_std_0.0', 
+#   '20211124_fixconv_mfree_exploration_ent_c_0.0001_init_pol_std_0.5', 
+#   '20211124_fixconv_mfree_exploration_ent_c_0.0001_init_pol_std_1.0', 
+#  '20211124_fixconv_mfree_exploration_ent_c_0.001_init_pol_std_-0.5', 
+#  '20211124_fixconv_mfree_exploration_ent_c_0.001_init_pol_std_0.0', 
+#  '20211124_fixconv_mfree_exploration_ent_c_0.001_init_pol_std_0.5', 
+#  '20211124_fixconv_mfree_exploration_ent_c_0.001_init_pol_std_1.0', 
+#  '20211124_fixconv_mfree_exploration_ent_c_0.005_init_pol_std_-0.5', 
+#  '20211124_fixconv_mfree_exploration_ent_c_0.005_init_pol_std_0.0', 
+#  '20211124_fixconv_mfree_exploration_ent_c_0.005_init_pol_std_0.5', 
+#  '20211124_fixconv_mfree_exploration_ent_c_0.005_init_pol_std_1.0', 
+#  '20211124_fixconv_mfree_exploration_ent_c_0.01_init_pol_std_-0.5', 
+#  '20211124_fixconv_mfree_exploration_ent_c_0.01_init_pol_std_0.0', 
+#  '20211124_fixconv_mfree_exploration_ent_c_0.01_init_pol_std_0.5', 
+#  '20211124_fixconv_mfree_exploration_ent_c_0.01_init_pol_std_1.0', 
+#  '20211124_fixconv_mfree_exploration_ent_c_0.05_init_pol_std_-0.5', 
+#  '20211124_fixconv_mfree_exploration_ent_c_0.05_init_pol_std_0.0', 
+#  '20211124_fixconv_mfree_exploration_ent_c_0.05_init_pol_std_0.5', 
+#  '20211124_fixconv_mfree_exploration_ent_c_0.05_init_pol_std_1.0', 
+#  '20211124_fixconv_mfree_exploration_ent_c_0.1_init_pol_std_-0.5', 
+#  '20211124_fixconv_mfree_exploration_ent_c_0.1_init_pol_std_0.0', 
+#  '20211124_fixconv_mfree_exploration_ent_c_0.1_init_pol_std_0.5', 
+#  '20211124_fixconv_mfree_exploration_ent_c_0.1_init_pol_std_1.0']
+
+# ['20211123_fixconv_residual_double_noise_False_sigmaf_1e-05_costmultiplier_0.05', 
+#  '20211123_fixconv_residual_double_noise_False_sigmaf_1e-05_costmultiplier_0.08', 
+#  '20211123_fixconv_residual_double_noise_False_sigmaf_1e-05_costmultiplier_0.1', 
+#  '20211123_fixconv_residual_double_noise_False_sigmaf_1e-05_costmultiplier_0.2', 
+#  '20211123_fixconv_residual_double_noise_False_sigmaf_1e-05_costmultiplier_0.5', 
+#  '20211123_fixconv_residual_double_noise_False_sigmaf_None_costmultiplier_0.05', 
+#  '20211123_fixconv_residual_double_noise_False_sigmaf_None_costmultiplier_0.08', 
+#  '20211123_fixconv_residual_double_noise_False_sigmaf_None_costmultiplier_0.1', 
+#  '20211123_fixconv_residual_double_noise_False_sigmaf_None_costmultiplier_0.2', 
+#  '20211123_fixconv_residual_double_noise_False_sigmaf_None_costmultiplier_0.5', 
+#  '20211123_fixconv_residual_double_noise_True_sigmaf_1e-05_costmultiplier_0.05', 
+#  '20211123_fixconv_residual_double_noise_True_sigmaf_1e-05_costmultiplier_0.08', 
+#  '20211123_fixconv_residual_double_noise_True_sigmaf_1e-05_costmultiplier_0.1', 
+#  '20211123_fixconv_residual_double_noise_True_sigmaf_1e-05_costmultiplier_0.2', 
+#  '20211123_fixconv_residual_double_noise_True_sigmaf_1e-05_costmultiplier_0.5', 
+#  '20211123_fixconv_residual_double_noise_True_sigmaf_None_costmultiplier_0.05', 
+#  '20211123_fixconv_residual_double_noise_True_sigmaf_None_costmultiplier_0.08', 
+#  '20211123_fixconv_residual_double_noise_True_sigmaf_None_costmultiplier_0.1', 
+#  '20211123_fixconv_residual_double_noise_True_sigmaf_None_costmultiplier_0.2', 
+#  '20211123_fixconv_residual_double_noise_True_sigmaf_None_costmultiplier_0.5']
+
+
+# ['20211122_fixconv_residual_multi100_kappa_0.01_sigmaf_1e-05', 
+#  '20211122_fixconv_residual_multi100_kappa_0.01_sigmaf_None', 
+#  '20211122_fixconv_residual_multi100_kappa_0.1_sigmaf_1e-05', 
+#  '20211122_fixconv_residual_multi100_kappa_0.1_sigmaf_None']
 
 
 # ['20211119_fixconv_stochpol_mv_res_True_double_noise_{}_sigmaf_{}_lr_0.0005',
 # '20211119_fixconv_stochpol_mv_res_False_double_noise_{}_sigmaf_{}_lr_0.00025']
-
-
-# ['20211119_fixconv_stochpol_mv_res_False_double_noise_False_sigmaf_1e-05_lr_0.00025', 
-#  '20211119_fixconv_stochpol_mv_res_False_double_noise_False_sigmaf_1e-05_lr_0.0005', 
-#  '20211119_fixconv_stochpol_mv_res_False_double_noise_False_sigmaf_None_lr_0.00025', 
-#  '20211119_fixconv_stochpol_mv_res_False_double_noise_False_sigmaf_None_lr_0.0005', 
-#  '20211119_fixconv_stochpol_mv_res_False_double_noise_True_sigmaf_1e-05_lr_0.00025', 
-#  '20211119_fixconv_stochpol_mv_res_False_double_noise_True_sigmaf_1e-05_lr_0.0005', 
-#  '20211119_fixconv_stochpol_mv_res_False_double_noise_True_sigmaf_None_lr_0.00025', 
-#  '20211119_fixconv_stochpol_mv_res_False_double_noise_True_sigmaf_None_lr_0.0005', 
-#  '20211119_fixconv_stochpol_mv_res_True_double_noise_False_sigmaf_1e-05_lr_0.00025', 
-#  '20211119_fixconv_stochpol_mv_res_True_double_noise_False_sigmaf_1e-05_lr_0.0005', 
-#  '20211119_fixconv_stochpol_mv_res_True_double_noise_False_sigmaf_None_lr_0.00025', 
-#  '20211119_fixconv_stochpol_mv_res_True_double_noise_False_sigmaf_None_lr_0.0005', 
-#  '20211119_fixconv_stochpol_mv_res_True_double_noise_True_sigmaf_1e-05_lr_0.00025', 
-#  '20211119_fixconv_stochpol_mv_res_True_double_noise_True_sigmaf_1e-05_lr_0.0005', 
-#  '20211119_fixconv_stochpol_mv_res_True_double_noise_True_sigmaf_None_lr_0.00025', 
-#  '20211119_fixconv_stochpol_mv_res_True_double_noise_True_sigmaf_None_lr_0.0005']
-
 
 # ['20211118_fixconv_mfree_policy_stochastic_policy_False', '20211118_fixconv_mfree_policy_stochastic_policy_True']
 
@@ -156,16 +405,16 @@ outputModels_ppo: ['20211119_fixconv_residual_multi100_sens_kappa_0.01_sigma_0.0
  
 
 # ['20211117_fixconv_mfree_actionspace_qts_0.0_1.0_-0.2', 
-#  '20211117_fixconv_mfree_actionspace_qts_0.0_1.0_0.0', 
-#  '20211117_fixconv_mfree_actionspace_qts_0.0_1.0_0.1', 
-#  '20211117_fixconv_mfree_actionspace_qts_0.0_1.0_0.2', 
-#  '20211117_fixconv_mfree_actionspace_qts_0.0_1.0_0.3', 
-#  '20211117_fixconv_mfree_actionspace_qts_0.0_1.0_0.4', 
-#  '20211117_fixconv_mfree_actionspace_qts_0.0_1.0_0.5', 
-#  '20211117_fixconv_mfree_actionspace_qts_0.0_1.0_0.6', 
-#  '20211117_fixconv_mfree_actionspace_qts_0.0_1.0_0.7', 
-#  '20211117_fixconv_mfree_actionspace_qts_0.0_1.0_0.8', 
-#  '20211117_fixconv_mfree_actionspace_qts_0.0_1.0_0.9']
+#   '20211117_fixconv_mfree_actionspace_qts_0.0_1.0_0.0', 
+#   '20211117_fixconv_mfree_actionspace_qts_0.0_1.0_0.1', 
+#   '20211117_fixconv_mfree_actionspace_qts_0.0_1.0_0.2', 
+#   '20211117_fixconv_mfree_actionspace_qts_0.0_1.0_0.3', 
+#   '20211117_fixconv_mfree_actionspace_qts_0.0_1.0_0.4', 
+#   '20211117_fixconv_mfree_actionspace_qts_0.0_1.0_0.5', 
+#   '20211117_fixconv_mfree_actionspace_qts_0.0_1.0_0.6', 
+#   '20211117_fixconv_mfree_actionspace_qts_0.0_1.0_0.7', 
+#   '20211117_fixconv_mfree_actionspace_qts_0.0_1.0_0.8', 
+#   '20211117_fixconv_mfree_actionspace_qts_0.0_1.0_0.9']
 
 
  # '20211116_fixconv_mfree_lr_0.0002', 
