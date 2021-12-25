@@ -153,6 +153,11 @@ class MarketEnv(gym.Env):
         multiasset: bool = False,
         corr: int = None,
         inputs: list = None,
+        mv_penalty : bool = False,
+        mv_penalty_coef : float = None,
+        daily_volume : float = None,
+        daily_price : float = None,
+        time_dependent : bool = False
     ):
 
         # super(MarketEnv, self).__init__()
@@ -161,7 +166,6 @@ class MarketEnv(gym.Env):
         self.HalfLife = HalfLife
         self.Startholding = Startholding
         self.sigma = sigma
-        self.CostMultiplier = CostMultiplier
         self.cm1 = cm1
         self.cm2 = cm2
         self.kappa = kappa
@@ -179,6 +183,17 @@ class MarketEnv(gym.Env):
         self.corr = corr
         self.cash = cash
         self.inputs = inputs
+        self.mv_penalty = mv_penalty
+        self.mv_penalty_coef = mv_penalty_coef
+        self.daily_volume = daily_volume
+        self.daily_price = daily_price
+        self.time_dependent = time_dependent
+
+        
+        if cost_type == 'nondiff':
+            self.CostMultiplier = self.cm2/(0.01*self.daily_price*self.daily_volume * self.sigma**2)
+        elif cost_type == 'quadratic':
+            self.CostMultiplier = CostMultiplier
         
         if multiasset:
             colnames = (["returns" + str(hl) for hl in HalfLife] + 
@@ -267,11 +282,18 @@ class MarketEnv(gym.Env):
         return state.shape
 
     def reset(self) -> Tuple[np.ndarray, np.ndarray]:
+        
         if self.inp_type == "ret" or self.inp_type == "alpha":
-            currState = np.array([self.returns[0], self.Startholding])
+            if self.time_dependent:
+                currState = np.array([self.returns[0],len(self.returns) - 2, self.Startholding])
+            else:
+                currState = np.array([self.returns[0], self.Startholding])
             return currState
         elif self.inp_type == "f" or self.inp_type == "alpha_f":
-            currState = np.append(self.factors[0], self.Startholding)
+            if self.time_dependent:
+                currState = np.append(self.factors[0],[len(self.returns) - 2, self.Startholding])
+            else:
+                currState = np.append(self.factors[0], self.Startholding)
             return currState
 
     def step(
@@ -288,11 +310,18 @@ class MarketEnv(gym.Env):
         nextRet = self.returns[iteration + 1]
 
         nextHolding = currState[-1] + shares_traded
+        
         if self.inp_type == "ret" or self.inp_type == "alpha":
-            nextState = np.array([nextRet, nextHolding], dtype=np.float32)
+            if self.time_dependent:
+                nextState = np.array([nextRet,len(self.returns) - 2 - (iteration+1), nextHolding], dtype=np.float32)
+            else:
+                nextState = np.array([nextRet, nextHolding], dtype=np.float32)
         elif self.inp_type == "f" or self.inp_type == "alpha_f":
-            nextState = np.append(nextFactors, nextHolding)
-
+            if self.time_dependent:
+                nextState = np.append(nextFactors,[len(self.returns) - 2 - (iteration+1), nextHolding])
+            else:
+                nextState = np.append(nextFactors, nextHolding)
+        
         Result = self._getreward(currState, nextState, iteration, tag)
 
         return nextState, Result, nextFactors
@@ -323,9 +352,15 @@ class MarketEnv(gym.Env):
         nextRet = self.returns[iteration + 1]
         nextHolding = currState[-1] + MV_action * (1 - shares_traded)
         if self.inp_type == "ret" or self.inp_type == "alpha":
-            nextState = np.array([nextRet, nextHolding], dtype=np.float32)
+            if self.time_dependent:
+                nextState = np.array([nextRet,len(self.returns) - 2 - (iteration+1), nextHolding], dtype=np.float32)
+            else:
+                nextState = np.array([nextRet, nextHolding], dtype=np.float32)
         elif self.inp_type == "f" or self.inp_type == "alpha_f":
-            nextState = np.append(nextFactors, nextHolding)
+            if self.time_dependent:
+                nextState = np.append(nextFactors,[len(self.returns) - 2 - (iteration+1), nextHolding])
+            else:
+                nextState = np.append(nextFactors, nextHolding)
 
         Result = self._getreward(
             currState, nextState, iteration, tag, res_action=shares_traded
@@ -516,10 +551,11 @@ class MarketEnv(gym.Env):
             cost = 0.5 * (shares_traded ** 2) * Lambda
         elif self.cost_type == 'nondiff':
             #Kyle-Obizhaeva formulation
-            # p, v = 40, 1E+6 
-            Lambda = self.cm2 * self.sigma ** 2
-            quadcost = 0.5 * (shares_traded ** 2) * Lambda
-            cost = self.cm1*np.abs(shares_traded) + quadcost
+            p, v = self.daily_price, self.daily_volume
+            quadcost =  shares_traded**2 / (0.01*p*v)
+            # Lambda = self.cm2 * self.sigma ** 2
+            # quadcost = 0.5 * (shares_traded ** 2) * Lambda
+            cost = self.cm1*np.abs(shares_traded) + self.cm2 * quadcost
 
         return cost
 
@@ -549,6 +585,22 @@ class MarketEnv(gym.Env):
         elif self.reward_type == 'cara':
             Reward = (1 - np.e**(-self.kappa*NetPNL))/self.kappa
 
+        if self.mv_penalty:
+            if self.inp_type == 'alpha':
+                next_alpha = nextState[0]
+                # Traded quantity as for the Markovitz framework  (Mean-Variance framework)
+                MVNextHolding = (1 / (self.kappa * (self.sigma) ** 2)) * next_alpha
+            else:
+                NextFactors = self.factors[iteration + 1]
+                # Traded quantity as for the Markovitz framework  (Mean-Variance framework)
+                MVNextHolding = (1 / (self.kappa * (self.sigma) ** 2)) * np.sum(
+                    self.f_param * NextFactors
+                )
+            
+            penalty = self.mv_penalty_coef * (MVNextHolding - nextHolding)**2
+
+            Reward -= penalty
+
         Result = {
             "CurrHolding_{}".format(tag): currHolding,
             "NextHolding_{}".format(tag): nextHolding,
@@ -563,6 +615,10 @@ class MarketEnv(gym.Env):
         
         if self.reward_type == 'mean_var': 
             Result["Risk_{}".format(tag)] = Risk
+
+        if self.mv_penalty:
+            Result["Penalty_{}".format(tag)] = penalty
+
         return Result
 
     def _get_opt_reward(

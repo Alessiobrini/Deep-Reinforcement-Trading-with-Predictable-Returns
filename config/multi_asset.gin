@@ -14,16 +14,16 @@ ENV_CLS = @ShortMultiAssetCashMarketEnv
 
 EXPERIMENT_TYPE = 'GP' # GP or Misspec
 MV_RES = True  # Decide which actions to take (trading quantity or MVresiduals)
-UNIVERSAL_TRAIN = True
+UNIVERSAL_TRAIN = False
 
-EPISODES = 1000  #None # episode to run the algorithm. Put None if you want to train DQN online
+EPISODES = 10  #None # episode to run the algorithm. Put None if you want to train DQN online
 N_TRAIN = None
 LEN_SERIES = 1000 #None # length of simulated series, if null the legth is N_train
 EPOCHS = 3
 OUTPUTDIR = 'outputs' # main directory for the experiment
 OUTPUTCLASS = %ALGO # first subdirectory
-OUTPUTMODEL = '20211119_test3' # second subdirectory
-SAVE_FREQ = 100  # number of checkpoints to save during training
+OUTPUTMODEL = '20211126_test6' # second subdirectory
+SAVE_FREQ = 2  # number of checkpoints to save during training
 SEED = 8587576 # seed for reproducibility
 START_TRAIN = 300 # steps after which the training starts
 USE_GPU = True
@@ -56,18 +56,20 @@ DISCOUNT_RATE = 0.0 # discount rate for time value of money (not gamma in DQN)
 KAPPA = 0.01 #[0.001,0.005] # risk aversion
 INP_TYPE = 'alpha_f' #['f','ret'] # 'f', 'ret', 'alpha' or 'alpha_f'
 COST_TYPE = 'quadratic' # quadratic or nondiff
+DAILY_PRICE = 40
+DAILY_VOLUME = 1E+5
 REWARD_TYPE = 'mean_var' # 'mean_var' 'cara'
 CASH = 1e+11
 
 DT = 1.0
 ROLLOUT_PCT_NUM = 1.0
 MULTIASSET = True
-N_ASSETS = 100
-FIXED_ALPHA = False
-HALFLIFE = [[137], [78]]
-INITIAL_ALPHA =  [[0.0022], [0.00185]] 
-F_PARAM =  [[1.0], [1.0]]
-CORRELATION =  0.6
+N_ASSETS = 3
+FIXED_ALPHA = True
+HALFLIFE = [[250], [350], [70]]
+INITIAL_ALPHA =  [[0.01], [-0.008], [0.0]] 
+F_PARAM =  [[1.0], [1.0], [1.0]]
+CORRELATION =  0.8
 SIGMA = 0.001 # return volatility
 SIGMAF = [None] #[[None],[1e-05]] #0.0001,0.00001 [[0.2, 0.1] ,[0.1, 0.1]] #[[0.2, 0.1],[0.1, 0.1]] # list of factor volatilities 
 DOUBLE_NOISE = False #[False,True]
@@ -248,6 +250,10 @@ MarketEnv.cash = %CASH
 MarketEnv.multiasset = %MULTIASSET
 MarketEnv.corr = %CORRELATION
 MarketEnv.inputs = %INPUTS
+MarketEnv.mv_penalty = %MV_PENALTY
+MarketEnv.mv_penalty_coef = %MV_PENALTY_COEF
+MarketEnv.daily_volume = %DAILY_VOLUME
+MarketEnv.daily_price = %DAILY_PRICE
 
 
 # Parameters for DataHandler and its related functions:
@@ -285,7 +291,7 @@ alpha_term_structure_sampler.fixed_alpha = %FIXED_ALPHA
 
 # Parameters for Out_sample_vs_gp:
 # ==============================================================================
-Out_sample_vs_gp.n_seeds = 20
+Out_sample_vs_gp.n_seeds = 1
 Out_sample_vs_gp.N_test = %LEN_SERIES
-Out_sample_vs_gp.rnd_state = 3425657
+Out_sample_vs_gp.rnd_state = %SEED #3425657
 
