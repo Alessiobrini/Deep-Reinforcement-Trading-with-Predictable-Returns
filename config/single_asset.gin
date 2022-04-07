@@ -18,20 +18,20 @@ MV_PENALTY = False
 MV_PENALTY_COEF = 1E-7
 UNIVERSAL_TRAIN = False #True
 
-EPISODES = 8000 #None # episode to run the algorithm. Put None if you want to train DQN online
+EPISODES = 10000 #None # episode to run the algorithm. Put None if you want to train DQN online
 N_TRAIN = None
 LEN_SERIES = 200 #None # length of simulated series, if null the legth is N_train
 EPOCHS = 3
 OUTPUTDIR = 'outputs' # main directory for the experiment
 OUTPUTCLASS = %ALGO # first subdirectory
-OUTPUTMODEL = '20211223_test'
-SAVE_FREQ = 200 #200  # number of checkpoints to save during training
-SEED = 853
+OUTPUTMODEL = '20211230_test'
+SAVE_FREQ = 1 #200  # number of checkpoints to save during training
+SEED = 245 #[741]
 START_TRAIN = 300 # steps after which the training starts
 USE_GPU = True
-VARYING_PARS =  None # ['%MV_RES', '%TIME_DEPENDENT', '%SEED'] 
+VARYING_PARS =  None # ['%HALFLIFE', '%SEED'] 
 VARYING_TYPE = 'chunk'
-NUM_CORES = 60
+NUM_CORES = 3
 
 # spaces
 ACTION_RANGE =  [None, 9] # action range for standard RL [boundary,number of actions]
@@ -47,17 +47,17 @@ ZERO_ACTION = True # include the zero action (hold) in the action space
 
 # env and data simulation
 DATATYPE = 'alpha_term_structure' # type of data to simulate # 'garch','t_stud','t_stud_mfit', 'garch_mr', 'alpha_term_structure'
-TIME_DEPENDENT = False #[False,True]
+TIME_DEPENDENT = True #[False,True]
 
 FACTOR_LB = [2, 50] # list of lags for fitting autoregressive vairables of the return series
-COSTMULTIPLIER = 0.05 #[0.0005,0.001,0.0001,0.00005,0.00001] # Cost multiplier to make the cost proportional to the risk
+COSTMULTIPLIER = 9E-4 #[0.0005,0.001,0.0001,0.00005,0.00001] # Cost multiplier to make the cost proportional to the risk
 CM1 = 0.0 #[0.01, 0.05, 0.005] #[0.01,0.001, 0.0005, 0.005] #[0.0005,0.001,0.0001,0.00005,0.00001] #[2.89E-4, 0.0]  
 CM2 = 9E-4 #7.91E-4
 STARTHOLDING = 0.0 # initial portfolio holding
 DISCOUNT_RATE = 0.0 # discount rate for time value of money (not gamma in DQN)
 KAPPA =  1E-5 #0.01 #[0.001,0.005] # risk aversion
 INP_TYPE = 'alpha_f' #['f','ret'] # 'f', 'ret', 'alpha' or 'alpha_f'
-COST_TYPE = 'nondiff' # quadratic or nondiff
+COST_TYPE = 'nondiff' #['nondiff','quadratic'] # quadratic or nondiff
 DAILY_PRICE = 40
 DAILY_VOLUME = 1E+5
 REWARD_TYPE = 'mean_var' #['cara','mean_var'] # 'mean_var' 'cara'
@@ -187,10 +187,10 @@ PPO.tau = 0.98 # lambda in the original GAE paper
 PPO.clip_param = 0.25 # clipping of objective function
 PPO.vf_c = 0.5 # coefficient for the value error
 PPO.ent_c = 0.0001 # coefficient for entropy
-PPO.hidden_units_value = [16,16] #[16,16] 
-PPO.hidden_units_actor = [32,32] #[64,64] #[[8,8],[16,8],[16,16],[32,16],[32,32],[32,64],[64,64],[128,64]] #[32,32]
-PPO.batch_size =  25 #50
-PPO.lr = 0.00025 # initial learning rate
+PPO.hidden_units_value = [16,16] 
+PPO.hidden_units_actor = [128,128] #[64,64] #[[8,8],[16,8],[16,16],[32,16],[32,32],[32,64],[64,64],[128,64]] #[32,32]
+PPO.batch_size =  50
+PPO.lr = 0.00025  # initial learning rate
 PPO.activation = 'tanh'
 PPO.batch_norm_input = True # batch norm at input layer level
 PPO.batch_norm_value_out = False # normalize value function output
