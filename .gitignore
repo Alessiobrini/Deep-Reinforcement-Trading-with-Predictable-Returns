@@ -12,6 +12,8 @@ paramMultiTestOOS.yaml
 utils/variance_analysis.py
 data_generator.py
 exp_decay_test.py
+Tcost_calibration.ipynb
+*.txt
 
 # Byte-compiled / optimized / DLL files
 __pycache__/
