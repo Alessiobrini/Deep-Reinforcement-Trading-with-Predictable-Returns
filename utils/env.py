@@ -639,7 +639,7 @@ class MarketEnv(gym.Env):
         # Portfolio variation
         OptGrossPNL = OptNextHolding * nextRet  # currRet
         # Risk
-        OptRisk = 0.5 * self.kappa * ((OptNextHolding) ** 2 * (self.sigma) ** 2)
+        OptRisk = 0.5 * self.kappa * ((OptNextHolding ** 2) * (self.sigma ** 2))
         # Transaction costs
         OptCost = self._totalcost(OptNextAction)
         # Portfolio Variation including costs

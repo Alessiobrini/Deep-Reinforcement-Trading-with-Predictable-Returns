@@ -126,7 +126,7 @@ def GeneratePathFolder(
     outputDir: str,
     outputClass: str,
     outputModel: str,
-    varying_pars: Union[str or None],
+    varying_pars: Union[str , None],
     varying_type: str,
     N_train: int,
 ) -> Union[str, bytes, os.PathLike]:

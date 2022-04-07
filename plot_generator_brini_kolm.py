@@ -26,6 +26,7 @@ from utils.plot import (
     plot_pct_metrics,
     plot_abs_metrics,
     plot_BestActions,
+    plot_BestActions_time,
     plot_vf,
     load_DQNmodel,
     load_PPOmodel,
@@ -146,7 +147,7 @@ def runplot_metrics(p):
                     params_path=filenamep,
                 )
 
-                
+           
             # PERSONALIZE THE IMAGE WITH CORRECT LABELS
             ax.get_figure().gca().set_title("") # no title
             # ax.set_ylim(-2.0*100,0.5*100)
@@ -177,10 +178,12 @@ def runplot_metrics_is(p):
         outputModel = [exp.format(*hp) for exp in outputModels]
     else:
         outputModel = outputModels
-    colors = [p['color_res'],p['color_mfree'],'red','yellow','black','cyan','violet','brown','orange','bisque','skyblue','lime']
+    colors = [p['color_res'],p['color_mfree'],'red','yellow','black','cyan','violet',
+              'brown','orange','bisque','skyblue','lime','orange','grey']
     window=p['window']
-  
-    var_plot = 'AbsRew_IS_{}_{}.parquet.gzip'.format(format_tousands(N_test), outputClass)
+    
+    if N_test:
+        var_plot = 'AbsRew_IS_{}_{}.parquet.gzip'.format(format_tousands(N_test), outputClass)
 
 
     # read main folder
@@ -191,7 +194,12 @@ def runplot_metrics_is(p):
         length = get_exp_length(modelpath)
         data_dir = "outputs/{}/{}/{}".format(outputClass, out_mode, length)
         filtered_dir = get_all_subdirs(data_dir)
-
+        
+        if not N_test:
+            N_test = int(out_mode.split('len_series_')[-1].split('_')[0])
+            var_plot = 'AbsRew_IS_{}_{}.parquet.gzip'.format(format_tousands(N_test), outputClass)
+            N_test = None
+        
         logging.info(
             "Plotting experiment {} for variable {}...".format(out_mode, var_plot)
         )
@@ -211,7 +219,10 @@ def runplot_metrics_is(p):
         dataframe_opt = pd.concat(dfs_opt,1)
         dataframe_opt.columns = [s.split('seed_')[-1] for s in filtered_dir]
         dataframe_opt = dataframe_opt.transpose()
-
+        
+        #TEMP
+        dataframe = dataframe.loc[:,:p['ep_ppo']]
+        dataframe_opt = dataframe_opt.loc[:,:p['ep_ppo']]
         
         # PICK THE BEST PERFOMING SEED
         idxmax = dataframe.mean(1).idxmax()
@@ -261,8 +272,10 @@ def runplot_metrics_is(p):
         
     # PERSONALIZE THE IMAGE WITH CORRECT LABELS
     # ax.set_ylim(-2.0*100,0.5*100)
-    ax.set_ylim(-200, 100)
+    # ax.set_ylim(-200, 100)
+    ax.set_ylim(-50, 20)
     # ax.set_ylim(-500, 100)
+    ax.hlines(y=0,xmin=0,xmax=len(reldiff_avg_smooth.index),ls='--',lw=1,color='black')
     
     ax.set_xlabel('In-sample episodes')
     if smooth_type == 'avgdiff':
@@ -271,7 +284,7 @@ def runplot_metrics_is(p):
         ax.set_ylabel('Relative difference in average reward (\%)') #relative
 
     # ax.ticklabel_format(axis="y", style="sci", scilimits=(0, 0),useMathText=True)
-    # ax.legend(['Residual PPO','Model-free PPO'], loc=4)
+    ax.legend(['Residual PPO','Model-free PPO'], loc=4)
     # ax.legend(outputModel)
     
     # ax.set_ylim(-500,100)
@@ -304,6 +317,7 @@ def runplot_holding(p):
 
     modelpath = "outputs/{}/{}".format(outputClass, model)
     length = get_exp_length(modelpath)
+
     experiment = [
         exp
         for exp in os.listdir("outputs/{}/{}/{}".format(outputClass, model, length))
@@ -337,9 +351,13 @@ def runplot_holding(p):
             # input_shape = (int(n_assets+1+ (n_assets**2 - n_assets)/2+n_assets+1),1)
     else:
         if query("%INP_TYPE") == "f" or query("%INP_TYPE") == "alpha_f":
-            input_shape = (len(query('%F_PARAM')) + 1,)
+            if query("%TIME_DEPENDENT"):
+                input_shape = (len(query('%F_PARAM')) + 2,)
+            else:
+                input_shape = (len(query('%F_PARAM')) + 1,)
         else:
             input_shape = (2,)
+
 
 
     if "DQN" in tag:
@@ -383,7 +401,8 @@ def runplot_holding(p):
             experiment_type=query("%EXPERIMENT_TYPE"),
             env_cls=env,
             MV_res=query("%MV_RES"),
-            N_test=p['N_test']
+            N_test=p['N_test'],
+            mv_solution=True
         )
 
 
@@ -416,18 +435,27 @@ def runplot_holding(p):
     fig,ax = plt.subplots(figsize=set_size(width=columnwidth))
     # oos_test.rnd_state = 435465
     # oos_test.rnd_state = np.random.choice(10000,1)
-    # print(oos_test.rnd_state)
+    oos_test.rnd_state = 3454
+    gin.bind_parameter('%FIXED_ALPHA',False)
+    print(oos_test.rnd_state)
+
     res_df = oos_test.run_test(train_agent, return_output=True)
-    # pdb.set_trace()
+    print('PPO cumrew',res_df['Reward_PPO'].cumsum().iloc[-1])
+    print('GP cumrew',res_df['OptReward'].cumsum().iloc[-1])
+    print('Ratio PPO-GP',res_df['Reward_PPO'].cumsum().iloc[-1]/res_df['OptReward'].cumsum().iloc[-1])
+    print('MV cumrew',res_df['MVReward'].cumsum().iloc[-1])
+    print('Ratio MV-GP',res_df['MVReward'].cumsum().iloc[-1]/res_df['OptReward'].cumsum().iloc[-1])
 
     if gin.query_parameter('%MULTIASSET'):
         plot_portfolio(res_df, tag[0], ax, tbox=False)
         if len(gin.query_parameter('%HALFLIFE'))>2:
             ax.get_legend().remove()
     else:
-        plot_portfolio(res_df, tag[0], ax, tbox=False)
+        plot_portfolio(res_df, tag[0], ax, tbox=False, colors=['tab:blue','tab:orange'])
         # ax.legend(['PPO','benchmark'], fontsize=8)
-        ax.legend(fontsize=8)
+        ax.plot(res_df["MVNextHolding"].values[1:-1], label="MW", color='black', ls='--')
+        # ax.legend(['benchmark','Model-free PPO', 'MW'], fontsize=8)
+        ax.legend(['benchmark','Residual PPO', 'MW'], fontsize=8)
     
     ax.set_xlabel('Timestep')
     ax.ticklabel_format(axis="y", style="sci", scilimits=(0, 0),useMathText=True)
@@ -563,6 +591,7 @@ def runplot_multiholding(p):
         gin.bind_parameter('alpha_term_structure_sampler.fixed_alpha',False)
         # print(oos_test.rnd_state)
         res_df = oos_test.run_test(train_agent, return_output=True)
+        
         plot_portfolio(res_df, tag[0], axes[i], tbox=False, colors=color)
     
     # axes[0].get_legend().remove()
@@ -997,11 +1026,14 @@ def runplot_cdf_distribution(p):
                 input_shape = (n_assets+n_assets+1,1)
         else:
             if query("%INP_TYPE") == "f" or query("%INP_TYPE") == "alpha_f":
-                input_shape = (len(query('%F_PARAM')) + 1,)
+                if query("%TIME_DEPENDENT"):
+                    input_shape = (len(query('%F_PARAM')) + 2,)
+                else:
+                    input_shape = (len(query('%F_PARAM')) + 1,)
             else:
                 input_shape = (2,)
     
-    
+
         if "DQN" in tag:
             train_agent = DQN(
                 input_shape=input_shape, action_space=action_space, rng=rng
@@ -1090,14 +1122,14 @@ def runplot_cdf_distribution(p):
     ax = fig.add_subplot()
 
     # sns.kdeplot(cumdiff, bw_method=0.2,ax=ax2,color='tab:olive')
-    sns.ecdfplot(rewards['ppo'].values,ax=ax,color='tab:blue') #tab:blue
+    sns.ecdfplot(rewards['ppo'].values,ax=ax,color='tab:blue') #tab:green
     sns.ecdfplot(rewards['gp'].values,ax=ax,color='tab:orange',linestyle="--")
-    # sns.ecdfplot(rewards['mv'].values,ax=ax,color='tab:olive',alpha=0.6)
+    sns.ecdfplot(rewards['mv'].values,ax=ax,color='tab:olive',alpha=0.6)
     ax.set_xlabel("Cumulative reward (\$)")
     ax.ticklabel_format(axis="x", style="sci", scilimits=(0, 0),useMathText=True)
     # move_sn_x(offs=.03, side='right', dig=2)
-    ax.legend(labels=['Residual PPO','GP','MV'],loc=4) 
-    # ax2.legend(labels=['Model-free PPO','GP']) 
+    ax.legend(labels=['Residual PPO','GP','MW'],loc=4) 
+    # ax.legend(labels=['Model-free PPO','GP', 'MW'],loc=4) 
 
 
     # plt.locator_params(axis='y', nbins=6)
@@ -1352,7 +1384,7 @@ def runplot_policies(p):
 
 
     colors = [p['color_res'],p['color_mfree']]
-    eps_ppo = [7000,7000] # p['ep_ppo']
+    eps_ppo = [2500,2500] # p['ep_ppo']
     lines = [True,False]
     optimal = [False,True]
     # outputModels = p['outputModels_ppo']
@@ -1397,7 +1429,7 @@ def runplot_policies(p):
             else:
                 model, actions = load_DQNmodel(data_dir, gin.query_parameter("%N_TRAIN"))      
             
-            plot_BestActions(model, p['holding'], ax=ax, optimal=p['optimal'],
+            plot_BestActions(model, p['holding'], p['time_to_stop'], ax=ax, optimal=p['optimal'],
                              stochastic=gin.query_parameter("%STOCHASTIC_POLICY"), 
                              seed=gin.query_parameter("%SEED"),color=col,
                              generate_plot=p['generate_plot'])
@@ -1415,13 +1447,104 @@ def runplot_policies(p):
             else:
                 model, actions = load_PPOmodel(data_dir, gin.query_parameter("%EPISODES"))
             # pdb.set_trace()
-            plot_BestActions(model, p['holding'], ax=ax, optimal=p['optimal'],
+            plot_BestActions(model, p['holding'], p['time_to_stop'], ax=ax, optimal=p['optimal'],
                              stochastic=gin.query_parameter("%STOCHASTIC_POLICY"), seed=gin.query_parameter("%SEED"),color=col)
 
 
     ax.set_xlabel("Alpha (bps)")
     ax.set_ylabel('Trade (\$)')
     ax.legend(['Residual PPO', 'Model-free PPO', 'GP', 'MV'])
+    fig.tight_layout()
+    fig.savefig(os.path.join('outputs','img_brini_kolm', "ppo_policies_{}_{}.pdf".format(p['seed'], outputModel)), dpi=300, bbox_inches="tight")
+        
+    
+def runplot_timedep_policies(p):
+
+
+    colors = [p['color_res'],p['color_mfree']]
+    eps_ppo = [1000,500] # p['ep_ppo']
+    lines = [True,False]
+    optimal = [True,True]
+    # outputModels = p['outputModels_ppo']
+    # experiments = p['experiment_ppo']
+
+    if 'DQN' in p['algo']:
+        hp_exp = p["hyperparams_exp_dqn"]
+        outputModel = p["outputModels_dqn"]
+        experiment = p["experiment_dqn"]
+    elif 'PPO' in p['algo']:
+        hp_exp = p["hyperparams_exp_ppo"]
+        outputModel = p["outputModels_ppo"]
+        experiment = p["experiment_ppo"]
+
+    if hp_exp:
+        outputModels = [o.format(*hp_exp) for o in outputModel]
+        experiments = [e.format(*hp_exp) for e in experiment]
+
+    
+    fig = plt.figure(figsize=set_size(width=columnwidth))
+    ax = fig.add_subplot()
+    for col,lin,opt,ep,outputModel,experiment in zip(colors,lines,optimal,eps_ppo,outputModels,experiments):
+        p['optimal'] = opt
+        outputClass = p["outputClass"]
+        tag = p["algo"]
+        p['ep_ppo'] = ep
+
+    
+        modelpath = "outputs/{}/{}".format(outputClass, outputModel)
+        length = get_exp_length(modelpath)
+        data_dir = "outputs/{}/{}/{}/{}".format(
+            outputClass, outputModel, length, experiment
+        )
+
+        
+        if "DQN" in tag:
+            gin.parse_config_file(os.path.join(data_dir, "config.gin"), skip_unknown=True)
+            if not p['stochastic']:
+                gin.bind_parameter("%STOCHASTIC_POLICY",False)
+            if p['n_dqn']:
+                model, actions = load_DQNmodel(data_dir, p['n_dqn'])
+            else:
+                model, actions = load_DQNmodel(data_dir, gin.query_parameter("%N_TRAIN"))      
+            
+            plot_BestActions(model, p['holding'], p['time_to_stop'], ax=ax, optimal=p['optimal'],
+                             stochastic=gin.query_parameter("%STOCHASTIC_POLICY"), 
+                             seed=gin.query_parameter("%SEED"),color=col,
+                             generate_plot=p['generate_plot'])
+    
+            ax.set_xlabel("y")
+            ax.set_ylabel("best $\mathregular{A_{t}}$")
+            ax.legend()
+    
+        elif "PPO" in tag:
+            gin.parse_config_file(os.path.join(data_dir, "config.gin"), skip_unknown=True)
+            if not p['stochastic']:
+                gin.bind_parameter("%STOCHASTIC_POLICY",False)
+            if p['ep_ppo']:
+                model, actions = load_PPOmodel(data_dir, p['ep_ppo'])
+            else:
+                model, actions = load_PPOmodel(data_dir, gin.query_parameter("%EPISODES"))
+            # pdb.set_trace()
+            
+            if p['policy_func'] == 'alpha':
+                plot_BestActions(model, p['holding'],p['time_to_stop'], ax=ax, optimal=p['optimal'],
+                                 stochastic=gin.query_parameter("%STOCHASTIC_POLICY"), seed=gin.query_parameter("%SEED"),color='tab:green')
+            elif p['policy_func'] == 'time':
+                plot_BestActions_time(model, p['holding'],p['alpha'], ax=ax, optimal=p['optimal'],
+                                 stochastic=gin.query_parameter("%STOCHASTIC_POLICY"), seed=gin.query_parameter("%SEED"),color='tab:green')
+
+    if p['policy_func'] == 'alpha':
+        ax.set_xlabel("Alpha (bps)")
+        ax.set_ylabel('Trade (\$)')
+        # ax.legend(['Residual PPO', 'Model-free PPO', 'GP', 'MV'])
+        # ax.legend(['Residual PPO',  'GP', 'MV'])
+        ax.legend(['Model-free PPO',  'GP', 'MV'])
+    elif p['policy_func'] == 'time':
+        ax.set_xlabel("Time to maturity")
+        ax.set_ylabel('Percentage difference in policies')
+        # ax.legend(['Residual PPO', 'Model-free PPO', 'GP', 'MV'])
+        ax.legend(['Pct diff GP-PPO'])
+        
     fig.tight_layout()
     fig.savefig(os.path.join('outputs','img_brini_kolm', "ppo_policies_{}_{}.pdf".format(p['seed'], outputModel)), dpi=300, bbox_inches="tight")
         
@@ -1798,7 +1921,9 @@ if __name__ == "__main__":
     logger = generate_logger()
 
 
-    os.environ["PATH"] += os.pathsep + 'C:\\Program Files\\MiKTeX\\miktex\\bin\\x64' 
+    # os.environ["PATH"] += os.pathsep + 'C:\\Program Files\\MiKTeX\\miktex\\bin\\x64' 
+    os.environ["PATH"] += os.pathsep + 'C:\\Users\\aless\\AppData\\Local\\Programs\\MiKTeX\\miktex\\bin\\x64' 
+    
     
     columnwidth=360
     style = 'white' #darkgrid
@@ -1839,6 +1964,8 @@ if __name__ == "__main__":
         runplot_multiholding(p)
     elif p["plot_type"] == "policy":
         runplot_policies(p)
+    elif p["plot_type"] == "tpolicy":
+        runplot_timedep_policies(p)
     elif p["plot_type"] == "dist":
         runplot_distribution(p)
     elif p["plot_type"] == "cdf":
