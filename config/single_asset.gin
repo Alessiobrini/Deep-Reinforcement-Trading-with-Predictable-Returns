@@ -13,25 +13,25 @@ ENV_CLS = @MarketEnv #ShortMultiAssetCash
 
 
 EXPERIMENT_TYPE = 'GP' # GP or Misspec
-MV_RES = True # Decide which actions to take (trading quantity or MVresiduals)
+MV_RES = False # Decide which actions to take (trading quantity or MVresiduals)
 MV_PENALTY = False
-MV_PENALTY_COEF = 1E-7
+MV_PENALTY_COEF = 5e-2 #[5e-2,1e-2,5e-3,1e-3,5e-4,1e-4,5e-5,1e-5,5e-6,1e-6,5e-7,1e-7,5e-8,1e-8,5e-9,1e-9,5e-10,1e-10,5e-11,1e-11]
 UNIVERSAL_TRAIN = False #True
 
-EPISODES = 10000 #None # episode to run the algorithm. Put None if you want to train DQN online
+EPISODES = 2000 #None # episode to run the algorithm. Put None if you want to train DQN online
 N_TRAIN = None
-LEN_SERIES = 200 #None # length of simulated series, if null the legth is N_train
+LEN_SERIES = 1200 #None # length of simulated series, if null the legth is N_train
 EPOCHS = 3
 OUTPUTDIR = 'outputs' # main directory for the experiment
 OUTPUTCLASS = %ALGO # first subdirectory
-OUTPUTMODEL = '20211230_test'
-SAVE_FREQ = 1 #200  # number of checkpoints to save during training
-SEED = 245 #[741]
+OUTPUTMODEL = '20220511_convergence_residual_2assets'
+SAVE_FREQ = 1000 #200  # number of checkpoints to save during training
+SEED = [842, 640, 960,  10, 233, 337, 735, 276, 852, 711]
 START_TRAIN = 300 # steps after which the training starts
 USE_GPU = True
-VARYING_PARS =  None # ['%HALFLIFE', '%SEED'] 
+VARYING_PARS =  ['PPO.augadv','%SEED'] 
 VARYING_TYPE = 'chunk'
-NUM_CORES = 3
+NUM_CORES = 60
 
 # spaces
 ACTION_RANGE =  [None, 9] # action range for standard RL [boundary,number of actions]
@@ -55,7 +55,7 @@ CM1 = 0.0 #[0.01, 0.05, 0.005] #[0.01,0.001, 0.0005, 0.005] #[0.0005,0.001,0.000
 CM2 = 9E-4 #7.91E-4
 STARTHOLDING = 0.0 # initial portfolio holding
 DISCOUNT_RATE = 0.0 # discount rate for time value of money (not gamma in DQN)
-KAPPA =  1E-5 #0.01 #[0.001,0.005] # risk aversion
+KAPPA =  1E-4 #[1E-1,5E-1,1E-2,5E-2,1E-3,5E-3,1E-4,5E-4,1E-5,5E-5,1E-6,5E-6,1E-7,5E-7] #0.01 #[0.001,0.005] # risk aversion
 INP_TYPE = 'alpha_f' #['f','ret'] # 'f', 'ret', 'alpha' or 'alpha_f'
 COST_TYPE = 'nondiff' #['nondiff','quadratic'] # quadratic or nondiff
 DAILY_PRICE = 40
@@ -69,7 +69,7 @@ ROLLOUT_PCT_NUM = 1.0
 MULTIASSET = False
 N_ASSETS = None
 FIXED_ALPHA = True
-HALFLIFE = [40] # list of Halflives of mean reversion
+HALFLIFE = [240] # list of Halflives of mean reversion
 INITIAL_ALPHA = [0.003] # only for alpha term structure case
 SIGMA = 0.002 # return volatility
 SIGMAF = [None] #[[None],[1e-07], [5e-07], [1e-06], [5e-06], [1e-05], [2e-05],[3e-05],[4e-05], [5e-05],[7.5e-05],[1e-04],[2e-04],[5e-04],[10e-04]] # [[0.2, 0.1] ,[0.1, 0.1]] #[[0.2, 0.1],[0.1, 0.1]] # list of factor volatilities 
@@ -184,13 +184,13 @@ PPO_runner.store_insample = True
 PPO.seed = %SEED
 PPO.gamma = 0.99 #0.8 # discounting factor for the Q target
 PPO.tau = 0.98 # lambda in the original GAE paper
-PPO.clip_param = 0.25 # clipping of objective function
+PPO.clip_param = 0.2 # clipping of objective function
 PPO.vf_c = 0.5 # coefficient for the value error
 PPO.ent_c = 0.0001 # coefficient for entropy
-PPO.hidden_units_value = [16,16] 
-PPO.hidden_units_actor = [128,128] #[64,64] #[[8,8],[16,8],[16,16],[32,16],[32,32],[32,64],[64,64],[128,64]] #[32,32]
-PPO.batch_size =  50
-PPO.lr = 0.00025  # initial learning rate
+PPO.hidden_units_value = [20,20]
+PPO.hidden_units_actor = [20,20]
+PPO.batch_size =  500 #250
+PPO.lr = 0.0015 #0.0003 # initial learning rate
 PPO.activation = 'tanh'
 PPO.batch_norm_input = True # batch norm at input layer level
 PPO.batch_norm_value_out = False # normalize value function output
@@ -207,6 +207,8 @@ PPO.lr_schedule = ''
 PPO.exp_decay_rate = 0.5
 PPO.step_size = 10000
 PPO.store_diagnostics = False
+PPO.augadv = [False,True]
+PPO.eta = 0.01
 
 
 
@@ -289,7 +291,7 @@ alpha_term_structure_sampler.sigma = %SIGMA
 alpha_term_structure_sampler.sigmaf = %SIGMAF
 alpha_term_structure_sampler.multiasset = %MULTIASSET
 alpha_term_structure_sampler.double_noise = %DOUBLE_NOISE
-alpha_term_structure_sampler.fixed_alpha = %FIXED_ALPHA
+alpha_term_structure_sampler.fixed_alpha = %FIXED_ALPHA 
 
 # Parameters for Out_sample_vs_gp:
 # ==============================================================================

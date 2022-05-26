@@ -14,22 +14,24 @@ ENV_CLS = @ShortMultiAssetCashMarketEnv
 
 EXPERIMENT_TYPE = 'GP' # GP or Misspec
 MV_RES = True  # Decide which actions to take (trading quantity or MVresiduals)
-UNIVERSAL_TRAIN = True
+MV_PENALTY = False
+MV_PENALTY_COEF = 5e-2 #[5e-2,1e-2,5e-3,1e-3,5e-4,1e-4,5e-5,1e-5,5e-6,1e-6,5e-7,1e-7,5e-8,1e-8,5e-9,1e-9,5e-10,1e-10,5e-11,1e-11]
+UNIVERSAL_TRAIN = False #True
 
-EPISODES = 300  #None # episode to run the algorithm. Put None if you want to train DQN online
+EPISODES = 2000  #None # episode to run the algorithm. Put None if you want to train DQN online
 N_TRAIN = None
-LEN_SERIES = 200 #None # length of simulated series, if null the legth is N_train
+LEN_SERIES = 1200 #None # length of simulated series, if null the legth is N_train
 EPOCHS = 3
 OUTPUTDIR = 'outputs' # main directory for the experiment
 OUTPUTCLASS = %ALGO # first subdirectory
-OUTPUTMODEL = '20210910_2_alpha_term' # second subdirectory
-SAVE_FREQ = 20  # number of checkpoints to save during training
-SEED = [765,  35, 654, 850, 153, 195, 594, 913, 822, 602]  # seed for reproducibility
+OUTPUTMODEL = '20220512_2_alpha_term_test1' # second subdirectory
+SAVE_FREQ = 1000  # number of checkpoints to save during training
+SEED = 23 # [765,  35, 654, 850, 153, 195, 594, 913, 822, 602]  # seed for reproducibility
 START_TRAIN = 300 # steps after which the training starts
 USE_GPU = True
-VARYING_PARS = ['%CORRELATION',  '%SEED']
+VARYING_PARS = None # ['%CORRELATION',  '%SEED']
 VARYING_TYPE = 'chunk'
-NUM_CORES = 20
+NUM_CORES = 60
 
 # spaces
 ACTION_RANGE =  [None, 9] # action range for standard RL [boundary,number of actions]
@@ -46,32 +48,37 @@ ZERO_ACTION = True # include the zero action (hold) in the action space
 # env and data simulation
 DATATYPE = 'alpha_term_structure' # type of data to simulate # 'garch','t_stud','t_stud_mfit', 'garch_mr', 'alpha_term_structure'
 INPUTS = ['sigma', 'corr', 'holding', 'cash'] #[['sigma', 'corr', 'holding', 'cash'],['holding', 'cash']]
+TIME_DEPENDENT = True #[False,True]
 
 FACTOR_LB = [2, 50] # list of lags for fitting autoregressive vairables of the return series
-COSTMULTIPLIER = 0.001 #[0.0005,0.001,0.0001,0.00005,0.00001] # Cost multiplier to make the cost proportional to the risk
-CM1 = 0.001 #[0.01, 0.05, 0.005] #[0.01,0.001, 0.0005, 0.005] #[0.0005,0.001,0.0001,0.00005,0.00001] #[2.89E-4, 0.0]  
-CM2 = 0.001 #7.91E-4
+COSTMULTIPLIER = 9E-4 #[0.0005,0.001,0.0001,0.00005,0.00001] # Cost multiplier to make the cost proportional to the risk
+CM1 = 0.0 #[0.01, 0.05, 0.005] #[0.01,0.001, 0.0005, 0.005] #[0.0005,0.001,0.0001,0.00005,0.00001] #[2.89E-4, 0.0]  
+CM2 = 9E-4
 STARTHOLDING = 0.0 # initial portfolio holding
 DISCOUNT_RATE = 0.0 # discount rate for time value of money (not gamma in DQN)
-KAPPA = 0.001 #[0.001,0.005] # risk aversion
+KAPPA = 1E-4 #[0.001,0.005] # risk aversion
 INP_TYPE = 'alpha_f' #['f','ret'] # 'f', 'ret', 'alpha' or 'alpha_f'
-COST_TYPE = 'quadratic' # quadratic or nondiff
+COST_TYPE = 'nondiff' # quadratic or nondiff
+DAILY_PRICE = 40
+DAILY_VOLUME = 1E+5
 REWARD_TYPE = 'mean_var' # 'mean_var' 'cara'
 CASH = 1e+9
 
+STOCHASTIC_POLICY = True
 DT = 1.0
 ROLLOUT_PCT_NUM = 1.0
 MULTIASSET = True
 N_ASSETS = None
-HALFLIFE = [[25], [100]]
-INITIAL_ALPHA =  [[0.004], [0.0015]] #, [0.00017], [0.00116], [0.00156], [0.00362], [0.00115], [0.00332], [0.00176], [0.00383], [0.00308], [0.00241], [0.00297], [0.00172], [0.00157], [0.00085], [0.00048], [0.00272], [0.0002], [0.00231], [0.00154], [0.00326], [0.00069], [0.00151], [0.00048]]
+FIXED_ALPHA = True
+HALFLIFE = [[240], [720]]
+INITIAL_ALPHA =  [[0.003], [0.0015]] #, [0.00017], [0.00116], [0.00156], [0.00362], [0.00115], [0.00332], [0.00176], [0.00383], [0.00308], [0.00241], [0.00297], [0.00172], [0.00157], [0.00085], [0.00048], [0.00272], [0.0002], [0.00231], [0.00154], [0.00326], [0.00069], [0.00151], [0.00048]]
 F_PARAM =  [[1.0], [1.0]] #, [1.0], [1.0], [1.0], [1.0], [1.0], [1.0], [1.0], [1.0], [1.0], [1.0], [1.0], [1.0], [1.0], [1.0], [1.0], [1.0], [1.0], [1.0], [1.0], [1.0], [1.0], [1.0], [1.0]]
-CORRELATION =  [-0.2,0.2,-0.6,0.6]
-SIGMA = 1e-05 # return volatility
-SIGMAF = [1e-05] #0.0001,0.00001 [[0.2, 0.1] ,[0.1, 0.1]] #[[0.2, 0.1],[0.1, 0.1]] # list of factor volatilities 
+CORRELATION = 0.6 #[-0.2,0.2,-0.6,0.6]
+SIGMA = 0.002 # return volatility
+SIGMAF = [None] #0.0001,0.00001 [[0.2, 0.1] ,[0.1, 0.1]] #[[0.2, 0.1],[0.1, 0.1]] # list of factor volatilities 
 DOUBLE_NOISE = True
-QTS = [0.001,0.999] # quantile to select action boundaries
-ACTION_TYPE = 'MV' # GP or MV for selecting action boundaries
+QTS = [0.0,1.0,0.0] # quantile to select action boundaries
+ACTION_TYPE = 'GPext' # GP or MV for selecting action boundaries
 UNCORRELATED = True # generate correlated or uncorrelated factors
 T_STUD = False # Student's T noise in the simulation for GP factors
 DEGREES = 6 # degrees of freedom for Student's T
@@ -171,19 +178,20 @@ PPO_runner.dt = %DT
 PPO_runner.rollouts_pct_num = %ROLLOUT_PCT_NUM 
 PPO_runner.epochs = %EPOCHS
 PPO_runner.universal_train = %UNIVERSAL_TRAIN
+PPO_runner.store_insample = True
 
 # Parameters for PPO:
 # ==============================================================================
 PPO.seed = %SEED
 PPO.gamma = 0.99 #0.8 # discounting factor for the Q target
 PPO.tau = 0.98 # lambda in the original GAE paper
-PPO.clip_param = 0.25 # clipping of objective function
+PPO.clip_param = 0.2 # clipping of objective function
 PPO.vf_c = 0.5 # coefficient for the value error
-PPO.ent_c = 0.001 # coefficient for entropy
-PPO.hidden_units_value = [128,64]
-PPO.hidden_units_actor = [128,64]
-PPO.batch_size =  50
-PPO.lr = 0.0003 # initial learning rate
+PPO.ent_c = 0.0001 # coefficient for entropy
+PPO.hidden_units_value = [20,20]
+PPO.hidden_units_actor = [20,20]
+PPO.batch_size =  500
+PPO.lr = 0.0015 # initial learning rate
 PPO.activation = 'tanh'
 PPO.batch_norm_input = True # batch norm at input layer level
 PPO.batch_norm_value_out = False # normalize value function output
@@ -200,7 +208,8 @@ PPO.lr_schedule = ''
 PPO.exp_decay_rate = 0.999
 PPO.step_size = None
 PPO.store_diagnostics = False
-
+PPO.augadv = False
+PPO.eta = 0.01
 
 
 # Parameters for ActionSpace:
@@ -246,6 +255,11 @@ MarketEnv.cash = %CASH
 MarketEnv.multiasset = %MULTIASSET
 MarketEnv.corr = %CORRELATION
 MarketEnv.inputs = %INPUTS
+MarketEnv.mv_penalty = %MV_PENALTY
+MarketEnv.mv_penalty_coef = %MV_PENALTY_COEF
+MarketEnv.daily_volume = %DAILY_VOLUME
+MarketEnv.daily_price = %DAILY_PRICE
+MarketEnv.time_dependent = %TIME_DEPENDENT
 
 
 # Parameters for DataHandler and its related functions:
@@ -278,11 +292,11 @@ alpha_term_structure_sampler.sigma = %SIGMA
 alpha_term_structure_sampler.sigmaf = %SIGMAF
 alpha_term_structure_sampler.multiasset = %MULTIASSET
 alpha_term_structure_sampler.double_noise = %DOUBLE_NOISE
-
+alpha_term_structure_sampler.fixed_alpha = %FIXED_ALPHA 
 
 # Parameters for Out_sample_vs_gp:
 # ==============================================================================
-Out_sample_vs_gp.n_seeds = 5
+Out_sample_vs_gp.n_seeds = 1
 Out_sample_vs_gp.N_test = %LEN_SERIES
-Out_sample_vs_gp.rnd_state =  3425657
-
+Out_sample_vs_gp.rnd_state =  %SEED
+Out_sample_vs_gp.stochastic_policy =  %STOCHASTIC_POLICY

@@ -586,18 +586,19 @@ class MarketEnv(gym.Env):
             Reward = (1 - np.e**(-self.kappa*NetPNL))/self.kappa
 
         if self.mv_penalty:
-            if self.inp_type == 'alpha':
-                next_alpha = nextState[0]
-                # Traded quantity as for the Markovitz framework  (Mean-Variance framework)
-                MVNextHolding = (1 / (self.kappa * (self.sigma) ** 2)) * next_alpha
-            else:
-                NextFactors = self.factors[iteration + 1]
-                # Traded quantity as for the Markovitz framework  (Mean-Variance framework)
-                MVNextHolding = (1 / (self.kappa * (self.sigma) ** 2)) * np.sum(
-                    self.f_param * NextFactors
-                )
+            # if self.inp_type == 'alpha':
+            #     next_alpha = nextState[0]
+            #     # Traded quantity as for the Markovitz framework  (Mean-Variance framework)
+            #     MVNextHolding = (1 / (self.kappa * (self.sigma) ** 2)) * next_alpha
+            # else:
+            #     NextFactors = self.factors[iteration + 1]
+            #     # Traded quantity as for the Markovitz framework  (Mean-Variance framework)
+            #     MVNextHolding = (1 / (self.kappa * (self.sigma) ** 2)) * np.sum(
+            #         self.f_param * NextFactors
+            #     )
             
-            penalty = self.mv_penalty_coef * (MVNextHolding - nextHolding)**2
+            # penalty = self.mv_penalty_coef * (MVNextHolding - nextHolding)**2
+            penalty = self.mv_penalty_coef * (currHolding - nextHolding)**2
 
             Reward -= penalty
 

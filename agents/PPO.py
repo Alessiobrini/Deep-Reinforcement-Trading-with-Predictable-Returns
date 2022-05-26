@@ -245,6 +245,8 @@ class PPO:
         init_last_layers: str = "rescaled",
         rng=None,
         store_diagnostics: bool = False,
+        augadv: bool = False,
+        eta: float = 0.1,
         modelname: str = "PPO act_crt",
     ):
 
@@ -265,6 +267,8 @@ class PPO:
         self.eps_opt = eps_opt
         self.action_space = action_space
         self.policy_type = policy_type
+        self.augadv= augadv
+        self.eta = eta
 
         if gin.query_parameter('%MULTIASSET'):
             self.num_actions = len(gin.query_parameter('%HALFLIFE'))
@@ -366,7 +370,12 @@ class PPO:
             new_log_probs = dist.log_prob(action.reshape(-1)).reshape(-1,1)
             # self.logits_hist.append(dist.logits.detach().cpu().numpy())
             # self.entropy_hist.append(entropy.detach().cpu().numpy().ravel())
-        
+
+        if self.augadv:
+            reg = new_log_probs - old_log_probs
+            advantage = advantage - self.eta * reg
+
+
         
         ratio = (new_log_probs - old_log_probs).exp()  # log properties
         surr1 = ratio * advantage
