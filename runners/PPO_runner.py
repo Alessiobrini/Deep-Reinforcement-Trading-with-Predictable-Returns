@@ -334,7 +334,12 @@ class PPO_runner(MixinCore):
                 .numpy()
                 .ravel(),  # avoid require_grad and go back to numpy array
                 "value": value.detach().cpu().numpy().ravel(),
+
             }
+
+            # pdb.set_trace()
+            exp['mw_action'] = np.array([self.env.MV_res_step(state, unscaled_action, i, output_action=True)], dtype='float32')
+            exp['rl_action'] = unscaled_action
 
             self.train_agent.add_experience(exp)
 
@@ -376,9 +381,11 @@ class PPO_runner(MixinCore):
                 old_log_probs,
                 return_,
                 advantage,
+                mw_action,
+                rl_action,
             ) in enumerate(self.train_agent.ppo_iter()):
 
-                self.train_agent.train(state, action, old_log_probs, return_, advantage, iteration=j, epoch=i, episode=episode)
+                self.train_agent.train(state, action, old_log_probs, return_, advantage, mw_action, rl_action, iteration=j, epoch=i, episode=episode)
 
             # recompute gae to avoid stale advantages
             if i == len(range(self.epochs)) - 1:

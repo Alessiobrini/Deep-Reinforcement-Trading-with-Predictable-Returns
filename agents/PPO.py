@@ -246,7 +246,8 @@ class PPO:
         rng=None,
         store_diagnostics: bool = False,
         augadv: bool = False,
-        eta: float = 0.1,
+        eta1: float = 0.1,
+        eta2: float = 0.5,
         modelname: str = "PPO act_crt",
     ):
 
@@ -268,7 +269,8 @@ class PPO:
         self.action_space = action_space
         self.policy_type = policy_type
         self.augadv= augadv
-        self.eta = eta
+        self.eta1 = eta1
+        self.eta2 = eta2
 
         if gin.query_parameter('%MULTIASSET'):
             self.num_actions = len(gin.query_parameter('%HALFLIFE'))
@@ -285,6 +287,8 @@ class PPO:
             "value": [],
             "returns": [],
             "advantage": [],
+            "mw_action": [],
+            "rl_action": [],
         }
 
         self.model = PPOActorCritic(
@@ -356,7 +360,7 @@ class PPO:
         self.std_hist_byepoch = []
 
 
-    def train(self, state, action, old_log_probs, return_, advantage, iteration, epoch, episode):
+    def train(self, state, action, old_log_probs, return_, advantage, mw_action, rl_action, iteration, epoch, episode):
         advantage = (advantage - advantage.mean()) / (advantage.std() + 1e-5)
 
         self.model.train()
@@ -372,8 +376,15 @@ class PPO:
             # self.entropy_hist.append(entropy.detach().cpu().numpy().ravel())
 
         if self.augadv:
-            reg = new_log_probs - old_log_probs
-            advantage = advantage - self.eta * reg
+            # reg = np.log(new_log_probs - old_log_probs 
+            reg1 = np.log(mw_action/rl_action).nan_to_num(0.0)
+
+            mask = torch.sign(mw_action)*torch.sign(rl_action)
+            mask[mask==1.0] = 0.0
+            mask[mask==-1.0] = 1.0
+            reg2 = mask * torch.log(torch.abs(mw_action) + torch.abs(rl_action))
+
+            advantage = advantage - self.eta1 * reg1 - self.eta2 * reg2
 
 
         
@@ -491,6 +502,8 @@ class PPO:
             "value": [],
             "returns": [],
             "advantage": [],
+            "mw_action": [],
+            "rl_action": [],
         }
 
     def ppo_iter(self):
@@ -500,6 +513,8 @@ class PPO:
         log_probs = np.asarray(self.experience["log_prob"])
         returns = np.asarray(self.experience["returns"])
         advantage = np.asarray(self.experience["advantage"])
+        mw_actions = np.asarray(self.experience["mw_action"])
+        rl_actions = np.asarray(self.experience["rl_action"])
 
         len_rollout = states.shape[0]
         ids = self.rng.permutation(len_rollout)
@@ -513,6 +528,8 @@ class PPO:
                 torch.from_numpy(log_probs[ids[i], :]).float().to(self.device),
                 torch.from_numpy(returns[ids[i], :]).float().to(self.device),
                 torch.from_numpy(advantage[ids[i], :]).float().to(self.device),
+                torch.from_numpy(mw_actions[ids[i], :]).float().to(self.device),
+                torch.from_numpy(rl_actions[ids[i], :]).float().to(self.device),
             )
 
     def add_tb_diagnostics(self,path,n_epochs):

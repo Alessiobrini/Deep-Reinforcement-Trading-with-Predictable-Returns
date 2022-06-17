@@ -331,6 +331,7 @@ class MarketEnv(gym.Env):
         currState: Union[Tuple, np.ndarray],
         shares_traded: int,
         iteration: int,
+        output_action: bool = False,
         tag: str = "DQN",
     ) -> Tuple[np.ndarray, dict, np.ndarray]:
 
@@ -348,6 +349,8 @@ class MarketEnv(gym.Env):
             nextFactors = self.factors[iteration + 1]
         # Compute optimal markovitz action
         MV_action = OptNextHolding - CurrHolding
+        if output_action:
+            return MV_action
 
         nextRet = self.returns[iteration + 1]
         nextHolding = currState[-1] + MV_action * (1 - shares_traded)
@@ -581,7 +584,7 @@ class MarketEnv(gym.Env):
         NetPNL = GrossPNL - Cost
         if self.reward_type == 'mean_var':
             Risk = 0.5 * self.kappa * ((nextHolding ** 2) * (self.sigma ** 2))
-            Reward = GrossPNL - Risk - Cost
+            Reward = GrossPNL - 0.5 * self.kappa * GrossPNL**2 - Cost #GrossPNL - Risk - Cost CHANGED THE WAY WE COMPUTE THE REWARD
         elif self.reward_type == 'cara':
             Reward = (1 - np.e**(-self.kappa*NetPNL))/self.kappa
 

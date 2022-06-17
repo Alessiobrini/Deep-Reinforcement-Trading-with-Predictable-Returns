@@ -24,12 +24,12 @@ LEN_SERIES = 1200 #None # length of simulated series, if null the legth is N_tra
 EPOCHS = 3
 OUTPUTDIR = 'outputs' # main directory for the experiment
 OUTPUTCLASS = %ALGO # first subdirectory
-OUTPUTMODEL = '20220511_convergence_residual_2assets'
+OUTPUTMODEL = '20220601_test'
 SAVE_FREQ = 1000 #200  # number of checkpoints to save during training
-SEED = [842, 640, 960,  10, 233, 337, 735, 276, 852, 711]
+SEED = 22 # [842, 640, 960,  10, 233, 337, 735, 276, 852, 711]
 START_TRAIN = 300 # steps after which the training starts
 USE_GPU = True
-VARYING_PARS =  ['PPO.augadv','%SEED'] 
+VARYING_PARS = None # ['PPO.augadv','%SEED'] 
 VARYING_TYPE = 'chunk'
 NUM_CORES = 60
 
@@ -179,6 +179,7 @@ PPO_runner.epochs = %EPOCHS
 PPO_runner.universal_train = %UNIVERSAL_TRAIN
 PPO_runner.store_insample = True
 
+
 # Parameters for PPO:
 # ==============================================================================
 PPO.seed = %SEED
@@ -207,8 +208,9 @@ PPO.lr_schedule = ''
 PPO.exp_decay_rate = 0.5
 PPO.step_size = 10000
 PPO.store_diagnostics = False
-PPO.augadv = [False,True]
-PPO.eta = 0.01
+PPO.augadv = True #[False,True]
+PPO.eta1 = 0.01
+PPO.eta2 = 0.05
 
 
 
