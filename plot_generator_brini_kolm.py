@@ -284,7 +284,7 @@ def runplot_metrics_is(p):
         ax.set_ylabel('Relative difference in average reward (\%)') #relative
 
     # ax.ticklabel_format(axis="y", style="sci", scilimits=(0, 0),useMathText=True)
-    ax.legend(['Residual PPO','Model-free PPO'], loc=4)
+    # ax.legend(['Residual PPO','Model-free PPO'], loc=4)
     # ax.legend(outputModel)
     
     # ax.set_ylim(-500,100)
@@ -292,7 +292,7 @@ def runplot_metrics_is(p):
     fig.tight_layout()
     logging.info("Plot saved successfully...")
         
-    fig.savefig("outputs/img_brini_kolm/exp_{}_{}_insample.pdf".format(out_mode,var_plot.split('_')[0]), dpi=300, bbox_inches="tight")
+    # fig.savefig("outputs/img_brini_kolm/exp_{}_{}_insample.pdf".format(out_mode,var_plot.split('_')[0]), dpi=300, bbox_inches="tight")
 
 
 def runplot_holding(p):
@@ -1459,10 +1459,10 @@ def runplot_policies(p):
         
     
 def runplot_timedep_policies(p):
-
+    
 
     colors = [p['color_res'],p['color_mfree']]
-    eps_ppo = [1000,500] # p['ep_ppo']
+    eps_ppo = [2000,2000] # p['ep_ppo']
     lines = [True,False]
     optimal = [True,True]
     # outputModels = p['outputModels_ppo']
@@ -1547,7 +1547,54 @@ def runplot_timedep_policies(p):
         
     fig.tight_layout()
     fig.savefig(os.path.join('outputs','img_brini_kolm', "ppo_policies_{}_{}.pdf".format(p['seed'], outputModel)), dpi=300, bbox_inches="tight")
+
+
+
+def runplot_timedep_multipolicies(p):
+
+    
+    outputClass = p["outputClass"]
+    outputModel = p['outputModel_ppo']
+    experiment = p['experiment_ppo']
+
+
+    modelpath = "outputs/{}/{}".format(outputClass, outputModel)
+    length = get_exp_length(modelpath)
+    data_dir = "outputs/{}/{}/{}/{}".format(
+        outputClass, outputModel, length, experiment
+    )
+    
+    gin.parse_config_file(os.path.join(data_dir, "config.gin"), skip_unknown=True)
+    if not p['stochastic']:
+        gin.bind_parameter("%STOCHASTIC_POLICY",False)
+    if p['ep_ppo']:
+        model, actions = load_PPOmodel(data_dir, p['ep_ppo'])
+    else:
+        model, actions = load_PPOmodel(data_dir, gin.query_parameter("%EPISODES"))
         
+
+    
+    fig, axes = plt.subplots(len(p['time_to_stop']),len(p['holding']),figsize=set_size(width=1000))
+    fig.subplots_adjust(hspace=0.3,wspace=0.3)
+    
+    for i,tts in enumerate(p['time_to_stop']):
+        for j,h in enumerate(p['holding']):
+            plot_BestActions(model, h,tts, ax=axes[i,j], optimal=p['optimal'],
+                             stochastic=gin.query_parameter("%STOCHASTIC_POLICY"), 
+                             seed=gin.query_parameter("%SEED"),color='tab:blue')
+            axes[i,j].ticklabel_format(axis="y", style="sci", scilimits=(0, 0),useMathText=True)
+            axes[i,j].annotate('T-t={} \n h={:.2e}'.format(tts,h), xy=(0.5, 0.8), xycoords='axes fraction', fontsize=8,
+                horizontalalignment='right', verticalalignment='bottom')
+
+
+    fig.text(0.45, 0.01, "Alpha (bps)", fontsize=18)
+    fig.text(0.01, 0.45, "Trade (\$)", rotation='vertical', fontsize=18)
+    fig.legend(['PPO',  'GP'])
+    fig.suptitle('Holding increases from left to right \n Time to maturity decrease from top to bottom')
+    # fig.tight_layout()
+    # fig.savefig(os.path.join('outputs','img_brini_kolm', "ppo_multipolicies_{}_{}.pdf".format(p['seed'], outputModel)), dpi=300, bbox_inches="tight")
+
+
 
 def runplot_std(p):
 
@@ -1966,6 +2013,8 @@ if __name__ == "__main__":
         runplot_policies(p)
     elif p["plot_type"] == "tpolicy":
         runplot_timedep_policies(p)
+    elif p["plot_type"] == "multi_policy":
+        runplot_timedep_multipolicies(p)
     elif p["plot_type"] == "dist":
         runplot_distribution(p)
     elif p["plot_type"] == "cdf":

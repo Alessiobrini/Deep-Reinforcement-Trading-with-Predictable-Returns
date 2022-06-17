@@ -850,7 +850,7 @@ def plot_BestActions(
             ) * sample_Ret
             optimal_policy = OptNextHolding - holding
 
-            ax.plot(sample_Ret, optimal_policy, linewidth=1.5, label="GP Policy")
+            ax.plot(sample_Ret, optimal_policy, linewidth=1.5, label="GP Policy", ls='--')
         elif query("%INP_TYPE") == "f" or query("%INP_TYPE") == "alpha_f":
 
             OptNextHolding = (1 - OptRate) * holdings + OptRate * (
@@ -859,9 +859,9 @@ def plot_BestActions(
             optimal_policy = OptNextHolding - holdings
 
             if holding == None:
-                ax.plot(holdings, optimal_policy, linewidth=1.5, label="GP Policy", color='tab:orange')
+                ax.plot(holdings, optimal_policy, linewidth=1.5, label="GP Policy", color='tab:orange', ls='--')
             else:
-                ax.plot(factors[:, 0]*10**4, optimal_policy, linewidth=1.5, label="GP Policy", color='tab:orange')
+                ax.plot(factors[:, 0]*10**4, optimal_policy, linewidth=1.5, label="GP Policy", color='tab:orange', ls='--')
                 
             # OptNextHolding_mv = (1 / (kappa * (sigma) ** 2)) * np.sum(
             #     f_param * factors, axis=1
