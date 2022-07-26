@@ -584,7 +584,8 @@ class MarketEnv(gym.Env):
         NetPNL = GrossPNL - Cost
         if self.reward_type == 'mean_var':
             Risk = 0.5 * self.kappa * ((nextHolding ** 2) * (self.sigma ** 2))
-            Reward = GrossPNL - 0.5 * self.kappa * GrossPNL**2 - Cost #GrossPNL - Risk - Cost CHANGED THE WAY WE COMPUTE THE REWARD
+            # Reward = NetPNL - 0.5 * self.kappa * NetPNL**2  #
+            Reward = GrossPNL - Risk - Cost 
         elif self.reward_type == 'cara':
             Reward = (1 - np.e**(-self.kappa*NetPNL))/self.kappa
 

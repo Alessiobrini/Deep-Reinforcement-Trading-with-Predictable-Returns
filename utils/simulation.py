@@ -271,6 +271,8 @@ def return_sampler_GP(
         sys.exit()
     f_speed = lambdas
 
+
+
     return realret.astype(np.float32), factors.astype(np.float32), f_speed
 
 
@@ -602,12 +604,12 @@ def alpha_term_structure_sampler(
             elif posneg == 1:
                 initial_alpha = np.array([rng.uniform(val*(1-0.5),val*(1+0.5),1) for val in initial_alpha]).reshape(-1,)
 
-            if 'truncate' in HalfLife:
-                HalfLife = np.array([rng.uniform(int(N_train * 0.85),int(N_train * 1.25),1) for _ in initial_alpha]).reshape(-1,)
-            elif None in HalfLife:
-                HalfLife = np.array([rng.uniform(5,int(N_train * 0.75),1) for _ in initial_alpha]).reshape(-1,)
-            else:
-                HalfLife = np.array([rng.uniform(val*(1-0.5),val*(1+0.5),1) for val in HalfLife]).reshape(-1,)
+            # if 'truncate' in HalfLife:
+            #     HalfLife = np.array([rng.uniform(int(N_train * 0.85),int(N_train * 1.25),1) for _ in initial_alpha]).reshape(-1,)
+            # elif None in HalfLife:
+            #     HalfLife = np.array([rng.uniform(5,int(N_train * 0.75),1) for _ in initial_alpha]).reshape(-1,)
+            # else:
+            #     HalfLife = np.array([rng.uniform(val*(1-0.5),val*(1+0.5),1) for val in HalfLife]).reshape(-1,)
 
         alpha_n = len(HalfLife)
         f_speed =  np.log(2)/HalfLife
@@ -620,9 +622,9 @@ def alpha_term_structure_sampler(
             alpha_terms = initial_alpha * np.e**(-f_speed*t)
 
         if None not in sigmaf:
-            noise_magnitude = (np.array(sigmaf) * np.sqrt(t)).reshape(-1,alpha_n)
-            # pdb.set_trace()
-            noise = noise_magnitude * rng.normal(size=(len(t),alpha_n))
+            # noise_magnitude = (np.array(sigmaf) * np.sqrt(t)).reshape(-1,alpha_n)
+            # noise = noise_magnitude * rng.normal(size=(len(t),alpha_n))
+            noise = np.array(sigmaf) * rng.normal(size=(len(t),alpha_n)) 
             alpha_terms = alpha_terms + noise
 
         if sum(f_param) != 1.0:
@@ -630,13 +632,14 @@ def alpha_term_structure_sampler(
             sys.exit()
         alpha_structure = np.sum(np.array(f_param)* alpha_terms, axis=1)
 
+        generate_plot = False
         if generate_plot:
             fig,ax = plt.subplots(figsize=(10,5))
             ax.plot(alpha_terms)
             ax.plot(alpha_structure, ls='--')
             # ax.plot(alpha_terms.sum(axis=1), ls='--')
             ax.set_title('Alpha term structure')
-            # plt.show()
+            plt.show()
 
         return alpha_structure, alpha_terms, f_speed
 
