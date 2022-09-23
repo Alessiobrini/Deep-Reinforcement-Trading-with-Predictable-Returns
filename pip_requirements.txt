@@ -79,7 +79,7 @@ patsy==0.5.1
 pexpect==4.2.1
 Pillow==5.1.0
 property-cached==1.6.4
-protobuf==3.11.3
+protobuf==3.18.3
 pyarrow==0.16.0
 pyasn1==0.4.8
 pyasn1-modules==0.2.8
