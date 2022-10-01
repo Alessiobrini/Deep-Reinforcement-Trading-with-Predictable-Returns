@@ -68,6 +68,8 @@ class PPOActorCritic(nn.Module):
                     critic_modules.append(nn.ReLU())
                 elif activation == "tanh":
                     critic_modules.append(nn.Tanh())
+                elif activation == "linear":
+                    pass
                 else:
                     print("Activation selected not available")
                     sys.exit()
@@ -79,6 +81,8 @@ class PPOActorCritic(nn.Module):
                     critic_modules.append(nn.ReLU())
                 elif activation == "tanh":
                     critic_modules.append(nn.Tanh())
+                elif activation == "linear":
+                    pass
                 else:
                     print("Activation selected not available")
                     sys.exit()
@@ -108,6 +112,8 @@ class PPOActorCritic(nn.Module):
                     actor_modules.append(nn.ReLU())
                 elif activation == "tanh":
                     actor_modules.append(nn.Tanh())
+                elif activation == "linear":
+                    pass
                 else:
                     print("Activation selected not available")
                     sys.exit()
@@ -119,6 +125,8 @@ class PPOActorCritic(nn.Module):
                     actor_modules.append(nn.ReLU())
                 elif activation == "tanh":
                     actor_modules.append(nn.Tanh())
+                elif activation == "linear":
+                    pass
                 else:
                     print("Activation selected not available")
                     sys.exit()

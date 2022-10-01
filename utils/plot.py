@@ -685,7 +685,7 @@ def plot_BestActions(
                 unscaled_max_action = torch.nn.Tanh()(dist.sample())
             else:
                 unscaled_max_action = torch.nn.Tanh()(dist.mean)
-            pdb.set_trace()
+            
             if query("%MV_RES"):
                 max_action = unscale_asymmetric_action(actions[0],actions[-1], unscaled_max_action)
             else:
@@ -767,7 +767,7 @@ def plot_BestActions(
                 unscaled_max_action = torch.nn.Tanh()(dist.sample())
             else:
                 unscaled_max_action = torch.nn.Tanh()(dist.mean)
-            # pdb.set_trace()
+            
             if query("%MV_RES"):
                 max_action = unscale_asymmetric_action(actions[0],actions[-1], unscaled_max_action).numpy().reshape(-1,)
             else:
@@ -956,7 +956,7 @@ def plot_BestActions_time(
         unscaled_max_action = torch.nn.Tanh()(dist.sample())
     else:
         unscaled_max_action = torch.nn.Tanh()(dist.mean)
-    # pdb.set_trace()
+    
     if query("%MV_RES"):
         max_action = unscale_asymmetric_action(actions[0],actions[-1], unscaled_max_action).numpy().reshape(-1,)
     else:
@@ -967,7 +967,7 @@ def plot_BestActions_time(
         cm = query("%CM2")/(0.01*query("%DAILY_PRICE")*query("%DAILY_VOLUME") * query("%SIGMA")**2)
         gin.bind_parameter('%COSTMULTIPLIER', cm)
     
-    # pdb.set_trace()
+    
     if query("%MV_RES"):
         discount_rate, kappa, costmultiplier, f_param, halflife, sigma = (
             query("%DISCOUNT_RATE"),
@@ -1029,7 +1029,7 @@ def plot_BestActions_time(
         ) * np.sum(DiscFactorLoads * factors.reshape(-1,1), axis=1)
         optimal_policy = OptNextHolding - holdings
 
-    # pdb.set_trace()
+    
     # ax.plot(times, optimal_policy, linewidth=1.5, label="GP Policy", color='tab:orange')
     
 
@@ -1136,7 +1136,7 @@ def plot_heatmap_holding(r: pd.DataFrame, tag: str, title):
 
     """
 
-    # pdb.set_trace()
+    
     fig,ax = plt.subplots(figsize=set_size(width=1000.0))
     
     hold_diff = r.filter(like="OptNextHolding").values[1:-1] -  r.filter(like="NextHolding_{}".format(tag)).values[1:-1] 
@@ -1235,7 +1235,7 @@ def move_sn_x(offs=0, dig=0, side='left', omit_last=False):
 
     # Get the ticks
     locs, _ = plt.xticks()
-    # pdb.set_trace()
+    
 
     # Put the last entry into a string, ensuring it is in scientific notation
     # E.g: 123456789 => '1.235e+08'
