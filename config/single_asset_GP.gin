@@ -1,4 +1,3 @@
-
 import utils.env
 import utils.spaces
 import utils.simulation
@@ -10,58 +9,53 @@ import agents.PPO
 # Set up
 ALGO = 'PPO' # 'PPO', 'DQN' or 'DDPG'  
 
-ENV_CLS = @MarketEnv 
+ENV_CLS = @MarketEnv #ShortMultiAssetCash
 
-EXPERIMENT_TYPE = 'GP' #'Misspec' # GP or Misspec
+
+EXPERIMENT_TYPE = 'GP' # GP or Misspec
 MV_RES = False # Decide which actions to take (trading quantity or MVresiduals)
 MV_PENALTY = False
-MV_PENALTY_COEF = 5e-2
-UNIVERSAL_TRAIN = False
+MV_PENALTY_COEF = 5e-2 #[5e-2,1e-2,5e-3,1e-3,5e-4,1e-4,5e-5,1e-5,5e-6,1e-6,5e-7,1e-7,5e-8,1e-8,5e-9,1e-9,5e-10,1e-10,5e-11,1e-11]
+UNIVERSAL_TRAIN = False #True
 
-EPISODES =  2000 #None # episode to run the algorithm. Put None if you want to train DQN online
-N_TRAIN = None #150000 #300000
-LEN_SERIES = 1200 # length of simulated series, if null the legth is N_train
+EPISODES = 2000 #None # episode to run the algorithm. Put None if you want to train DQN online
+N_TRAIN = None
+LEN_SERIES = 1200 #None # length of simulated series, if null the legth is N_train
 EPOCHS = 3
 OUTPUTDIR = 'outputs' # main directory for the experiment
 OUTPUTCLASS = %ALGO # first subdirectory
-OUTPUTMODEL = '20220702_GPTest' # second subdirectory
-SAVE_FREQ = 1000  # number of checkpoints to save during training
-SEED = 22  # seed for reproducibility
+OUTPUTMODEL = '20221006_test'
+SAVE_FREQ = 1000 #200  # number of checkpoints to save during training
+SEED = 244 #[45,22,842, 640, 960] # [842, 640, 960,  10, 233, 337, 735, 276, 852, 711]
 START_TRAIN = 300 # steps after which the training starts
 USE_GPU = True
-VARYING_PARS = None #['%DATATYPE','%DEGREES', '%SEED'] 
+VARYING_PARS = None #[ '%SEED'] 
 VARYING_TYPE = 'chunk'
-NUM_CORES = 60
+NUM_CORES = 40
 
 # spaces
 ACTION_RANGE =  [None, 9] # action range for standard RL [boundary,number of actions]
-ACTION_RANGE_RES = [-0.5, 1.0, 10] #[[-0.5, 1.0, 10],[-1.0, 1.0, 10],[0.0, 1.0, 10],[0.5, 1.0, 10]] # action range for residual RL [LB,UB,number of actions]
+ACTION_RANGE_RES = [0.0, 1.0, 10] #[[0.0, 1.0, 10],[0.25, 1.0, 10],[0.5, 1.0, 10],[-0.25, 1.0, 10],[-0.5, 1.0, 10],[-1.0, 1.0, 10],[-1.5, 1.0, 10],[-2.0, 1.0, 10],[-2.5, 1.0, 10],[-3.0, 1.0, 10], [-3.5, 1.0, 10],[-4.0, 1.0, 10]] #[0.0, 1.0, 10] #[[-0.5, 1.0, 10],[-1.0, 1.0, 10],[0.0, 1.0, 10],[0.5, 1.0, 10]] # action range for residual RL [LB,UB,number of actions]
 SIDE_ONLY = False # set the action space so that only the side of the bet is captured by the algorithm
 ZERO_ACTION = True # include the zero action (hold) in the action space
 
-#discretization :  # float in (0,1] to determine a level of discretization for the action space when side_only=True. Leave empty for no discretization
-#temp : null #[10.0, 50.0, 100.0, 200.0] # temperature parameter for boltzmann equation
-#bcm : False # allow behavioral cloning module
-#bcm_scale :  #[0.001,0.0001]
-
-
 # env and data simulation
-DATATYPE =  ['t_stud','t_stud_mfit'] # type of data to simulate # 'gauss', 'garch','t_stud','t_stud_mfit', 'garch_mr', 'alpha_term_structure'
+DATATYPE = 'gauss' # type of data to simulate # 'garch','t_stud','t_stud_mfit', 'garch_mr', 'alpha_term_structure'
 TIME_DEPENDENT = True #[False,True]
 
-FACTOR_LB = [100] # list of lags for fitting autoregressive vairables of the return series
-COSTMULTIPLIER = 9E-4 # Cost multiplier to make the cost proportional to the risk
+FACTOR_LB = [50] # list of lags for fitting autoregressive vairables of the return series
+COSTMULTIPLIER = 9E-4 #[0.0005,0.001,0.0001,0.00005,0.00001] # Cost multiplier to make the cost proportional to the risk
 CM1 = 0.0 #[0.01, 0.05, 0.005] #[0.01,0.001, 0.0005, 0.005] #[0.0005,0.001,0.0001,0.00005,0.00001] #[2.89E-4, 0.0]  
 CM2 = 9E-4 #7.91E-4
 STARTHOLDING = 0.0 # initial portfolio holding
 DISCOUNT_RATE = 0.0 # discount rate for time value of money (not gamma in DQN)
-KAPPA = 1E-4  # risk aversion
-INP_TYPE = 'ret' # 'f', 'ret', 'alpha' or 'alpha_f'
-COST_TYPE = 'nondiff' # quadratic or nondiff
+KAPPA =  1E-4 #[1E-1,5E-1,1E-2,5E-2,1E-3,5E-3,1E-4,5E-4,1E-5,5E-5,1E-6,5E-6,1E-7,5E-7] #0.01 #[0.001,0.005] # risk aversion
+INP_TYPE = 'ret' #['f','ret'] # 'f', 'ret', 'alpha' or 'alpha_f'
+COST_TYPE = 'quadratic' #['nondiff','quadratic'] # quadratic or nondiff
 DAILY_PRICE = 40
 DAILY_VOLUME = 1E+5
-REWARD_TYPE = 'mean_var' # 'mean_var' 'cara'
-CASH = None # 1e+6
+REWARD_TYPE = 'mean_var' #['cara','mean_var'] # 'mean_var' 'cara'
+CASH = None #1e+6
 
 STOCHASTIC_POLICY = True
 DT = 1.0
@@ -69,24 +63,24 @@ ROLLOUT_PCT_NUM = 1.0
 MULTIASSET = False
 N_ASSETS = None
 FIXED_ALPHA = True
-HALFLIFE = [240] #[[100], [150], [200], [250], [300], [350], [400], [450], [500], [550]] #[300]  # list of Halflives of mean reversion
-INITIAL_ALPHA = [0.003] #[[0.001],[0.004],[0.012],[0.008]] # only for alpha term structure case
-SIGMA = 0.002 # return volatility
-SIGMAF = [0.1] # list of factor volatilities
-F_PARAM = [None] #[[0.001], [0.012], [0.023], [0.034], [0.045], [0.056], [0.067], [0.078], [0.089], [0.1]] # [0.01] #[0.001 , 0.0062, 0.0114, 0.0166, 0.0218, 0.0271, 0.0323, 0.0375, 0.0427, 0.0479, 0.0531, 0.0583, 0.0635, 0.0687, 0.0739, 0.0792, 0.0844, 0.0896, 0.0948, 0.1   ] #, 0.005] # list of factor loadings
+HALFLIFE = [240] # list of Halflives of mean reversion
+INITIAL_ALPHA = [0.003] # only for alpha term structure case
+SIGMA = 0.002 #0.002 # return volatility
+SIGMAF = [0.1] #[[None],[1e-07], [5e-07], [1e-06], [5e-06], [1e-05], [2e-05],[3e-05],[4e-05], [5e-05],[7.5e-05],[1e-04],[2e-04],[5e-04],[10e-04]] # [[0.2, 0.1] ,[0.1, 0.1]] #[[0.2, 0.1],[0.1, 0.1]] # list of factor volatilities 
+F_PARAM = [0.005] #, 0.005] # list of factor loadings
 CORRELATION = None
 DOUBLE_NOISE = True
-QTS = [0.001,0.999] # quantile to select action boundaries
-ACTION_TYPE = 'GP' # GP or MV for selecting action boundaries
+QTS = [0.001,0.999,0.0] # quantile to select action boundaries
+ACTION_TYPE = 'GPext' # GP or MV for selecting action boundaries
 UNCORRELATED = True # generate correlated or uncorrelated factors
 T_STUD = False # Student's T noise in the simulation for GP factors
-DEGREES = 6 #[2,4,6,8,10,12] #[6,8] # degrees of freedom for Student's T
+DEGREES = 6 # degrees of freedom for Student's T
 VOL = 'omosk' #'omosk' or 'eterosk' to simulate GP-like return with stoch vol
 
 MEAN_PROCESS = 'AR' # choice for mean process ['AR', 'Constant']
 LAGS_MEAN_PROCESS = 1 # lag or list of lags for the autoregressive component in the mean return
 VOL_PROCESS = 'GARCH' # choice for volatility process ['GARCH', 'TGARCH', 'EGARCH', 'Constant']
-DISTR_NOISE = 'normal' #['normal','studt'] #['normal','studt'] # choice for noise distribution ['normal', 'studt', 'skewstud', 'ged']
+DISTR_NOISE = 'normal' # choice for noise distribution ['normal', 'studt', 'skewstud', 'ged']
 P_ARG = [[0.075,0.0067,0.60],[0.075,0.0067,0.65],[0.075,0.0067,0.70],[0.075,0.0067,0.75],[0.075,0.0067,0.80],[0.075,0.0067,0.85]] # 3 values for garch parameters
 # [[0.075,0.005,0.85],[0.075,0.007,0.85],[0.075,0.009,0.85],[0.075,0.02,0.85],[0.075,0.04,0.85],[0.075,0.06,0.85],[0.075,0.08,0.85],[0.075,0.01,0.85]]
 
@@ -189,16 +183,16 @@ PPO.gamma = 0.99 #0.8 # discounting factor for the Q target
 PPO.tau = 0.98 # lambda in the original GAE paper
 PPO.clip_param = 0.2 # clipping of objective function
 PPO.vf_c = 0.5 # coefficient for the value error
-PPO.ent_c = 0.0 # coefficient for entropy
-PPO.hidden_units_value = [128,64]
-PPO.hidden_units_actor = [64,64]
-PPO.batch_size =  500
-PPO.lr = 0.005 # initial learning rate
+PPO.ent_c = 0.0001 # coefficient for entropy
+PPO.hidden_units_value = [20,20]
+PPO.hidden_units_actor = [20,20]
+PPO.batch_size =  500 #250
+PPO.lr = 0.0003 #0.0003 # initial learning rate
 PPO.activation = 'tanh'
 PPO.batch_norm_input = True # batch norm at input layer level
 PPO.batch_norm_value_out = False # normalize value function output
 PPO.policy_type = 'continuous' #discrete or continuous
-PPO.init_pol_std = 0.5 # initial policy std dev for stochasticity
+PPO.init_pol_std = 0.0 # initial policy std dev for stochasticity
 PPO.min_pol_std = 0.003 # minimum policy std dev for stochasticity
 PPO.std_transform = 'exp'
 PPO.init_last_layers = 'normal'
@@ -207,8 +201,8 @@ PPO.beta_1 = 0.9 # first parameter for adaptive optimizers
 PPO.beta_2 = 0.999 # second parameter for adaptive optimizers
 PPO.eps_opt = 1e-8 # corrective parameter for adaptive optimizers
 PPO.lr_schedule = ''
-PPO.exp_decay_rate = 0.999
-PPO.step_size = None
+PPO.exp_decay_rate = 0.5
+PPO.step_size = 10000
 PPO.store_diagnostics = False
 PPO.augadv = False #[False,True]
 PPO.eta1 = 0.01
@@ -286,13 +280,12 @@ return_sampler_garch.lags_mean_process = %LAGS_MEAN_PROCESS
 return_sampler_garch.vol_process = %VOL_PROCESS
 return_sampler_garch.distr_noise = %DISTR_NOISE
 return_sampler_garch.seed = %SEED
-return_sampler_garch.p_arg = %P_ARG
 
 alpha_term_structure_sampler.HalfLife = %HALFLIFE
 alpha_term_structure_sampler.initial_alpha = %INITIAL_ALPHA
 alpha_term_structure_sampler.f_param = %F_PARAM
-alpha_term_structure_sampler.sigma = %SIGMA
 alpha_term_structure_sampler.generate_plot = False
+alpha_term_structure_sampler.sigma = %SIGMA
 alpha_term_structure_sampler.sigmaf = %SIGMAF
 alpha_term_structure_sampler.multiasset = %MULTIASSET
 alpha_term_structure_sampler.double_noise = %DOUBLE_NOISE
@@ -302,6 +295,6 @@ alpha_term_structure_sampler.fixed_alpha = %FIXED_ALPHA
 # ==============================================================================
 Out_sample_vs_gp.n_seeds = 1
 Out_sample_vs_gp.N_test = %LEN_SERIES
-Out_sample_vs_gp.rnd_state =  %SEED # 3425657
+Out_sample_vs_gp.rnd_state =  %SEED #3425657
 Out_sample_vs_gp.stochastic_policy =  %STOCHASTIC_POLICY
 

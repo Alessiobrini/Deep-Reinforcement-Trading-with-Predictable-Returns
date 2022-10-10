@@ -161,7 +161,7 @@ if __name__ == "__main__":
     if args.config:
         gin_path = os.path.join(configs_path, args.config)
     else:
-        gin_path = os.path.join(configs_path, "single_asset.gin")
+        gin_path = os.path.join(configs_path, "single_asset_GP.gin")
     gin.parse_config_file(gin_path, skip_unknown=True)
 
     main_runner(configs_path=configs_path)

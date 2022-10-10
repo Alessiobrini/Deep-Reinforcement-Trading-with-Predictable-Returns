@@ -22,13 +22,13 @@ color_gp : 'tab:orange'
 #########################################################################################################
 # FOLDER PARAMETERS
 algo :  ['PPO']
-plot_type: 'multi_policy' #'metrics_is' #'multi_policy' 
+plot_type: 'metrics_is' #'metrics_is' #'multi_policy' 
 fullpath : False
 generate_plot : False
 optimal : True
 policy_func : 'alpha' #alpha or time
 holding: [0,  1e+2,1e+4, 1e+6, 1e+8] #[0,  1e+2,1e+3, 1e+4,1e+5, 1e+6,1e+7] #[-1e+8,-1e+7, -1e+4, 0, 1e+4, 1e+7,1e+8] #-5e+6 #null #5000.0 # null #0.3e+5
-time_to_stop : [1199,500,250,100] # [1199, 1000, 700,500,250, 100, 20] #0
+time_to_stop :  [1199,500,250,100] # [1199, 1000, 700,500,250, 100, 20] #0
 alpha: 0.003 #0.003
 outputDir: 'outputs'
 outputClass: 'PPO'
@@ -64,362 +64,103 @@ mv_solution: True
 load_holdings: False
 modeltag: '20211118_fixconv_residual_multi100'
 dist_to_plot: 'r' # r or w for reward or wealth
-ep_ppo: #1200 #3000 #1000 #1000 #800 #10 #2200 #2000 #4400 #5800 #6400 #1800 #3000 #3200 #4400 #4200 #7000 #[4000,2000] 
-outputModel_ppo: '20220607_convergence_augadv_True_mv_res_False' # '20220614_convergence_augadv_False_mv_res_True' #'20220607_convergence_augadv_True_mv_res_False' #'20220607_convergence_augadv_True_mv_res_False' #'20220607_convergence_augadv_False_mv_res_True' #'20220607_convergence_augadv_True_mv_res_False' # '20220603_convergence_reg_no_augdiv' #'20220208_convergence_mfree_lr_0.0009_batch_size_500' #'20220112_convergence_res_len_series_1200_halflife_240'
-experiment_ppo: 'augadv_True_mv_res_False_seed_24' #'augadv_False_mv_res_True_seed_346' #'augadv_True_mv_res_False_seed_24' # ['seed_24'] #['eta1_{}_eta2_0.001_seed_24'] #['lr_0.0009_batch_size_500_seed_24'] #['len_series_1200_halflife_240_seed_959'] #,'halflife_40_kappa_1e-05_seed_315'] #'mv_res_True_lr_0.0005_seed_893' #['mv_res_True_double_noise_{}_sigmaf_{}_lr_0.0005_seed_178','seed_317'] #'['mv_res_True_double_noise_{}_sigmaf_{}_lr_0.0005_seed_178','seed_317'] #,'mv_res_False_double_noise_{}_sigmaf_{}_lr_0.00025_seed_687'] #'mv_res_True_lr_0.0005_seed_178' #'mv_res_False_lr_0.0001_seed_687'] #'mv_res_False_lr_0.0001_seed_{}' #mv_res_True_lr_0.0005_seed_{}'
-hyperparams_model_ppo: [0.001] #['32_32'] #[0.99,0.98,'64_64','128_64'] #[False,None]  #[True,1e-05] #[True,1e-05] #[False,None] 
-hyperparams_exp_ppo: [0.001]  #[True,1e-05]
-outputModels_ppo: ['20220607_convergence_augadv_False_mv_res_False', 
-  '20220614_convergence_augadv_False_mv_res_True', 
-  '20220607_convergence_augadv_True_mv_res_False',]
-
-
-# ['20220616_convergence_augdiv']
-
-# ['20220607_convergence_augadv_False_mv_res_False', 
-#   '20220614_convergence_augadv_False_mv_res_True', 
-#   '20220607_convergence_augadv_True_mv_res_False',
-#   '20220615_convergence_augdiv',
-#   '20220615_convergence_augadv_False_mv_res_True', ]
-
-
-# ['20220615_convergence_augdiv']
-
-# ['20220615_convergence_augadv_False_mv_res_False', 
-#  '20220615_convergence_augadv_False_mv_res_True', 
-#  '20220615_convergence_augadv_True_mv_res_False', 
-#  '20220615_convergence_augadv_True_mv_res_True']
- 
- 
-# ['20220614_convergence2_augadv_False_mv_res_False', 
-#  '20220614_convergence2_augadv_False_mv_res_True', 
-#  '20220614_convergence2_augadv_True_mv_res_False']
-
-# ['20220607_convergence_augadv_False_mv_res_False', 
-#   '20220614_convergence_augadv_False_mv_res_True', 
-#   '20220614_convergence_augadv_True_mv_res_False']
-
-
-# ['20220614_convergence_augadv_False_mv_res_False', 
-#  '20220614_convergence_augadv_False_mv_res_True', 
-#  '20220614_convergence_augadv_True_mv_res_False']
-
-
-
-# ['20220607_convergence_augdiv_eta1_0.0001', 
-#   '20220607_convergence_augdiv_eta1_0.00025', 
-#   '20220607_convergence_augdiv_eta1_0.00055', 
-#   '20220607_convergence_augdiv_eta1_0.0007', 
-#   '20220607_convergence_augdiv_eta1_0.00085', 
-#   '20220607_convergence_augdiv_eta1_0.001']
-
-
-# ['20220603_convergence_reg_no_augdiv','20220603_convergence_reg_augdiv_eta1_0.001_eta2_0.001', ] 
-
-
-# ['20220607_convergence_augdiv_eta1_0.0001', 
-#   '20220607_convergence_augdiv_eta1_0.00025', 
-#   '20220607_convergence_augdiv_eta1_0.00055', 
-#   '20220607_convergence_augdiv_eta1_0.0007', 
-#   '20220607_convergence_augdiv_eta1_0.00085', 
-#   '20220607_convergence_augdiv_eta1_0.001']
-
-
-# ['20220606_convergence_augdiv_eta1_0.0001_eta2_0.001', 
-#   '20220606_convergence_augdiv_eta1_0.00025_eta2_0.001', 
-#   '20220606_convergence_augdiv_eta1_0.00055_eta2_0.001',  
-#   '20220606_convergence_augdiv_eta1_0.0007_eta2_0.001', 
-#   '20220606_convergence_augdiv_eta1_0.00085_eta2_0.001', 
-#   '20220606_convergence_augdiv_eta1_0.001_eta2_0.001', ]
-
-
-
-
-# ['20220606_convergence_augdiv_eta1_{}_eta2_0.0001', 
-#  '20220606_convergence_augdiv_eta1_{}_eta2_0.00025', 
-#  '20220606_convergence_augdiv_eta1_{}_eta2_0.00055', 
-#  '20220606_convergence_augdiv_eta1_{}_eta2_0.0007', 
-#  '20220606_convergence_augdiv_eta1_{}_eta2_0.00085', 
-#  '20220606_convergence_augdiv_eta1_{}_eta2_0.001', ]
-
-
-# ['20220606_convergence_augdiv_eta1_0.0001_eta2_0.0001', 
-#  '20220606_convergence_augdiv_eta1_0.0001_eta2_0.00025', 
-#  '20220606_convergence_augdiv_eta1_0.0001_eta2_0.00055', 
-#  '20220606_convergence_augdiv_eta1_0.0001_eta2_0.0007', 
-#  '20220606_convergence_augdiv_eta1_0.0001_eta2_0.00085', 
-#  '20220606_convergence_augdiv_eta1_0.0001_eta2_0.001', 
-#  '20220606_convergence_augdiv_eta1_0.00025_eta2_0.0001', 
-#  '20220606_convergence_augdiv_eta1_0.00025_eta2_0.00025', 
-#  '20220606_convergence_augdiv_eta1_0.00025_eta2_0.00055', 
-#  '20220606_convergence_augdiv_eta1_0.00025_eta2_0.0007', 
-#  '20220606_convergence_augdiv_eta1_0.00025_eta2_0.00085', 
-#  '20220606_convergence_augdiv_eta1_0.00025_eta2_0.001', 
-#  '20220606_convergence_augdiv_eta1_0.00055_eta2_0.0001', 
-#  '20220606_convergence_augdiv_eta1_0.00055_eta2_0.00025', 
-#  '20220606_convergence_augdiv_eta1_0.00055_eta2_0.00055', 
-#  '20220606_convergence_augdiv_eta1_0.00055_eta2_0.0007', 
-#  '20220606_convergence_augdiv_eta1_0.00055_eta2_0.00085', 
-#  '20220606_convergence_augdiv_eta1_0.00055_eta2_0.001', 
-#  '20220606_convergence_augdiv_eta1_0.0007_eta2_0.0001', 
-#  '20220606_convergence_augdiv_eta1_0.0007_eta2_0.00025', 
-#  '20220606_convergence_augdiv_eta1_0.0007_eta2_0.00055', 
-#  '20220606_convergence_augdiv_eta1_0.0007_eta2_0.0007', 
-#  '20220606_convergence_augdiv_eta1_0.0007_eta2_0.00085', 
-#  '20220606_convergence_augdiv_eta1_0.0007_eta2_0.001', 
-#  '20220606_convergence_augdiv_eta1_0.00085_eta2_0.0001', 
-#  '20220606_convergence_augdiv_eta1_0.00085_eta2_0.00025', 
-#  '20220606_convergence_augdiv_eta1_0.00085_eta2_0.00055', 
-#  '20220606_convergence_augdiv_eta1_0.00085_eta2_0.0007', 
-#  '20220606_convergence_augdiv_eta1_0.00085_eta2_0.00085', 
-#  '20220606_convergence_augdiv_eta1_0.00085_eta2_0.001', 
-#  '20220606_convergence_augdiv_eta1_0.001_eta2_0.0001', 
-#  '20220606_convergence_augdiv_eta1_0.001_eta2_0.00025', 
-#  '20220606_convergence_augdiv_eta1_0.001_eta2_0.00055', 
-#  '20220606_convergence_augdiv_eta1_0.001_eta2_0.0007', 
-#  '20220606_convergence_augdiv_eta1_0.001_eta2_0.00085', 
-#  '20220606_convergence_augdiv_eta1_0.001_eta2_0.001']
-
-
-# ['20220606_convergence_augadv_False', '20220606_convergence_augadv_True']
-
-
-# ['20220603_convergence_reg_augdiv_eta1_{}_eta2_0.001', ] #['20220603_convergence_reg_no_augdiv',]
-
-
-
-# ['20220602_convergence_no_augadv',
-# '20220603_convergence_reg_augdiv_eta1_{}_eta2_0.0005', 
-#  '20220603_convergence_reg_augdiv_eta1_{}_eta2_0.001', 
-#  '20220603_convergence_reg_augdiv_eta1_{}_eta2_0.0025', 
-#  '20220603_convergence_reg_augdiv_eta1_{}_eta2_0.005', 
-#  '20220603_convergence_reg_augdiv_eta1_{}_eta2_0.0075',]
-
-# ['20220603_convergence_reg_augdiv_eta1_0.0005_eta2_0.0005', 
-#  '20220603_convergence_reg_augdiv_eta1_0.0005_eta2_0.001', 
-#  '20220603_convergence_reg_augdiv_eta1_0.0005_eta2_0.0025', 
-#  '20220603_convergence_reg_augdiv_eta1_0.0005_eta2_0.005', 
-#  '20220603_convergence_reg_augdiv_eta1_0.0005_eta2_0.0075', 
-#  '20220603_convergence_reg_augdiv_eta1_0.001_eta2_0.0005', 
-#  '20220603_convergence_reg_augdiv_eta1_0.001_eta2_0.001', 
-#  '20220603_convergence_reg_augdiv_eta1_0.001_eta2_0.0025', 
-#  '20220603_convergence_reg_augdiv_eta1_0.001_eta2_0.005', 
-#  '20220603_convergence_reg_augdiv_eta1_0.001_eta2_0.0075', 
-#  '20220603_convergence_reg_augdiv_eta1_0.0025_eta2_0.0005', 
-#  '20220603_convergence_reg_augdiv_eta1_0.0025_eta2_0.001', 
-#  '20220603_convergence_reg_augdiv_eta1_0.0025_eta2_0.0025', 
-#  '20220603_convergence_reg_augdiv_eta1_0.0025_eta2_0.005', 
-#  '20220603_convergence_reg_augdiv_eta1_0.0025_eta2_0.0075', 
-#  '20220603_convergence_reg_augdiv_eta1_0.005_eta2_0.0005', 
-#  '20220603_convergence_reg_augdiv_eta1_0.005_eta2_0.001', 
-#  '20220603_convergence_reg_augdiv_eta1_0.005_eta2_0.0025', 
-#  '20220603_convergence_reg_augdiv_eta1_0.005_eta2_0.005', 
-#  '20220603_convergence_reg_augdiv_eta1_0.005_eta2_0.0075', 
-#  '20220603_convergence_reg_augdiv_eta1_0.0075_eta2_0.0005', 
-#  '20220603_convergence_reg_augdiv_eta1_0.0075_eta2_0.001', 
-#  '20220603_convergence_reg_augdiv_eta1_0.0075_eta2_0.0025', 
-#  '20220603_convergence_reg_augdiv_eta1_0.0075_eta2_0.005', 
-#  '20220603_convergence_reg_augdiv_eta1_0.0075_eta2_0.0075']
-
-# ['20220602_convergence_no_augadv',
-# '20220602_convergence_augadv_eta1_0.005_eta2_0.005']
-
-
-# ['20220602_convergence_augadv_eta1_0.005_eta2_0.01', 
-# '20220602_convergence_augadv_eta1_0.005_eta2_0.005',
-# '20220602_convergence_augadv_eta1_0.01_eta2_0.005']
-
-
-# ['20220603_convergence_reg_augadv_False', '20220603_convergence_reg_augadv_True']
-
-
-# ['20220602_convergence_no_augadv',
-# '20220602_convergence_augadv_eta1_0.005_eta2_0.005',
-# '20220510_convergence_dappo2_augadv_False_lr_{}_eta_{}', ]
- # '20220602_convergence_augadv_eta1_0.005_eta2_0.01', 
- # '20220602_convergence_augadv_eta1_0.005_eta2_0.05', 
- # '20220602_convergence_augadv_eta1_0.005_eta2_0.1', 
- # '20220602_convergence_augadv_eta1_0.005_eta2_0.5']
- 
- 
- # '20220602_convergence_augadv_eta1_0.01_eta2_0.005', 
- # '20220602_convergence_augadv_eta1_0.01_eta2_0.01', 
- # '20220602_convergence_augadv_eta1_0.01_eta2_0.05', 
- # '20220602_convergence_augadv_eta1_0.01_eta2_0.1', 
- # '20220602_convergence_augadv_eta1_0.01_eta2_0.5', 
- # '20220602_convergence_augadv_eta1_0.05_eta2_0.005', 
- # '20220602_convergence_augadv_eta1_0.05_eta2_0.01', 
- # '20220602_convergence_augadv_eta1_0.05_eta2_0.05', 
- # '20220602_convergence_augadv_eta1_0.05_eta2_0.1', 
- # '20220602_convergence_augadv_eta1_0.05_eta2_0.5', 
- # '20220602_convergence_augadv_eta1_0.1_eta2_0.005', 
- # '20220602_convergence_augadv_eta1_0.1_eta2_0.01', 
- # '20220602_convergence_augadv_eta1_0.1_eta2_0.05', 
- # '20220602_convergence_augadv_eta1_0.1_eta2_0.1', 
- # '20220602_convergence_augadv_eta1_0.1_eta2_0.5', 
- # '20220602_convergence_augadv_eta1_0.5_eta2_0.005', 
- # '20220602_convergence_augadv_eta1_0.5_eta2_0.01', 
- # '20220602_convergence_augadv_eta1_0.5_eta2_0.05', 
- # '20220602_convergence_augadv_eta1_0.5_eta2_0.1', 
- # '20220602_convergence_augadv_eta1_0.5_eta2_0.5']
-
-
-
-
-
-# ['20220510_convergence_dappo2_augadv_False_lr_{}_eta_{}',
-# '20220510_convergence_dappo2_augadv_True_lr_{}_eta_{}']
-
-# ['20220511_convergence_dappo_augadv_False', '20220511_convergence_dappo_augadv_True']
-
-# ['20220506_convergence_dappo2_augadv_False','20220506_convergence_dappo2_augadv_True']
-
-
- # ['20220511_convergence_dappo_augadv_False', '20220511_convergence_dappo_augadv_True']
-
-# ['20220208_convergence_mfree_lr_0.0009_batch_size_500',
-#                     '20220505_convergence_dappo_eta_0.001', 
-#   '20220505_convergence_dappo_eta_0.01', 
-#   '20220505_convergence_dappo_eta_0.1', ]
-#  # '20220505_convergence_dappo_eta_0.5']
-
-# [   '20220208_convergence_mfree_lr_0.0009_batch_size_500',
-# '20220408_convergence_mfree2_mv_penalty_coef_5e-06', 
-#   '20220408_convergence_mfree2_mv_penalty_coef_1e-06']
-  
-  
-  
-  # '20220408_convergence_mfree2_mv_penalty_coef_5e-05', 
-  # '20220408_convergence_mfree2_mv_penalty_coef_5e-06', 
-  # '20220408_convergence_mfree2_mv_penalty_coef_5e-07', 
-  # '20220408_convergence_mfree2_mv_penalty_coef_5e-08', 
-  # '20220408_convergence_mfree2_mv_penalty_coef_5e-09', 
-  # '20220408_convergence_mfree2_mv_penalty_coef_5e-10', 
-  # '20220408_convergence_mfree2_mv_penalty_coef_5e-11']
-
-
-# ['20220408_convergence_mfree2_mv_penalty_coef_0.0001', 
-#  '20220408_convergence_mfree2_mv_penalty_coef_0.0005', 
-#  '20220408_convergence_mfree2_mv_penalty_coef_0.001', 
-#  '20220408_convergence_mfree2_mv_penalty_coef_0.005', 
-#  '20220408_convergence_mfree2_mv_penalty_coef_0.01', 
-#  '20220408_convergence_mfree2_mv_penalty_coef_0.05', 
-#  '20220408_convergence_mfree2_mv_penalty_coef_1e-05', 
-#  '20220408_convergence_mfree2_mv_penalty_coef_1e-06', 
-#  '20220408_convergence_mfree2_mv_penalty_coef_1e-07', 
-#  '20220408_convergence_mfree2_mv_penalty_coef_1e-08']
- 
- 
-
-
-
-# [ '20220208_convergence_mfree_lr_0.0009_batch_size_500','20220407_convergence_mfree_mv_penalty_coef_1e-09']
-
-
-# ['20220407_convergence_mfree_mv_penalty_coef_0.0001', 
-#   '20220407_convergence_mfree_mv_penalty_coef_0.0005', 
-#   '20220407_convergence_mfree_mv_penalty_coef_0.001', 
-#   '20220407_convergence_mfree_mv_penalty_coef_0.005', 
-  # '20220407_convergence_mfree_mv_penalty_coef_1e-05', 
-  # '20220407_convergence_mfree_mv_penalty_coef_1e-06', 
-  # '20220407_convergence_mfree_mv_penalty_coef_1e-07', 
-  # '20220407_convergence_mfree_mv_penalty_coef_1e-08', 
-  # '20220407_convergence_mfree_mv_penalty_coef_1e-09', 
-  # '20220407_convergence_mfree_mv_penalty_coef_5e-05', ]
-
-
-
-
-# ['20220208_convergence_mfree_lr_0.0009_batch_size_500'] #,'20220112_convergence_res_len_series_1200_halflife_240']
-                    
-
-
-
-# ['20220208_convergence_mfree_lr_{}_batch_size_100', 
-#   '20220208_convergence_mfree_lr_{}_batch_size_25', 
-#   '20220208_convergence_mfree_lr_{}_batch_size_250', 
-#   '20220208_convergence_mfree_lr_{}_batch_size_50', 
-#   '20220208_convergence_mfree_lr_{}_batch_size_500', ]
-
-
-# ['20220208_convergence_mfree_lr_0.0001_batch_size_100', 
-#  '20220208_convergence_mfree_lr_0.0001_batch_size_25', 
-#  '20220208_convergence_mfree_lr_0.0001_batch_size_250', 
-#  '20220208_convergence_mfree_lr_0.0001_batch_size_50', 
-#  '20220208_convergence_mfree_lr_0.0001_batch_size_500', 
-#  '20220208_convergence_mfree_lr_0.0002_batch_size_100', 
-#  '20220208_convergence_mfree_lr_0.0002_batch_size_25', 
-#  '20220208_convergence_mfree_lr_0.0002_batch_size_250', 
-#  '20220208_convergence_mfree_lr_0.0002_batch_size_50', 
-#  '20220208_convergence_mfree_lr_0.0002_batch_size_500', 
-#  '20220208_convergence_mfree_lr_0.0003_batch_size_100', 
-#  '20220208_convergence_mfree_lr_0.0003_batch_size_25', 
-#  '20220208_convergence_mfree_lr_0.0003_batch_size_250', 
-#  '20220208_convergence_mfree_lr_0.0003_batch_size_50', 
-#  '20220208_convergence_mfree_lr_0.0003_batch_size_500', 
-#  '20220208_convergence_mfree_lr_0.0004_batch_size_100', 
-#  '20220208_convergence_mfree_lr_0.0004_batch_size_25', 
-#  '20220208_convergence_mfree_lr_0.0004_batch_size_250', 
-#  '20220208_convergence_mfree_lr_0.0004_batch_size_50', 
-#  '20220208_convergence_mfree_lr_0.0004_batch_size_500', 
-#  '20220208_convergence_mfree_lr_0.0005_batch_size_100', 
-#  '20220208_convergence_mfree_lr_0.0005_batch_size_25', 
-#  '20220208_convergence_mfree_lr_0.0005_batch_size_250', 
-#  '20220208_convergence_mfree_lr_0.0005_batch_size_50', 
-#  '20220208_convergence_mfree_lr_0.0005_batch_size_500', 
-#  '20220208_convergence_mfree_lr_0.0006_batch_size_100', 
-#  '20220208_convergence_mfree_lr_0.0006_batch_size_25', 
-#  '20220208_convergence_mfree_lr_0.0006_batch_size_250', 
-#  '20220208_convergence_mfree_lr_0.0006_batch_size_50', 
-#  '20220208_convergence_mfree_lr_0.0006_batch_size_500', 
-#  '20220208_convergence_mfree_lr_0.0007_batch_size_100', 
-#  '20220208_convergence_mfree_lr_0.0007_batch_size_25', 
-#  '20220208_convergence_mfree_lr_0.0007_batch_size_250', 
-#  '20220208_convergence_mfree_lr_0.0007_batch_size_50', 
-#  '20220208_convergence_mfree_lr_0.0007_batch_size_500', 
-#  '20220208_convergence_mfree_lr_0.0008_batch_size_100', 
-#  '20220208_convergence_mfree_lr_0.0008_batch_size_25', 
-#  '20220208_convergence_mfree_lr_0.0008_batch_size_250', 
-#  '20220208_convergence_mfree_lr_0.0008_batch_size_50', 
-#  '20220208_convergence_mfree_lr_0.0008_batch_size_500', 
-#  '20220208_convergence_mfree_lr_0.0009_batch_size_100', 
-#  '20220208_convergence_mfree_lr_0.0009_batch_size_25', 
-#  '20220208_convergence_mfree_lr_0.0009_batch_size_250', 
-#  '20220208_convergence_mfree_lr_0.0009_batch_size_50', 
-#  '20220208_convergence_mfree_lr_0.0009_batch_size_500']
-
-
-
-# ['20220127_convergence_mfree'] 
-
-
-# ['20220119_convergence_mfree4_hidden_units_value_{}_lr_0.0001', 
-#  '20220119_convergence_mfree4_hidden_units_value_{}_lr_0.00025', 
-#  '20220119_convergence_mfree4_hidden_units_value_{}_lr_0.0005']
- 
- 
-# ['20220119_convergence_mfree4_hidden_units_value_200_200_lr_0.0001', 
-#  '20220119_convergence_mfree4_hidden_units_value_200_200_lr_0.00025', 
-#  '20220119_convergence_mfree4_hidden_units_value_200_200_lr_0.0005', 
-#  '20220119_convergence_mfree4_hidden_units_value_20_10_lr_0.0001', 
-#  '20220119_convergence_mfree4_hidden_units_value_20_10_lr_0.00025', 
-#  '20220119_convergence_mfree4_hidden_units_value_20_10_lr_0.0005', 
-#  '20220119_convergence_mfree4_hidden_units_value_20_20_lr_0.0001', 
-#  '20220119_convergence_mfree4_hidden_units_value_20_20_lr_0.00025', 
-#  '20220119_convergence_mfree4_hidden_units_value_20_20_lr_0.0005', 
-#  '20220119_convergence_mfree4_hidden_units_value_8_8_lr_0.0001', 
-#  '20220119_convergence_mfree4_hidden_units_value_8_8_lr_0.00025', 
-#  '20220119_convergence_mfree4_hidden_units_value_8_8_lr_0.0005']
-
-
-
-# ['20220119_convergence_mfree3_clip_param_0.1_batch_size_250', 
-#  '20220119_convergence_mfree3_clip_param_0.1_batch_size_500', 
-#  '20220119_convergence_mfree3_clip_param_0.2_batch_size_250', 
-#  '20220119_convergence_mfree3_clip_param_0.2_batch_size_500', 
-#  '20220119_convergence_mfree3_clip_param_0.3_batch_size_250', 
-#  '20220119_convergence_mfree3_clip_param_0.3_batch_size_500', ]
- 
- 
-# ['20220112_convergence_res_len_series_1200_halflife_240'] 
-
+ep_ppo: #2000 #1200 #3000 #1000 #1000 #800 #10 #2200 #2000 #4400 #5800 #6400 #1800 #3000 #3200 #4400 #4200 #7000 #[4000,2000] 
+outputModel_ppo: '20221007_GP_1f_activation_relu' # '20221006_GP_1f_augadv_False_action_type_GPext_qts_0.001_0.999_0.0' #'20220607_convergence_augadv_True_mv_res_False' # '20220614_convergence_augadv_False_mv_res_True' #'20220607_convergence_augadv_True_mv_res_False' #'20220607_convergence_augadv_True_mv_res_False' #'20220607_convergence_augadv_False_mv_res_True' #'20220607_convergence_augadv_True_mv_res_False' # '20220603_convergence_reg_no_augdiv' #'20220208_convergence_mfree_lr_0.0009_batch_size_500' #'20220112_convergence_res_len_series_1200_halflife_240'
+experiment_ppo: 'activation_relu_seed_842' #'augadv_False_action_type_GPext_qts_0.001_0.999_0.0_seed_842' #'augadv_False_mv_res_True_seed_346' #'augadv_True_mv_res_False_seed_24' # ['seed_24'] #['eta1_{}_eta2_0.001_seed_24'] #['lr_0.0009_batch_size_500_seed_24'] #['len_series_1200_halflife_240_seed_959'] #,'halflife_40_kappa_1e-05_seed_315'] #'mv_res_True_lr_0.0005_seed_893' #['mv_res_True_double_noise_{}_sigmaf_{}_lr_0.0005_seed_178','seed_317'] #'['mv_res_True_double_noise_{}_sigmaf_{}_lr_0.0005_seed_178','seed_317'] #,'mv_res_False_double_noise_{}_sigmaf_{}_lr_0.00025_seed_687'] #'mv_res_True_lr_0.0005_seed_178' #'mv_res_False_lr_0.0001_seed_687'] #'mv_res_False_lr_0.0001_seed_{}' #mv_res_True_lr_0.0005_seed_{}'
+hyperparams_model_ppo: [0.0003] #['32_32'] #[0.99,0.98,'64_64','128_64'] #[False,None]  #[True,1e-05] #[True,1e-05] #[False,None] 
+hyperparams_exp_ppo:  [0.0001]  #[True,1e-05]
+outputModels_ppo:     [   '20221007_GP_1f_mvpen_mv_penalty_coef_5e-08'
+   , '20221007_GP_1f_mvpen_mv_penalty_coef_1e-09'
+   , '20221007_GP_1f_mvpen_mv_penalty_coef_1e-10']
+
+
+
+  # [ '20221007_GP_1f_mvpen_mv_penalty_coef_1e-05'
+  # , '20221007_GP_1f_mvpen_mv_penalty_coef_1e-06'
+  # , '20221007_GP_1f_mvpen_mv_penalty_coef_1e-07'
+   # , '20221007_GP_1f_mvpen_mv_penalty_coef_1e-08'
+   # , '20221007_GP_1f_mvpen_mv_penalty_coef_1e-09'
+   # , '20221007_GP_1f_mvpen_mv_penalty_coef_1e-10'
+  # , '20221007_GP_1f_mvpen_mv_penalty_coef_1e-11'
+  # , '20221007_GP_1f_mvpen_mv_penalty_coef_5e-05'
+  # , '20221007_GP_1f_mvpen_mv_penalty_coef_5e-06'
+  # , '20221007_GP_1f_mvpen_mv_penalty_coef_5e-07'
+  # , '20221007_GP_1f_mvpen_mv_penalty_coef_5e-08'
+  # , '20221007_GP_1f_mvpen_mv_penalty_coef_5e-09'
+  # , '20221007_GP_1f_mvpen_mv_penalty_coef_5e-10'
+  # , '20221007_GP_1f_mvpen_mv_penalty_coef_5e-11']
+
+
+ # ['20221007_GP_1f_moreseeds']
+
+
+# ['20221007_GP_1f_activation_linear', '20221007_GP_1f_activation_relu', '20221007_GP_1f_activation_tanh']
+
+
+# ['20221006_GP_1f_augadv_False_action_type_GP_qts_0.001_0.999_0.0'
+#  , '20221006_GP_1f_augadv_False_action_type_GP_qts_0.0_1.0_0.0'
+#  , '20221006_GP_1f_augadv_False_action_type_GPext_qts_0.001_0.999_0.0'
+#  , '20221006_GP_1f_augadv_False_action_type_GPext_qts_0.0_1.0_0.0'
+#  , '20221006_GP_1f_augadv_False_action_type_MV_qts_0.001_0.999_0.0'
+#  , '20221006_GP_1f_augadv_False_action_type_MV_qts_0.0_1.0_0.0'
+  # , '20221006_GP_1f_augadv_True_action_type_GP_qts_0.001_0.999_0.0'
+  # , '20221006_GP_1f_augadv_True_action_type_GP_qts_0.0_1.0_0.0'
+  # , '20221006_GP_1f_augadv_True_action_type_GPext_qts_0.001_0.999_0.0'
+  # , '20221006_GP_1f_augadv_True_action_type_GPext_qts_0.0_1.0_0.0'
+  # , '20221006_GP_1f_augadv_True_action_type_MV_qts_0.001_0.999_0.0'
+  # , '20221006_GP_1f_augadv_True_action_type_MV_qts_0.0_1.0_0.0']
+
+
+# ['20221005_GP_1f_risk_reward_type_mean_var_kappa_0.0001'
+#  , '20221005_GP_1f_risk_reward_type_mean_var_kappa_0.0005'
+#  , '20221005_GP_1f_risk_reward_type_mean_var_kappa_0.001'
+#  , '20221005_GP_1f_risk_reward_type_mean_var_kappa_0.005'
+#  , '20221005_GP_1f_risk_reward_type_mean_var_kappa_0.01'
+#  , '20221005_GP_1f_risk_reward_type_mean_var_kappa_0.05'
+#  , '20221005_GP_1f_risk_reward_type_mean_var_kappa_0.1'
+#  , '20221005_GP_1f_risk_reward_type_mean_var_kappa_0.5'
+#  , '20221005_GP_1f_risk_reward_type_mean_var_kappa_1e-05'
+#  , '20221005_GP_1f_risk_reward_type_mean_var_kappa_5e-05'
+  # , '20221005_GP_1f_risk_reward_type_mean_var_kr_kappa_0.0001'
+  # , '20221005_GP_1f_risk_reward_type_mean_var_kr_kappa_0.0005'
+  # , '20221005_GP_1f_risk_reward_type_mean_var_kr_kappa_0.001'
+  # , '20221005_GP_1f_risk_reward_type_mean_var_kr_kappa_0.005'
+  # , '20221005_GP_1f_risk_reward_type_mean_var_kr_kappa_0.01'
+  # , '20221005_GP_1f_risk_reward_type_mean_var_kr_kappa_0.05'
+  # , '20221005_GP_1f_risk_reward_type_mean_var_kr_kappa_0.1'
+  # , '20221005_GP_1f_risk_reward_type_mean_var_kr_kappa_0.5'
+  # , '20221005_GP_1f_risk_reward_type_mean_var_kr_kappa_1e-05'
+  # , '20221005_GP_1f_risk_reward_type_mean_var_kr_kappa_5e-05']
+
+
+
+
+
+
+
+
+ # ['20221005_GP_1f_halflife_120', '20221005_GP_1f_halflife_240', '20221005_GP_1f_halflife_400', '20221005_GP_1f_halflife_60']
+
+# [ '20221002_GP_1f_lr_0.0003_batch_size_500']
+
+
+
+
+# ['20221002_GP_1f_lr_0.0001_batch_size_100'
+#  , '20221002_GP_1f_lr_0.0001_batch_size_250'
+#  , '20221002_GP_1f_lr_0.0001_batch_size_500'
+#  , '20221002_GP_1f_lr_0.0003_batch_size_100'
+#  , '20221002_GP_1f_lr_0.0003_batch_size_250'
+#  , '20221002_GP_1f_lr_0.0003_batch_size_500'
+#  , '20221002_GP_1f_lr_0.0005_batch_size_100'
+#  , '20221002_GP_1f_lr_0.0005_batch_size_250'
+#  , '20221002_GP_1f_lr_0.0005_batch_size_500'
+#  , '20221002_GP_1f_lr_0.00075_batch_size_100'
+#  , '20221002_GP_1f_lr_0.00075_batch_size_250'
+#  , '20221002_GP_1f_lr_0.00075_batch_size_500'
+#  , '20221002_GP_1f_lr_0.0015_batch_size_100'
+#  , '20221002_GP_1f_lr_0.0015_batch_size_250'
+#  , '20221002_GP_1f_lr_0.0015_batch_size_500'
+#  , '20221002_GP_1f_lr_0.001_batch_size_100'
+#  , '20221002_GP_1f_lr_0.001_batch_size_250'
+#  , '20221002_GP_1f_lr_0.001_batch_size_500']

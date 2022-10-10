@@ -123,6 +123,7 @@ def get_action_boundaries(
             CurrOptState = NextOptState
 
         action_quantiles = env.res_df["OptNextAction"].quantile(qts[:2]).values
+        print(action_quantiles)
         # action_quantiles_correct = action_quantiles.copy()
         # action_quantiles_gp = action_quantiles.copy()
 

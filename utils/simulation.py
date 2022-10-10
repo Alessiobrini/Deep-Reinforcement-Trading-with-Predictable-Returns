@@ -271,7 +271,12 @@ def return_sampler_GP(
         sys.exit()
     f_speed = lambdas
 
-
+    generate_plot = False
+    if generate_plot:
+        fig,ax = plt.subplots(figsize=(10,5))
+        ax.plot(realret)
+        ax.set_title('GP Ret')
+        plt.show()
 
     return realret.astype(np.float32), factors.astype(np.float32), f_speed
 

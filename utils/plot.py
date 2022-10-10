@@ -151,7 +151,7 @@ def load_PPOmodel(
             else:
                 inp_shape = (n_assets+n_assets+1,1)
         else:
-            if query("%INP_TYPE") == "f" or query("%INP_TYPE") == "alpha_f":
+            if query("%INP_TYPE") == "f" or query("%INP_TYPE") == "ret" or query("%INP_TYPE") == "alpha_f":
                 if query("%TIME_DEPENDENT"):
                     inp_shape = (len(query('%F_PARAM')) + 2,)
                 else:
@@ -619,7 +619,7 @@ def plot_BestActions(
     # gin.bind_parameter('%HALFLIFE', [35])
     gin.bind_parameter('alpha_term_structure_sampler.generate_plot', generate_plot)
 
-
+    
     def opt_trading_rate_disc_loads(
         discount_rate, kappa, CostMultiplier, f_param, f_speed
     ):
@@ -646,7 +646,8 @@ def plot_BestActions(
         actions = ActionSpace(
             query("%ACTION_RANGE"), query("%ZERO_ACTION"), query("%SIDE_ONLY")
         ).values
-        
+    
+
     rng = np.random.RandomState(seed)
     if query("%INP_TYPE") == "ret" or query("%INP_TYPE") == "alpha":
         if query("%INP_TYPE") == "alpha":
@@ -661,7 +662,9 @@ def plot_BestActions(
             holdings = np.zeros(len(sample_Ret), dtype="float")
         else:
             holdings = np.ones(len(sample_Ret), dtype="float") * holding
-            
+
+        if query("%TIME_DEPENDENT"):
+            times = np.ones(len(sample_Ret), dtype="float") * time_to_stop
 
         if model.modelname == "DQN":
             states = tf.constant(
@@ -673,14 +676,21 @@ def plot_BestActions(
             max_action = actions[tf.math.argmax(pred, axis=1)]
             
         elif model.modelname == "PPO":
-            states = torch.from_numpy(
-                np.hstack((sample_Ret.reshape(-1, 1), holdings.reshape(-1, 1)))
-            ).float()
+            
+            if query("%TIME_DEPENDENT"):
+                states = torch.from_numpy(
+                    np.hstack((sample_Ret.reshape(-1, 1), times.reshape(-1, 1), holdings.reshape(-1, 1)))
+                ).float()
+            else:
+                states = torch.from_numpy(
+                    np.hstack((sample_Ret.reshape(-1, 1), holdings.reshape(-1, 1)))
+                ).float()
             
             # model.eval()
             with torch.no_grad():
                 dist, _ = model(states)
-            
+
+
             if stochastic:
                 unscaled_max_action = torch.nn.Tanh()(dist.sample())
             else:
@@ -689,17 +699,18 @@ def plot_BestActions(
             if query("%MV_RES"):
                 max_action = unscale_asymmetric_action(actions[0],actions[-1], unscaled_max_action)
             else:
-                max_action = unscale_action(actions[-1], unscaled_max_action)
+                pass
+                # max_action = unscale_action(actions[-1], unscaled_max_action)
 
 
         # ci = 1.96 * model.log_std.exp().detach().numpy()
-        ax.plot(
-            sample_Ret,
-            max_action,
-            linewidth=1.5,
-            label="{} Policy".format(model.modelname),
-            color=color
-        )
+        # ax.plot(
+        #     sample_Ret,
+        #     max_action,
+        #     linewidth=1.5,
+        #     label="{} Policy".format(model.modelname),
+        #     color=color
+        # )
         # ax.fill_between(sample_Ret, (max_action-ci).reshape(-1), (max_action+ci).reshape(-1), color='b', alpha=.1)
 
     
@@ -826,6 +837,7 @@ def plot_BestActions(
 
     if optimal:
 
+
         discount_rate, kappa, costmultiplier, f_param, halflife, sigma = (
             query("%DISCOUNT_RATE"),
             query("%KAPPA"),
@@ -850,7 +862,7 @@ def plot_BestActions(
             ) * sample_Ret
             optimal_policy = OptNextHolding - holding
 
-            ax.plot(sample_Ret, optimal_policy, linewidth=1.5, label="GP Policy", ls='--')
+            ax.plot(sample_Ret, optimal_policy, linewidth=1.5, label="GP Policy", ls='--',color='tab:orange')
         elif query("%INP_TYPE") == "f" or query("%INP_TYPE") == "alpha_f":
 
             OptNextHolding = (1 - OptRate) * holdings + OptRate * (
@@ -874,7 +886,16 @@ def plot_BestActions(
             # else:
             #     ax.plot(factors[:, 0]*10**4, MV_policy, linewidth=1.5, label="MV Policy", color='black')
 
+    max_action = unscale_action(optimal_policy[-1], unscaled_max_action)
 
+
+    ax.plot(
+        sample_Ret,
+        max_action,
+        linewidth=1.5,
+        label="{} Policy".format(model.modelname),
+        color=color
+    )
 
 def plot_BestActions_time(
     model, holding: float, alpha: float, ax: object = None, optimal: bool = False, 

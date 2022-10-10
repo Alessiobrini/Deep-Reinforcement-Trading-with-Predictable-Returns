@@ -1467,7 +1467,7 @@ def runplot_timedep_policies(p):
     optimal = [True,True]
     # outputModels = p['outputModels_ppo']
     # experiments = p['experiment_ppo']
-
+    
     if 'DQN' in p['algo']:
         hp_exp = p["hyperparams_exp_dqn"]
         outputModel = p["outputModels_dqn"]
@@ -1517,6 +1517,7 @@ def runplot_timedep_policies(p):
             ax.legend()
     
         elif "PPO" in tag:
+            # pdb.set_trace()
             gin.parse_config_file(os.path.join(data_dir, "config.gin"), skip_unknown=True)
             if not p['stochastic']:
                 gin.bind_parameter("%STOCHASTIC_POLICY",False)
@@ -1524,7 +1525,7 @@ def runplot_timedep_policies(p):
                 model, actions = load_PPOmodel(data_dir, p['ep_ppo'])
             else:
                 model, actions = load_PPOmodel(data_dir, gin.query_parameter("%EPISODES"))
-            # pdb.set_trace()
+            
             
             if p['policy_func'] == 'alpha':
                 plot_BestActions(model, p['holding'],p['time_to_stop'], ax=ax, optimal=p['optimal'],

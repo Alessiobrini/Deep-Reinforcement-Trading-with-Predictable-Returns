@@ -24,7 +24,7 @@ LEN_SERIES = 1200 #None # length of simulated series, if null the legth is N_tra
 EPOCHS = 3
 OUTPUTDIR = 'outputs' # main directory for the experiment
 OUTPUTCLASS = %ALGO # first subdirectory
-OUTPUTMODEL = '20220601_test'
+OUTPUTMODEL = '20220726_test'
 SAVE_FREQ = 1000 #200  # number of checkpoints to save during training
 SEED = 22 # [842, 640, 960,  10, 233, 337, 735, 276, 852, 711]
 START_TRAIN = 300 # steps after which the training starts
@@ -71,8 +71,8 @@ N_ASSETS = None
 FIXED_ALPHA = True
 HALFLIFE = [240] # list of Halflives of mean reversion
 INITIAL_ALPHA = [0.003] # only for alpha term structure case
-SIGMA = 0.002 # return volatility
-SIGMAF = [None] #[[None],[1e-07], [5e-07], [1e-06], [5e-06], [1e-05], [2e-05],[3e-05],[4e-05], [5e-05],[7.5e-05],[1e-04],[2e-04],[5e-04],[10e-04]] # [[0.2, 0.1] ,[0.1, 0.1]] #[[0.2, 0.1],[0.1, 0.1]] # list of factor volatilities 
+SIGMA = 0.002 #0.002 # return volatility
+SIGMAF = [1e-04] #[[None],[1e-07], [5e-07], [1e-06], [5e-06], [1e-05], [2e-05],[3e-05],[4e-05], [5e-05],[7.5e-05],[1e-04],[2e-04],[5e-04],[10e-04]] # [[0.2, 0.1] ,[0.1, 0.1]] #[[0.2, 0.1],[0.1, 0.1]] # list of factor volatilities 
 F_PARAM = [1.0] #, 0.005] # list of factor loadings
 CORRELATION = None
 DOUBLE_NOISE = False
@@ -87,6 +87,8 @@ MEAN_PROCESS = 'AR' # choice for mean process ['AR', 'Constant']
 LAGS_MEAN_PROCESS = 1 # lag or list of lags for the autoregressive component in the mean return
 VOL_PROCESS = 'GARCH' # choice for volatility process ['GARCH', 'TGARCH', 'EGARCH', 'Constant']
 DISTR_NOISE = 'normal' # choice for noise distribution ['normal', 'studt', 'skewstud', 'ged']
+P_ARG = [[0.075,0.0067,0.60],[0.075,0.0067,0.65],[0.075,0.0067,0.70],[0.075,0.0067,0.75],[0.075,0.0067,0.80],[0.075,0.0067,0.85]] # 3 values for garch parameters
+# [[0.075,0.005,0.85],[0.075,0.007,0.85],[0.075,0.009,0.85],[0.075,0.02,0.85],[0.075,0.04,0.85],[0.075,0.06,0.85],[0.075,0.08,0.85],[0.075,0.01,0.85]]
 
 
 
