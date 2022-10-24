@@ -280,8 +280,11 @@ class PPO_runner(MixinCore):
                 action = dist.sample()
 
                 log_prob = dist.log_prob(action)
-                clipped_action = nn.Tanh()(action).cpu().numpy().ravel()
                 action = action.cpu().numpy().ravel()
+                if self.train_agent.action_clipping_type == 'env':
+                    clipped_action=action
+                elif self.train_agent.action_clipping_type == 'tanh':
+                    clipped_action = nn.Tanh()(action).cpu().numpy().ravel()
                 if self.MV_res:
                     unscaled_action = unscale_asymmetric_action(
                         self.action_space.action_range[0],self.action_space.action_range[1], clipped_action

@@ -24,7 +24,7 @@ LEN_SERIES = 1200 #None # length of simulated series, if null the legth is N_tra
 EPOCHS = 3
 OUTPUTDIR = 'outputs' # main directory for the experiment
 OUTPUTCLASS = %ALGO # first subdirectory
-OUTPUTMODEL = '20221006_test'
+OUTPUTMODEL = '20221011_test'
 SAVE_FREQ = 1000 #200  # number of checkpoints to save during training
 SEED = 244 #[45,22,842, 640, 960] # [842, 640, 960,  10, 233, 337, 735, 276, 852, 711]
 START_TRAIN = 300 # steps after which the training starts
@@ -207,6 +207,7 @@ PPO.store_diagnostics = False
 PPO.augadv = False #[False,True]
 PPO.eta1 = 0.01
 PPO.eta2 = 0.05
+PPO.action_clipping_type = 'env' # env or tanh
 
 
 

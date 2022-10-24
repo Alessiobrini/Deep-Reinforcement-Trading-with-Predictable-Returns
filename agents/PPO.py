@@ -33,6 +33,7 @@ class PPOActorCritic(nn.Module):
         min_std: float = 0.003,
         std_transform: str = "softplus",
         init_last_layers: str = "rescaled",
+        action_clipping_type: str = 'env',
         modelname: str = "PPO",
     ):
 
@@ -46,6 +47,7 @@ class PPOActorCritic(nn.Module):
         self.policy_type = policy_type
         self.std_transform = std_transform
         self.init_last_layers = init_last_layers
+        self.action_clipping_type = action_clipping_type
 
         # set flag for batch norm as attribute
         self.bnflag_input = batch_norm_input
