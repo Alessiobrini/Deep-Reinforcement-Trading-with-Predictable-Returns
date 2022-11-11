@@ -22,12 +22,11 @@ color_gp : 'tab:orange'
 #########################################################################################################
 # FOLDER PARAMETERS
 algo :  ['PPO']
-plot_type: 'metrics_is' #'metrics_is' #'multi_policy' 
 fullpath : False
 generate_plot : False
 optimal : True
 policy_func : 'alpha' #alpha or time
-holding: [0,  1e+2,1e+4, 1e+6, 1e+8] #[0,  1e+2,1e+3, 1e+4,1e+5, 1e+6,1e+7] #[-1e+8,-1e+7, -1e+4, 0, 1e+4, 1e+7,1e+8] #-5e+6 #null #5000.0 # null #0.3e+5
+holding: [0, 1e+5] #[0, -1e+5, -1e+5, 1e+5, 5e+5]  #[0,  1e+2,1e+4,1e+5, 1e+6] # [0, -1e+2,-1e+4,-1e+5, -1e+6] #[0,  1e+2,1e+3, 1e+4,1e+5, 1e+6,1e+7] #[-1e+8,-1e+7, -1e+4, 0, 1e+4, 1e+7,1e+8] #-5e+6 #null #5000.0 # null #0.3e+5
 time_to_stop :  [1199,500,250,100] # [1199, 1000, 700,500,250, 100, 20] #0
 alpha: 0.003 #0.003
 outputDir: 'outputs'
@@ -64,34 +63,320 @@ mv_solution: True
 load_holdings: False
 modeltag: '20211118_fixconv_residual_multi100'
 dist_to_plot: 'r' # r or w for reward or wealth
-ep_ppo: #2000 #1200 #3000 #1000 #1000 #800 #10 #2200 #2000 #4400 #5800 #6400 #1800 #3000 #3200 #4400 #4200 #7000 #[4000,2000] 
-outputModel_ppo: '20221007_GP_1f_activation_relu' # '20221006_GP_1f_augadv_False_action_type_GPext_qts_0.001_0.999_0.0' #'20220607_convergence_augadv_True_mv_res_False' # '20220614_convergence_augadv_False_mv_res_True' #'20220607_convergence_augadv_True_mv_res_False' #'20220607_convergence_augadv_True_mv_res_False' #'20220607_convergence_augadv_False_mv_res_True' #'20220607_convergence_augadv_True_mv_res_False' # '20220603_convergence_reg_no_augdiv' #'20220208_convergence_mfree_lr_0.0009_batch_size_500' #'20220112_convergence_res_len_series_1200_halflife_240'
-experiment_ppo: 'activation_relu_seed_842' #'augadv_False_action_type_GPext_qts_0.001_0.999_0.0_seed_842' #'augadv_False_mv_res_True_seed_346' #'augadv_True_mv_res_False_seed_24' # ['seed_24'] #['eta1_{}_eta2_0.001_seed_24'] #['lr_0.0009_batch_size_500_seed_24'] #['len_series_1200_halflife_240_seed_959'] #,'halflife_40_kappa_1e-05_seed_315'] #'mv_res_True_lr_0.0005_seed_893' #['mv_res_True_double_noise_{}_sigmaf_{}_lr_0.0005_seed_178','seed_317'] #'['mv_res_True_double_noise_{}_sigmaf_{}_lr_0.0005_seed_178','seed_317'] #,'mv_res_False_double_noise_{}_sigmaf_{}_lr_0.00025_seed_687'] #'mv_res_True_lr_0.0005_seed_178' #'mv_res_False_lr_0.0001_seed_687'] #'mv_res_False_lr_0.0001_seed_{}' #mv_res_True_lr_0.0005_seed_{}'
-hyperparams_model_ppo: [0.0003] #['32_32'] #[0.99,0.98,'64_64','128_64'] #[False,None]  #[True,1e-05] #[True,1e-05] #[False,None] 
-hyperparams_exp_ppo:  [0.0001]  #[True,1e-05]
-outputModels_ppo:     [   '20221007_GP_1f_mvpen_mv_penalty_coef_5e-08'
-   , '20221007_GP_1f_mvpen_mv_penalty_coef_1e-09'
-   , '20221007_GP_1f_mvpen_mv_penalty_coef_1e-10']
+ep_ppo: #'best'
+outputModel_ppo: '20221111_GP' #'20221108_GP_linear2' #'20221104_GP_resc2_tanh_stretching_0.3'
+experiment_ppo: 'seed_129' #'augadv_False_action_type_GPext_qts_0.001_0.999_0.0_seed_842' #'augadv_False_mv_res_True_seed_346' #'augadv_True_mv_res_False_seed_24' # ['seed_24'] #['eta1_{}_eta2_0.001_seed_24'] #['lr_0.0009_batch_size_500_seed_24'] #['len_series_1200_halflife_240_seed_959'] #,'halflife_40_kappa_1e-05_seed_315'] #'mv_res_True_lr_0.0005_seed_893' #['mv_res_True_double_noise_{}_sigmaf_{}_lr_0.0005_seed_178','seed_317'] #'['mv_res_True_double_noise_{}_sigmaf_{}_lr_0.0005_seed_178','seed_317'] #,'mv_res_False_double_noise_{}_sigmaf_{}_lr_0.00025_seed_687'] #'mv_res_True_lr_0.0005_seed_178' #'mv_res_False_lr_0.0001_seed_687'] #'mv_res_False_lr_0.0001_seed_{}' #mv_res_True_lr_0.0005_seed_{}'
+hyperparams_model_ppo: [50.0] #['32_32'] #[0.99,0.98,'64_64','128_64'] #[False,None]  #[True,1e-05] #[True,1e-05] #[False,None] 
+hyperparams_exp_ppo:  [0.0]  #[True,1e-05]
+plot_type: 'multi_policy' #'metrics_is' #'multi_policy' #'holding'
+outputModels_ppo: ['20221111_GP']
+
+# ['20221110_GP_linear_activation_linear', '20221110_GP_linear_activation_tanh']
+
+
+# ['20221110_GP_clip']
+
+
+# ['20221109_GP3',
+# '20221108_GP_linear2']
 
 
 
-  # [ '20221007_GP_1f_mvpen_mv_penalty_coef_1e-05'
-  # , '20221007_GP_1f_mvpen_mv_penalty_coef_1e-06'
-  # , '20221007_GP_1f_mvpen_mv_penalty_coef_1e-07'
-   # , '20221007_GP_1f_mvpen_mv_penalty_coef_1e-08'
-   # , '20221007_GP_1f_mvpen_mv_penalty_coef_1e-09'
-   # , '20221007_GP_1f_mvpen_mv_penalty_coef_1e-10'
-  # , '20221007_GP_1f_mvpen_mv_penalty_coef_1e-11'
-  # , '20221007_GP_1f_mvpen_mv_penalty_coef_5e-05'
-  # , '20221007_GP_1f_mvpen_mv_penalty_coef_5e-06'
-  # , '20221007_GP_1f_mvpen_mv_penalty_coef_5e-07'
-  # , '20221007_GP_1f_mvpen_mv_penalty_coef_5e-08'
-  # , '20221007_GP_1f_mvpen_mv_penalty_coef_5e-09'
-  # , '20221007_GP_1f_mvpen_mv_penalty_coef_5e-10'
-  # , '20221007_GP_1f_mvpen_mv_penalty_coef_5e-11']
 
 
- # ['20221007_GP_1f_moreseeds']
+
+
+
+ # ['20221108_GP_qts_0.0_1.0_{}_tanh_stretching_0.1'
+ # # , '20221108_GP_qts_0.0_1.0_{}_tanh_stretching_0.2'
+ # # , '20221108_GP_qts_0.0_1.0_{}_tanh_stretching_0.3'
+ # # , '20221108_GP_qts_0.0_1.0_{}_tanh_stretching_0.4'
+ # , '20221108_GP_qts_0.0_1.0_{}_tanh_stretching_0.5'
+ # , '20221108_GP_qts_0.0_1.0_{}_tanh_stretching_0.6'
+ # , '20221108_GP_qts_0.0_1.0_{}_tanh_stretching_0.7'
+ # , '20221108_GP_qts_0.0_1.0_{}_tanh_stretching_0.8'
+ # , '20221108_GP_qts_0.0_1.0_{}_tanh_stretching_0.9'
+ # , '20221108_GP_qts_0.0_1.0_{}_tanh_stretching_10.0'
+ # , '20221108_GP_qts_0.0_1.0_{}_tanh_stretching_100.0'
+ # , '20221108_GP_qts_0.0_1.0_{}_tanh_stretching_2.0'
+ # , '20221108_GP_qts_0.0_1.0_{}_tanh_stretching_25.0'
+ # , '20221108_GP_qts_0.0_1.0_{}_tanh_stretching_3.0'
+ # , '20221108_GP_qts_0.0_1.0_{}_tanh_stretching_5.0'
+ # , '20221108_GP_qts_0.0_1.0_{}_tanh_stretching_50.0']
+
+
+# array([1.   , 1.211, 1.421, 1.632, 1.842, 2.053, 2.263, 2.474, 2.684,
+#        2.895, 3.105, 3.316, 3.526, 3.737, 3.947, 4.158, 4.368, 4.579,
+#        4.789, 5.   ])
+
+
+ # ['20221107_GP3_time_dependent_False', '20221107_GP3_time_dependent_True']
+
+
+
+
+# [ '20221107_GP2_augadv_True_lr_0.0001'
+#   , '20221107_GP2_augadv_True_lr_0.0003'
+#   , '20221107_GP2_augadv_True_lr_0.0006'
+#   , '20221107_GP2_augadv_True_lr_0.0009']
+
+
+
+
+  # ['20221107_GP2_augadv_False_lr_0.0001'
+  # , '20221107_GP2_augadv_False_lr_0.0003'
+  # , '20221107_GP2_augadv_False_lr_0.0006'
+  # , '20221107_GP2_augadv_False_lr_0.0009']
+
+# ['20221107_GP_augadv_False_mv_penalty_False', 
+# '20221107_GP_augadv_True_mv_penalty_False']
+
+
+
+# ['20221105_GP_seeds2']
+
+
+# ['20221104_GP_seeds',
+# '20221104_GP_seed']
+
+
+# ['20221103_GP_resc_scale_reward_True_tanh_stretching_1.0',
+# '20221104_GP_resc2_tanh_stretching_0.3']
+
+
+# [   '20221104_GP_tanh_stretching_0.3_f_param_0.001'
+#   , '20221104_GP_tanh_stretching_0.3_f_param_0.0025'
+#   , '20221104_GP_tanh_stretching_0.3_f_param_0.005'
+#   , '20221104_GP_tanh_stretching_0.3_f_param_0.05']
+
+# ['20221104_GP_tanh_stretching_0.28_f_param_0.001'
+#  , '20221104_GP_tanh_stretching_0.28_f_param_0.0025'
+#  , '20221104_GP_tanh_stretching_0.28_f_param_0.005'
+#  , '20221104_GP_tanh_stretching_0.28_f_param_0.05'
+  # , '20221104_GP_tanh_stretching_0.32_f_param_0.001'
+  # , '20221104_GP_tanh_stretching_0.32_f_param_0.0025'
+  # , '20221104_GP_tanh_stretching_0.32_f_param_0.005'
+  # , '20221104_GP_tanh_stretching_0.32_f_param_0.05'
+#  , '20221104_GP_tanh_stretching_0.3_f_param_0.001'
+#  , '20221104_GP_tanh_stretching_0.3_f_param_0.0025'
+#  , '20221104_GP_tanh_stretching_0.3_f_param_0.005'
+#  , '20221104_GP_tanh_stretching_0.3_f_param_0.05']
+
+
+# ['20221103_GP_resc_scale_reward_True_tanh_stretching_1.0',
+# '20221104_GP_resc2_tanh_stretching_0.05'
+#  , '20221104_GP_resc2_tanh_stretching_0.1'
+#  , '20221104_GP_resc2_tanh_stretching_0.15'
+#  , '20221104_GP_resc2_tanh_stretching_0.2'
+#  , '20221104_GP_resc2_tanh_stretching_0.25']
+ 
+ 
+ 
+ 
+ 
+ # , '20221104_GP_resc2_tanh_stretching_0.3'
+ # , '20221104_GP_resc2_tanh_stretching_0.35'
+ # , '20221104_GP_resc2_tanh_stretching_0.4'
+ # , '20221104_GP_resc2_tanh_stretching_0.45'
+ # , '20221104_GP_resc2_tanh_stretching_0.5']
+
+
+
+
+
+
+# ['20221103_GP_resc_scale_reward_False_tanh_stretching_0.35'
+#   , '20221103_GP_resc_scale_reward_False_tanh_stretching_0.5'
+#   , '20221103_GP_resc_scale_reward_False_tanh_stretching_0.75'
+#   , '20221103_GP_resc_scale_reward_False_tanh_stretching_0.9'
+#   , '20221103_GP_resc_scale_reward_False_tanh_stretching_1.0'
+#   , '20221103_GP_resc_scale_reward_False_tanh_stretching_2.0'
+#  , '20221103_GP_resc_scale_reward_True_tanh_stretching_0.35'
+#  , '20221103_GP_resc_scale_reward_True_tanh_stretching_0.5'
+#  , '20221103_GP_resc_scale_reward_True_tanh_stretching_0.75'
+#  , '20221103_GP_resc_scale_reward_True_tanh_stretching_0.9'
+#  , '20221103_GP_resc_scale_reward_True_tanh_stretching_1.0'
+#  , '20221103_GP_resc_scale_reward_True_tanh_stretching_2.0']
+
+
+# ['20221103_GP_rescaled','20221103_GP3_scale_reward_False', '20221103_GP3_scale_reward_True']
+
+
+# ['20221103_GP_rescaled']
+
+# ['20221103_GP3_scale_reward_False', '20221103_GP3_scale_reward_True']
+
+
+ # ['20221102_GP3_scale_reward_False', '20221102_GP3_scale_reward_True']
+
+
+
+ # ['20221101_GP_1f_2_sigmaf_0.1_tanh_stretching_0.35'
+ #  , '20221101_GP_1f_2_sigmaf_0.1_tanh_stretching_0.5'
+ #  , '20221101_GP_1f_2_sigmaf_0.1_tanh_stretching_0.75'
+ #  , '20221101_GP_1f_2_sigmaf_0.1_tanh_stretching_1.0']
+ 
+ 
+ 
+  # [ '20221101_GP_1f_2_sigmaf_0.05_tanh_stretching_0.35'
+  # , '20221101_GP_1f_2_sigmaf_0.05_tanh_stretching_0.5'
+  # , '20221101_GP_1f_2_sigmaf_0.05_tanh_stretching_0.75'
+  # , '20221101_GP_1f_2_sigmaf_0.05_tanh_stretching_1.0']
+  # ['20221101_GP_1f_2_sigmaf_0.1_tanh_stretching_0.35'
+  # , '20221101_GP_1f_2_sigmaf_0.1_tanh_stretching_0.5'
+  # , '20221101_GP_1f_2_sigmaf_0.1_tanh_stretching_0.75'
+  # , '20221101_GP_1f_2_sigmaf_0.1_tanh_stretching_1.0']
+
+
+
+# [   '20221101_GP_1f_kappa_0.01_tanh_stretching_0.25'
+#   , '20221101_GP_1f_kappa_0.01_tanh_stretching_0.5'
+#   , '20221101_GP_1f_kappa_0.01_tanh_stretching_0.75'
+#   , '20221101_GP_1f_kappa_0.01_tanh_stretching_1.0'
+#   , '20221101_GP_1f_kappa_0.01_tanh_stretching_2.0']
+
+
+
+# ['20221101_GP_1f_kappa_0.0001_tanh_stretching_0.25'
+#  , '20221101_GP_1f_kappa_0.0001_tanh_stretching_0.5'
+#  , '20221101_GP_1f_kappa_0.0001_tanh_stretching_0.75'
+#  , '20221101_GP_1f_kappa_0.0001_tanh_stretching_1.0'
+#  , '20221101_GP_1f_kappa_0.0001_tanh_stretching_2.0'
+  # , '20221101_GP_1f_kappa_0.0005_tanh_stretching_0.25'
+  # , '20221101_GP_1f_kappa_0.0005_tanh_stretching_0.5'
+  # , '20221101_GP_1f_kappa_0.0005_tanh_stretching_0.75'
+  # , '20221101_GP_1f_kappa_0.0005_tanh_stretching_1.0'
+  # , '20221101_GP_1f_kappa_0.0005_tanh_stretching_2.0'
+  # , '20221101_GP_1f_kappa_0.001_tanh_stretching_0.25'
+  # , '20221101_GP_1f_kappa_0.001_tanh_stretching_0.5'
+  # , '20221101_GP_1f_kappa_0.001_tanh_stretching_0.75'
+  # , '20221101_GP_1f_kappa_0.001_tanh_stretching_1.0'
+  # , '20221101_GP_1f_kappa_0.001_tanh_stretching_2.0'
+  # , '20221101_GP_1f_kappa_0.01_tanh_stretching_0.25'
+  # , '20221101_GP_1f_kappa_0.01_tanh_stretching_0.5'
+  # , '20221101_GP_1f_kappa_0.01_tanh_stretching_0.75'
+  # , '20221101_GP_1f_kappa_0.01_tanh_stretching_1.0'
+  # , '20221101_GP_1f_kappa_0.01_tanh_stretching_2.0'
+  # , '20221101_GP_1f_kappa_1e-05_tanh_stretching_0.25'
+  # , '20221101_GP_1f_kappa_1e-05_tanh_stretching_0.5'
+  # , '20221101_GP_1f_kappa_1e-05_tanh_stretching_0.75'
+  # , '20221101_GP_1f_kappa_1e-05_tanh_stretching_1.0'
+  # , '20221101_GP_1f_kappa_1e-05_tanh_stretching_2.0']
+
+
+# ['20221031_GP_1f_tanh_tanh_stretching_0.1'
+#  , '20221031_GP_1f_tanh_tanh_stretching_0.25'
+#  , '20221031_GP_1f_tanh_tanh_stretching_0.5'
+#  , '20221031_GP_1f_tanh_tanh_stretching_1.0'
+#  , '20221031_GP_1f_tanh_tanh_stretching_10.0'
+#  , '20221031_GP_1f_tanh_tanh_stretching_2.0'
+#  , '20221031_GP_1f_tanh_tanh_stretching_5.0'] 
+
+
+
+ # [ '20221028_GP_1f_single_layer2_qts_0.0_1.0_-0.5_activation_tanh'
+ #  , '20221028_GP_1f_single_layer2_qts_0.0_1.0_-2.0_activation_tanh'
+ #  , '20221028_GP_1f_single_layer2_qts_0.0_1.0_0.0_activation_tanh'
+ #  , '20221028_GP_1f_single_layer2_qts_0.0_1.0_0.5_activation_tanh']
+
+  # [ '20221028_GP_1f_single_layer2_qts_0.0_1.0_-0.5_activation_tanh'
+  # , '20221028_GP_1f_single_layer2_qts_0.0_1.0_-2.0_activation_tanh'
+  # , '20221028_GP_1f_single_layer2_qts_0.0_1.0_0.0_activation_tanh'
+  # , '20221028_GP_1f_single_layer2_qts_0.0_1.0_0.5_activation_tanh']
+
+
+
+# ['20221027_GP_1f_qts_0.0_1.0_-0.5', 
+# '20221027_GP_1f_qts_0.0_1.0_-2.0', 
+# '20221027_GP_1f_qts_0.0_1.0_0.0', 
+# '20221027_GP_1f_qts_0.0_1.0_0.5']
+
+
+
+
+
+# ['20221026_GP_1f_halfrescale_action_clipping_type_env', 
+# '20221026_GP_1f_halfrescale_action_clipping_type_tanh',
+# '20221025_GP_1f_clips2_qts_0.0_1.0_0.0_action_clipping_type_env'
+#   , '20221025_GP_1f_clips2_qts_0.0_1.0_0.0_action_clipping_type_tanh']
+
+
+
+# ['20221025_GP_1f_envclip_qts_0.0_1.0_-0.5'
+#  , '20221025_GP_1f_envclip_qts_0.0_1.0_-0.75'
+#  , '20221025_GP_1f_envclip_qts_0.0_1.0_-1.0'
+#  , '20221025_GP_1f_envclip_qts_0.0_1.0_-10.0'
+#  , '20221025_GP_1f_envclip_qts_0.0_1.0_0.0']
+
+
+# ['20221025_GP_1f_clips2_qts_0.0_1.0_0.0_action_clipping_type_env'
+#   , '20221025_GP_1f_clips2_qts_0.0_1.0_0.0_action_clipping_type_tanh']
+ 
+ 
+ 
+ 
+ 
+ # , '20221025_GP_1f_clips2_qts_0.0_1.0_1.0_action_clipping_type_env'
+ # , '20221025_GP_1f_clips2_qts_0.0_1.0_1.0_action_clipping_type_none'
+ # , '20221025_GP_1f_clips2_qts_0.0_1.0_1.0_action_clipping_type_tanh'
+ # , '20221025_GP_1f_clips2_qts_0.0_1.0_10.0_action_clipping_type_env'
+ # , '20221025_GP_1f_clips2_qts_0.0_1.0_10.0_action_clipping_type_none'
+ # , '20221025_GP_1f_clips2_qts_0.0_1.0_10.0_action_clipping_type_tanh']
+
+
+
+# ['20221025_GP_1f_clips_qts_0.0_1.0_0.0_action_clipping_type_tanh',
+# '20221025_GP_1f_clips_qts_0.0_1.0_5.0_action_clipping_type_env']
+
+
+ # ['20221024_GP_1f_clips_qts_0.0_1.0_0.0_action_clipping_type_tanh'
+ #  , '20221024_GP_1f_clips_qts_0.0_1.0_0.5_action_clipping_type_tanh'
+ #  , '20221024_GP_1f_clips_qts_0.0_1.0_1.0_action_clipping_type_tanh'
+ #  , '20221024_GP_1f_clips_qts_0.0_1.0_1.5_action_clipping_type_tanh'
+ #   , '20221024_GP_1f_clips_qts_0.0_1.0_2.0_action_clipping_type_tanh'
+ #    , '20221024_GP_1f_clips_qts_0.0_1.0_5.0_action_clipping_type_tanh'
+ #      , '20221024_GP_1f_clips_qts_0.0_1.0_10.0_action_clipping_type_tanh']
+
+
+
+
+# ['20221024_GP_1f_clips_qts_0.0_1.0_0.0_action_clipping_type_env'
+#  , '20221024_GP_1f_clips_qts_0.0_1.0_0.5_action_clipping_type_env'
+#  , '20221024_GP_1f_clips_qts_0.0_1.0_1.0_action_clipping_type_env'
+#  , '20221024_GP_1f_clips_qts_0.0_1.0_1.5_action_clipping_type_env'
+#  , '20221024_GP_1f_clips_qts_0.0_1.0_2.0_action_clipping_type_env'
+#  , '20221024_GP_1f_clips_qts_0.0_1.0_5.0_action_clipping_type_env'
+#   , '20221024_GP_1f_clips_qts_0.0_1.0_10.0_action_clipping_type_env']
+
+
+#   ['20221024_GP_1f_clips_qts_0.0_1.0_0.0_action_clipping_type_tanh'
+#   , '20221024_GP_1f_clips_qts_0.0_1.0_0.5_action_clipping_type_tanh'
+#   , '20221024_GP_1f_clips_qts_0.0_1.0_1.0_action_clipping_type_tanh'
+#   , '20221024_GP_1f_clips_qts_0.0_1.0_1.5_action_clipping_type_tanh'
+#   , '20221024_GP_1f_clips_qts_0.0_1.0_10.0_action_clipping_type_tanh'
+#    , '20221024_GP_1f_clips_qts_0.0_1.0_2.0_action_clipping_type_tanh'
+#     , '20221024_GP_1f_clips_qts_0.0_1.0_5.0_action_clipping_type_tanh']
+
+ # ['20221024_GP_1f_qts_0.0_1.0_0.0'
+ # , '20221024_GP_1f_qts_0.0_1.0_0.5'
+ # , '20221024_GP_1f_qts_0.0_1.0_1.0'
+ # , '20221024_GP_1f_qts_0.0_1.0_1.5'
+ # , '20221024_GP_1f_qts_0.0_1.0_10.0'
+ # , '20221024_GP_1f_qts_0.0_1.0_2.0'
+ # , '20221024_GP_1f_qts_0.0_1.0_5.0']
+
+
+
+ # ['20221013_GP_1f_kappa_0.0001'
+ # , '20221013_GP_1f_kappa_0.0005'
+ # , '20221013_GP_1f_kappa_0.001'
+ # , '20221013_GP_1f_kappa_0.005'
+ # , '20221013_GP_1f_kappa_0.01'
+ # , '20221013_GP_1f_kappa_0.05'
+ # , '20221013_GP_1f_kappa_0.1'
+ # , '20221013_GP_1f_kappa_0.5'
+ # , '20221013_GP_1f_kappa_1e-05'
+ # , '20221013_GP_1f_kappa_5e-05']  
 
 
 # ['20221007_GP_1f_activation_linear', '20221007_GP_1f_activation_relu', '20221007_GP_1f_activation_tanh']

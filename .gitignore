@@ -13,6 +13,7 @@ utils/variance_analysis.py
 data_generator.py
 exp_decay_test.py
 Tcost_calibration.ipynb
+tanh_study.ipynb
 *.txt
 
 # Byte-compiled / optimized / DLL files

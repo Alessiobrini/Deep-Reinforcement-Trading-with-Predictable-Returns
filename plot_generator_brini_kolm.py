@@ -225,9 +225,13 @@ def runplot_metrics_is(p):
         dataframe_opt = dataframe_opt.loc[:,:p['ep_ppo']]
         
         # PICK THE BEST PERFOMING SEED
-        idxmax = dataframe.mean(1).idxmax()
+        idxmax =  dataframe.mean(1).idxmax()
+        # idxmax = dataframe.iloc[:,-1].idxmax()
+
+        
         print(idxmax)
         # pdb.set_trace()
+        
 
         # PRODUCE COMPARISON PLOT
         select_agent = 'best'
@@ -240,9 +244,10 @@ def runplot_metrics_is(p):
         elif select_agent == 'best':
             ppo = dataframe.loc[idxmax]
             gp = dataframe_opt.loc[idxmax]
+            
+        
+
         # pdb.set_trace()
-
-
         smooth_type = 'diffavg' #avgdiff or diffavg
         if smooth_type == 'avgdiff':
             reldiff_avg = (ppo-gp)/gp * 100
@@ -274,6 +279,7 @@ def runplot_metrics_is(p):
     # ax.set_ylim(-2.0*100,0.5*100)
     # ax.set_ylim(-200, 100)
     ax.set_ylim(-50, 20)
+    # ax.set_ylim(-20, 2)
     # ax.set_ylim(-500, 100)
     ax.hlines(y=0,xmin=0,xmax=len(reldiff_avg_smooth.index),ls='--',lw=1,color='black')
     
@@ -298,31 +304,29 @@ def runplot_metrics_is(p):
 def runplot_holding(p):
     
     # Load parameters and get the path
+    
     query = gin.query_parameter
+
     outputClass = p["outputClass"]
     tag = p["algo"]
     seed = p["seed"]
-    if 'DQN' in tag:
-        hp = p["hyperparams_model_dqn"]
-        outputModels = p["outputModels_dqn"]
-    elif 'PPO' in tag:
-        hp = p["hyperparams_model_ppo"]
-        outputModels = p["outputModels_ppo"]
-    if hp is not None:
-        outputModel = [exp.format(*hp) for exp in outputModels]
-    else:
-        outputModel = outputModels
+    # if 'DQN' in tag:
+    #     hp = p["hyperparams_model_dqn"]
+    #     outputModels = p["outputModels_dqn"]
+    # elif 'PPO' in tag:
+    #     hp = p["hyperparams_model_ppo"]
+    #     outputModels = p["outputModels_ppo"]
+    # if hp is not None:
+    #     outputModel = [exp.format(*hp) for exp in outputModels]
+    # else:
+    #     outputModel = outputModels
     
-    model = outputModel[0]
-
+    # model = outputModel[0]
+    model = p['outputModel_ppo']
     modelpath = "outputs/{}/{}".format(outputClass, model)
     length = get_exp_length(modelpath)
 
-    experiment = [
-        exp
-        for exp in os.listdir("outputs/{}/{}/{}".format(outputClass, model, length))
-        if seed in exp
-    ][0]
+    experiment = p['experiment_ppo']
     data_dir = "outputs/{}/{}/{}/{}".format(outputClass, model, length, experiment)
 
     gin.parse_config_file(os.path.join(data_dir, "config.gin"), skip_unknown=True)
@@ -356,7 +360,7 @@ def runplot_holding(p):
             else:
                 input_shape = (len(query('%F_PARAM')) + 1,)
         else:
-            input_shape = (2,)
+            input_shape = (3,)
 
 
 
@@ -405,7 +409,7 @@ def runplot_holding(p):
             mv_solution=True
         )
 
-
+    # pdb.set_trace()
     # PRODUCE THE FIGURE
     # fig = plt.figure(figsize=set_size(width=columnwidth))
     # gs = gridspec.GridSpec(ncols=1, nrows=2, figure=fig)
@@ -435,25 +439,29 @@ def runplot_holding(p):
     fig,ax = plt.subplots(figsize=set_size(width=columnwidth))
     # oos_test.rnd_state = 435465
     # oos_test.rnd_state = np.random.choice(10000,1)
-    oos_test.rnd_state = 3454
-    gin.bind_parameter('%FIXED_ALPHA',False)
-    print(oos_test.rnd_state)
+    # todo
+    oos_test.rnd_state = 9864
+    # gin.bind_parameter('%FIXED_ALPHA',False)
+    
+    # print(oos_test.rnd_state)
+    # train_agent.tanh_stretching = 0.75
 
     res_df = oos_test.run_test(train_agent, return_output=True)
+    #todo
     print('PPO cumrew',res_df['Reward_PPO'].cumsum().iloc[-1])
     print('GP cumrew',res_df['OptReward'].cumsum().iloc[-1])
-    print('Ratio PPO-GP',res_df['Reward_PPO'].cumsum().iloc[-1]/res_df['OptReward'].cumsum().iloc[-1])
-    print('MV cumrew',res_df['MVReward'].cumsum().iloc[-1])
-    print('Ratio MV-GP',res_df['MVReward'].cumsum().iloc[-1]/res_df['OptReward'].cumsum().iloc[-1])
+    print('Ratio PPO-GP',((res_df['Reward_PPO'].cumsum().iloc[-1]-res_df['OptReward'].cumsum().iloc[-1])/res_df['OptReward'].cumsum().iloc[-1]))
+    # print('MV cumrew',res_df['MVReward'].cumsum().iloc[-1])
+    # print('Ratio MV-GP',res_df['MVReward'].cumsum().iloc[-1]/res_df['OptReward'].cumsum().iloc[-1])
 
     if gin.query_parameter('%MULTIASSET'):
         plot_portfolio(res_df, tag[0], ax, tbox=False)
         if len(gin.query_parameter('%HALFLIFE'))>2:
             ax.get_legend().remove()
     else:
-        plot_portfolio(res_df, tag[0], ax, tbox=False, colors=['tab:blue','tab:orange'])
+        plot_portfolio(res_df, tag[0], ax, tbox=True, colors=['tab:blue','tab:orange'])
         # ax.legend(['PPO','benchmark'], fontsize=8)
-        ax.plot(res_df["MVNextHolding"].values[1:-1], label="MW", color='black', ls='--')
+        # ax.plot(res_df["MVNextHolding"].values[1:-1], label="MW", color='black', ls='--')
         # ax.legend(['benchmark','Model-free PPO', 'MW'], fontsize=8)
         ax.legend(['benchmark','Residual PPO', 'MW'], fontsize=8)
     
@@ -1580,6 +1588,7 @@ def runplot_timedep_multipolicies(p):
     
     for i,tts in enumerate(p['time_to_stop']):
         for j,h in enumerate(p['holding']):
+            
             plot_BestActions(model, h,tts, ax=axes[i,j], optimal=p['optimal'],
                              stochastic=gin.query_parameter("%STOCHASTIC_POLICY"), 
                              seed=gin.query_parameter("%SEED"),color='tab:blue')
@@ -2016,6 +2025,7 @@ if __name__ == "__main__":
         runplot_timedep_policies(p)
     elif p["plot_type"] == "multi_policy":
         runplot_timedep_multipolicies(p)
+        runplot_holding(p)
     elif p["plot_type"] == "dist":
         runplot_distribution(p)
     elif p["plot_type"] == "cdf":

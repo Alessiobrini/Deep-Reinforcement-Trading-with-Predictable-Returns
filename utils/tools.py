@@ -110,7 +110,7 @@ def get_action_boundaries(
         factors,
     )
 
-    if action_type == "GP" or action_type == "GPext" or action_type == "GPasym" or action_type == "GPsign":
+    if action_type == "GP" or action_type == "GPext" or action_type == "GPasym" or action_type == "GPsign" or action_type == "GPmult":
         CurrOptState = env.opt_reset()
         OptRate, DiscFactorLoads = env.opt_trading_rate_disc_loads()
 
@@ -142,6 +142,9 @@ def get_action_boundaries(
         if action_type == "GPext":
             action_quantiles[0] = action_quantiles[0] + action_quantiles[0]*qts[2] #put - if you want to revert tot he previous cases
             action_quantiles[1] = action_quantiles[1] + action_quantiles[1]*qts[2]
+            # pdb.set_trace()
+            
+            
         
             # action_quantiles_correct[0] = action_quantiles_correct[0] + action_quantiles_correct[0]*qts[2]
             # action_quantiles_correct[1] = action_quantiles_correct[1] + action_quantiles_correct[1]*qts[2]
@@ -158,6 +161,9 @@ def get_action_boundaries(
                 action_quantiles[1] = 0.0
             else:
                 action_quantiles[0] = 0.0
+        elif action_type == "GPmult":
+            action_quantiles[0] = action_quantiles[0]*qts[2] #put - if you want to revert tot he previous cases
+            action_quantiles[1] = action_quantiles[1]*qts[2]
 
     elif action_type == "MV" or action_type == "MVasym" or action_type == "MVmax":
         CurrMVState = env.opt_reset()
@@ -176,6 +182,8 @@ def get_action_boundaries(
 
     if action_type == "GPext" or action_type == "MVmax":
         action_range = np.max(np.abs(action_quantiles))
+    elif action_type == "GPmult":
+        action_range = list(action_quantiles)
     elif action_type == "GPasym" or action_type == "GPsign" or action_type == "MVasym":
         action_range = list(action_quantiles)
     else:
@@ -185,7 +193,7 @@ def get_action_boundaries(
 
     ret_range = float(max(np.abs(returns.min()), returns.max()))
 
-    if action_type == "GP" or action_type == "GPext" or action_type == "GPasym" or action_type == "GPsign":
+    if action_type == "GP" or action_type == "GPext" or action_type == "GPasym" or action_type == "GPsign" or action_type == "GPmult":
         holding_quantiles = env.res_df["OptNextHolding"].quantile(qts[:2]).values
     elif action_type == "MV" or action_type == "MVasym" or action_type == "MVmax":
         holding_quantiles = env.res_df["MVNextHolding"].quantile(qts[:2]).values

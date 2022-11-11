@@ -613,10 +613,6 @@ def plot_BestActions(
     """
 
     query = gin.query_parameter
-    # gin.bind_parameter('%DOUBLE_NOISE', False)
-    # gin.bind_parameter('%SIGMAF', [None])
-    # gin.bind_parameter('%INITIAL_ALPHA', [0.009])
-    # gin.bind_parameter('%HALFLIFE', [35])
     gin.bind_parameter('alpha_term_structure_sampler.generate_plot', generate_plot)
 
     
@@ -643,9 +639,10 @@ def plot_BestActions(
             query("%ACTION_RANGE_RES"), query("%ZERO_ACTION")
         ).values
     else:
-        actions = ActionSpace(
+        actions_space = ActionSpace(
             query("%ACTION_RANGE"), query("%ZERO_ACTION"), query("%SIDE_ONLY")
-        ).values
+        )
+        actions = actions_space.values
     
 
     rng = np.random.RandomState(seed)
@@ -656,6 +653,7 @@ def plot_BestActions(
             sample_Ret = data_handler.returns
             sample_Ret.sort()
         else:
+            # todo
             sample_Ret = np.linspace(-0.05, 0.05, query('%LEN_SERIES'), dtype="float")
 
         if holding == 0:
@@ -690,17 +688,33 @@ def plot_BestActions(
             with torch.no_grad():
                 dist, _ = model(states)
 
+            # TODO
+            # pdb.set_trace()
+            mult =  gin.query_parameter('%QTS')[-1]
+            # gin.bind_parameter('PPO.tanh_stretching', 1.0)
 
             if stochastic:
-                unscaled_max_action = torch.nn.Tanh()(dist.sample())
+                # unscaled_max_action = torch.nn.Tanh()(dist.sample())
+                unscaled_max_action = dist.sample()
             else:
-                unscaled_max_action = torch.nn.Tanh()(dist.mean)
+                if query('PPO.action_clipping_type') =='env':
+                    unscaled_max_action = dist.mean
+                elif query('PPO.action_clipping_type') == 'tanh':
+                    unscaled_max_action = torch.nn.Tanh()(dist.mean*gin.query_parameter('PPO.tanh_stretching'))
+                    # def nthroot(a,n):
+                    #     return np.power(a,(1/n))
+                    # a = 10
+                    # unscaled_max_action = np.sign(dist.mean) * nthroot(torch.nn.Tanh()((dist.mean**2)**(a/2)),a)
+                    # unscaled_max_action = torch.nn.Tanh()(dist.mean*2)
+                elif query('PPO.action_clipping_type') == 'clip':
+                    unscaled_max_action = torch.clip(dist.mean,-3,3)
+                
             
-            if query("%MV_RES"):
-                max_action = unscale_asymmetric_action(actions[0],actions[-1], unscaled_max_action)
-            else:
-                pass
-                # max_action = unscale_action(actions[-1], unscaled_max_action)
+            # if query("%MV_RES"):
+            #     max_action = unscale_asymmetric_action(actions[0],actions[-1], unscaled_max_action)
+            # else:
+            #     pass
+            #     # max_action = unscale_action(actions[-1], unscaled_max_action)
 
 
         # ci = 1.96 * model.log_std.exp().detach().numpy()
@@ -714,123 +728,123 @@ def plot_BestActions(
         # ax.fill_between(sample_Ret, (max_action-ci).reshape(-1), (max_action+ci).reshape(-1), color='b', alpha=.1)
 
     
-    elif query("%INP_TYPE") == "f" or query("%INP_TYPE") == "alpha_f":
+    # elif query("%INP_TYPE") == "f" or query("%INP_TYPE") == "alpha_f":
 
-        if query("%INP_TYPE") == "alpha_f":
-            # gin.bind_parameter('%HALFLIFE',[100])
-            data_handler = DataHandler(N_train=query('%LEN_SERIES'), rng=rng)
-            data_handler.generate_returns()
-            factors = data_handler.factors
+    #     if query("%INP_TYPE") == "alpha_f":
+    #         # gin.bind_parameter('%HALFLIFE',[100])
+    #         data_handler = DataHandler(N_train=query('%LEN_SERIES'), rng=rng)
+    #         data_handler.generate_returns()
+    #         factors = data_handler.factors
             
-            # factors.sort()
-        else:
-            n_factors = len(query("%F_PARAM"))
+    #         # factors.sort()
+    #     else:
+    #         n_factors = len(query("%F_PARAM"))
     
-            f_to_concat = [
-                np.linspace(-0.5 - i, 0.5 + i, query('%LEN_SERIES')).reshape(-1, 1)
-                for i, _ in enumerate(range(n_factors))
-            ]
+    #         f_to_concat = [
+    #             np.linspace(-0.5 - i, 0.5 + i, query('%LEN_SERIES')).reshape(-1, 1)
+    #             for i, _ in enumerate(range(n_factors))
+    #         ]
     
-            factors = np.concatenate(f_to_concat, axis=1)
+    #         factors = np.concatenate(f_to_concat, axis=1)
 
-        if holding == 0:
-            holdings = np.zeros(len(factors), dtype="float")
-        elif holding == None:
-            holdings = np.linspace(-1e+5, 1e+5, len(factors), dtype="float")
-            if factors.shape[1]>1:
-                factors = np.array([np.repeat(0.004,factors.shape[1])]*len(factors))
-            else:
-                factors = np.repeat(0.004, len(factors)).reshape(-1, 1)
-        else:
-            holdings = np.ones(len(factors), dtype="float") * holding
+    #     if holding == 0:
+    #         holdings = np.zeros(len(factors), dtype="float")
+    #     elif holding == None:
+    #         holdings = np.linspace(-1e+5, 1e+5, len(factors), dtype="float")
+    #         if factors.shape[1]>1:
+    #             factors = np.array([np.repeat(0.004,factors.shape[1])]*len(factors))
+    #         else:
+    #             factors = np.repeat(0.004, len(factors)).reshape(-1, 1)
+    #     else:
+    #         holdings = np.ones(len(factors), dtype="float") * holding
         
-        if query("%TIME_DEPENDENT"):
-            times = np.ones(len(factors), dtype="float") * time_to_stop
+    #     if query("%TIME_DEPENDENT"):
+    #         times = np.ones(len(factors), dtype="float") * time_to_stop
 
-        if model.modelname == "DQN":
-            if query("%TIME_DEPENDENT"):
-                states = tf.constant(
-                    np.hstack((factors, times.reshape(-1, 1), holdings.reshape(-1, 1))), dtype=tf.float32,
-                )
-            else:
-                states = tf.constant(
-                    np.hstack((factors, holdings.reshape(-1, 1))), dtype=tf.float32,
-                )
+    #     if model.modelname == "DQN":
+    #         if query("%TIME_DEPENDENT"):
+    #             states = tf.constant(
+    #                 np.hstack((factors, times.reshape(-1, 1), holdings.reshape(-1, 1))), dtype=tf.float32,
+    #             )
+    #         else:
+    #             states = tf.constant(
+    #                 np.hstack((factors, holdings.reshape(-1, 1))), dtype=tf.float32,
+    #             )
 
-            pred = model(states, training=False)
+    #         pred = model(states, training=False)
 
-            max_action = actions[tf.math.argmax(pred, axis=1)]
-        elif model.modelname == "PPO":
-            if query("%TIME_DEPENDENT"):
-                states = torch.from_numpy(
-                    np.hstack((factors, times.reshape(-1, 1), holdings.reshape(-1, 1)))
-                ).float()
-            else:
-                states = torch.from_numpy(
-                    np.hstack((factors, holdings.reshape(-1, 1)))
-                ).float()
+    #         max_action = actions[tf.math.argmax(pred, axis=1)]
+    #     elif model.modelname == "PPO":
+    #         if query("%TIME_DEPENDENT"):
+    #             states = torch.from_numpy(
+    #                 np.hstack((factors, times.reshape(-1, 1), holdings.reshape(-1, 1)))
+    #             ).float()
+    #         else:
+    #             states = torch.from_numpy(
+    #                 np.hstack((factors, holdings.reshape(-1, 1)))
+    #             ).float()
                 
-            model.eval()
-            with torch.no_grad():
-                dist, _ = model(states)
+    #         model.eval()
+    #         with torch.no_grad():
+    #             dist, _ = model(states)
 
-            if stochastic:
-                unscaled_max_action = torch.nn.Tanh()(dist.sample())
-            else:
-                unscaled_max_action = torch.nn.Tanh()(dist.mean)
+    #         if stochastic:
+    #             unscaled_max_action = torch.nn.Tanh()(dist.sample())
+    #         else:
+    #             unscaled_max_action = torch.nn.Tanh()(dist.mean)
             
-            if query("%MV_RES"):
-                max_action = unscale_asymmetric_action(actions[0],actions[-1], unscaled_max_action).numpy().reshape(-1,)
-            else:
-                max_action = unscale_action(actions[-1], unscaled_max_action).numpy().reshape(-1,)
+    #         if query("%MV_RES"):
+    #             max_action = unscale_asymmetric_action(actions[0],actions[-1], unscaled_max_action).numpy().reshape(-1,)
+    #         else:
+    #             max_action = unscale_action(actions[-1], unscaled_max_action).numpy().reshape(-1,)
             
 
-        if query("%COST_TYPE") == 'nondiff':
-            cm = query("%CM2")/(0.01*query("%DAILY_PRICE")*query("%DAILY_VOLUME") * query("%SIGMA")**2)
-            gin.bind_parameter('%COSTMULTIPLIER', cm)
+    #     if query("%COST_TYPE") == 'nondiff':
+    #         cm = query("%CM2")/(0.01*query("%DAILY_PRICE")*query("%DAILY_VOLUME") * query("%SIGMA")**2)
+    #         gin.bind_parameter('%COSTMULTIPLIER', cm)
 
-        if query("%MV_RES"):
-            discount_rate, kappa, costmultiplier, f_param, halflife, sigma = (
-                query("%DISCOUNT_RATE"),
-                query("%KAPPA"),
-                query("%COSTMULTIPLIER"),
-                query("%F_PARAM"),
-                query("%HALFLIFE"),
-                query("%SIGMA"),
-            )
+    #     if query("%MV_RES"):
+    #         discount_rate, kappa, costmultiplier, f_param, halflife, sigma = (
+    #             query("%DISCOUNT_RATE"),
+    #             query("%KAPPA"),
+    #             query("%COSTMULTIPLIER"),
+    #             query("%F_PARAM"),
+    #             query("%HALFLIFE"),
+    #             query("%SIGMA"),
+    #         )
     
-            OptRate, DiscFactorLoads = opt_trading_rate_disc_loads(
-                discount_rate,
-                kappa,
-                costmultiplier,
-                f_param,
-                np.around(np.log(2) / halflife, 4),
-            )
+    #         OptRate, DiscFactorLoads = opt_trading_rate_disc_loads(
+    #             discount_rate,
+    #             kappa,
+    #             costmultiplier,
+    #             f_param,
+    #             np.around(np.log(2) / halflife, 4),
+    #         )
 
-            OptNextHolding = (1 / (kappa * (sigma) ** 2)) * np.sum(
-                f_param * factors, axis=1
-            )
-            # Compute optimal markovitz action
-            MV_action = OptNextHolding - holdings
+    #         OptNextHolding = (1 / (kappa * (sigma) ** 2)) * np.sum(
+    #             f_param * factors, axis=1
+    #         )
+    #         # Compute optimal markovitz action
+    #         MV_action = OptNextHolding - holdings
 
-            max_action = MV_action * (1 - max_action)
+    #         max_action = MV_action * (1 - max_action)
             
-        if holding == None:
-            ax.plot(
-                holdings,
-                max_action,
-                linewidth=1.5,
-                label="{} Policy".format(model.modelname),
-                color=color
-            )
-        else:
-            ax.plot(
-                factors[:, 0]*10**4, #to express in bps
-                max_action,
-                linewidth=1.5,
-                label="{} Policy".format(model.modelname),
-                color=color
-            )
+    #     if holding == None:
+    #         ax.plot(
+    #             holdings,
+    #             max_action,
+    #             linewidth=1.5,
+    #             label="{} Policy".format(model.modelname),
+    #             color=color
+    #         )
+    #     else:
+    #         ax.plot(
+    #             factors[:, 0]*10**4, #to express in bps
+    #             max_action,
+    #             linewidth=1.5,
+    #             label="{} Policy".format(model.modelname),
+    #             color=color
+    #         )
 
         # ci = 1.96 * model.log_std.exp().detach().numpy()
         # ax.fill_between(factors[:, 0], (max_action-ci*max_action).reshape(-1), (max_action+ci*max_action).reshape(-1), color='b', alpha=.1)
@@ -863,17 +877,17 @@ def plot_BestActions(
             optimal_policy = OptNextHolding - holding
 
             ax.plot(sample_Ret, optimal_policy, linewidth=1.5, label="GP Policy", ls='--',color='tab:orange')
-        elif query("%INP_TYPE") == "f" or query("%INP_TYPE") == "alpha_f":
+        # elif query("%INP_TYPE") == "f" or query("%INP_TYPE") == "alpha_f":
 
-            OptNextHolding = (1 - OptRate) * holdings + OptRate * (
-                1 / (kappa * (sigma) ** 2)
-            ) * np.sum(DiscFactorLoads * factors, axis=1)
-            optimal_policy = OptNextHolding - holdings
+        #     OptNextHolding = (1 - OptRate) * holdings + OptRate * (
+        #         1 / (kappa * (sigma) ** 2)
+        #     ) * np.sum(DiscFactorLoads * factors, axis=1)
+        #     optimal_policy = OptNextHolding - holdings
 
-            if holding == None:
-                ax.plot(holdings, optimal_policy, linewidth=1.5, label="GP Policy", color='tab:orange', ls='--')
-            else:
-                ax.plot(factors[:, 0]*10**4, optimal_policy, linewidth=1.5, label="GP Policy", color='tab:orange', ls='--')
+        #     if holding == None:
+        #         ax.plot(holdings, optimal_policy, linewidth=1.5, label="GP Policy", color='tab:orange', ls='--')
+        #     else:
+        #         ax.plot(factors[:, 0]*10**4, optimal_policy, linewidth=1.5, label="GP Policy", color='tab:orange', ls='--')
                 
             # OptNextHolding_mv = (1 / (kappa * (sigma) ** 2)) * np.sum(
             #     f_param * factors, axis=1
@@ -885,10 +899,24 @@ def plot_BestActions(
             #     ax.plot(holdings, MV_policy, linewidth=1.5, label="MV Policy", color='black')
             # else:
             #     ax.plot(factors[:, 0]*10**4, MV_policy, linewidth=1.5, label="MV Policy", color='black')
-
-    max_action = unscale_action(optimal_policy[-1], unscaled_max_action)
-
-
+    # pdb.set_trace()
+    if query('PPO.action_clipping_type') =='env':
+        max_action  = unscaled_max_action*(optimal_policy[-1])
+    elif query('PPO.action_clipping_type') == 'tanh':
+        # mult = 1.2
+        if np.abs(optimal_policy[0]-optimal_policy[-1]) > 10**2 :
+            max_action = unscale_asymmetric_action(optimal_policy[0]*mult,optimal_policy[-1]*mult, unscaled_max_action)
+        else:
+            max_action = unscale_action(optimal_policy[-1]*mult, unscaled_max_action)
+    elif query('PPO.action_clipping_type') == 'clip':
+        num=3
+        if actions_space.asymmetric:
+            max_action = unscale_asymmetric_action(optimal_policy[0]*mult,optimal_policy[-1]*mult, unscaled_max_action,num)
+        else:
+            max_action = unscale_action(optimal_policy[-1]*mult, unscaled_max_action, num)
+    
+    # pdb.set_trace()
+    # TODO
     ax.plot(
         sample_Ret,
         max_action,
@@ -896,6 +924,24 @@ def plot_BestActions(
         label="{} Policy".format(model.modelname),
         color=color
     )
+    
+    # ax.plot(
+    #     sample_Ret,
+    #     (optimal_policy-max_action.numpy().reshape(-1,)),
+    #     linewidth=1.5,
+    #     label="{} Policy".format(model.modelname),
+    #     color=color
+    # )
+    # ax.set_xlim(-0.05,0.05)
+    # ax.set_xlim(-0.015,0.015)
+    # # ax.set_xlim(-0.0075,0.0075)
+    # ax.set_ylim(-1*10**4,1*10**4)
+    
+
+    pol_diff = np.round(np.mean(np.abs(optimal_policy-max_action.numpy())),0) 
+    # pol_diff = np.linalg.norm(optimal_policy-max_action.numpy())
+    txt = AnchoredText("$\Delta$: {:e}".format(pol_diff),loc= 1,prop=dict(size=6.5))
+    ax.add_artist(txt)
 
 def plot_BestActions_time(
     model, holding: float, alpha: float, ax: object = None, optimal: bool = False, 
@@ -972,7 +1018,7 @@ def plot_BestActions_time(
     model.eval()
     with torch.no_grad():
         dist, _ = model(states)
-
+    
     if stochastic:
         unscaled_max_action = torch.nn.Tanh()(dist.sample())
     else:
@@ -1104,8 +1150,8 @@ def plot_portfolio(r: pd.DataFrame, tag: str, ax2: object, tbox: bool = True,col
         ax2.plot(r["OptNextHolding"].values[1:-1], label="benchmark", color=colors[1], ls='--')
         ax2.plot(r["NextHolding_{}".format(tag)].values[1:-1], label=tag, color=colors[0])
         if tbox:
-            mse = np.round(np.sum(r["OptNextHolding"].values[1:-1] - r["NextHolding_{}".format(tag)].values[1:-1]),decimals=0)
-            mse_text = AnchoredText("GP - PPO: {:e}".format(mse),loc=1,prop=dict(size=10))
+            mse = np.round(np.mean(np.abs(r["OptNextHolding"].values[1:-1] - r["NextHolding_{}".format(tag)].values[1:-1])),decimals=0)
+            mse_text = AnchoredText("GP - PPO: {:e}".format(mse),loc=2,prop=dict(size=10))
             ax2.add_artist(mse_text)
 
 def plot_2asset_holding(r: pd.DataFrame, tag: str, ax2: object):

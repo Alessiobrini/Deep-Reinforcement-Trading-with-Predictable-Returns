@@ -21,18 +21,18 @@ def scale_action(action_limit, action):
     return 2.0 * ((action - low) / (high - low)) - 1.0
 
 
-def unscale_action(action_limit, scaled_action):
+def unscale_action(action_limit, scaled_action,K=1):
     """
-    Rescale the action from [-1, 1] to [low, high]
+    Rescale the action from [-K,K], 1] to [low, high]
     (no need for symmetric action space)
     :param action_space: (gym.spaces.box.Box)
     :param action: (np.ndarray)
     :return: (np.ndarray)
     """
     low, high = -action_limit, action_limit
-    return low + (0.5 * (scaled_action + 1.0) * (high - low))
+    return low + (high - low) * ( (scaled_action + K)/(2*K))
 
-def unscale_asymmetric_action(low, high, scaled_action):
+def unscale_asymmetric_action(low, high, scaled_action, K=1):
     """
     Rescale the action from [-1, 1] to [low, high]
     (no need for symmetric action space)
@@ -40,7 +40,8 @@ def unscale_asymmetric_action(low, high, scaled_action):
     :param action: (np.ndarray)
     :return: (np.ndarray)
     """
-    return low + (0.5 * (scaled_action + 1.0) * (high - low))
+    return low + (high - low) * ( (scaled_action + K)/(2*K))
+    # return low + (0.5 * (scaled_action + 1.0) * (high - low))
 
 
 def boltzmann(x: np.ndarray, T: Union[float or int]) -> np.ndarray:

@@ -212,7 +212,18 @@ class PPO_runner(MixinCore):
 
             self.collect_rollouts()
 
+
             self.update(e)
+            
+            
+            if e>0 and self.ppo_rew[e]>self.ppo_rew[e-1]:
+                torch.save(
+                    self.train_agent.model.state_dict(),
+                    os.path.join(
+                        self.savedpath, "ckpt", "PPO_best_ep_weights.pth"
+                    ),
+                )
+
 
             if self.save_freq and ((e + 1) % self.save_freq == 0):  # TODO or e+1?
 
@@ -280,25 +291,55 @@ class PPO_runner(MixinCore):
                 action = dist.sample()
 
                 log_prob = dist.log_prob(action)
-                action = action.cpu().numpy().ravel()
+                
                 if self.train_agent.action_clipping_type == 'env':
-                    clipped_action=action
+                    clipped_action=action.cpu().numpy().ravel()
+                    action = action.cpu().numpy().ravel()
+                    unscaled_action = clipped_action*(self.action_space.action_range[0]) 
+                elif self.train_agent.action_clipping_type == 'none':
+                    clipped_action=action.cpu().numpy().ravel()
+                    action = action.cpu().numpy().ravel()
+                    unscaled_action = clipped_action
                 elif self.train_agent.action_clipping_type == 'tanh':
-                    clipped_action = nn.Tanh()(action).cpu().numpy().ravel()
-                if self.MV_res:
-                    unscaled_action = unscale_asymmetric_action(
-                        self.action_space.action_range[0],self.action_space.action_range[1], clipped_action
-                    )
-                else:
-                    
-                    if self.action_space.asymmetric:
+                    clipped_action = nn.Tanh()(self.train_agent.tanh_stretching*action).cpu().numpy().ravel() 
+                    action = action.cpu().numpy().ravel() 
+                    if self.MV_res:
                         unscaled_action = unscale_asymmetric_action(
                             self.action_space.action_range[0],self.action_space.action_range[1], clipped_action
                         )
                     else:
-                        unscaled_action = unscale_action(
-                            self.action_space.action_range[0], clipped_action
+                        
+                        if self.action_space.asymmetric:
+                            unscaled_action = unscale_asymmetric_action(
+                                self.action_space.action_range[0],self.action_space.action_range[1], clipped_action
+                            )
+                        else:
+                            unscaled_action = unscale_action(
+                                self.action_space.action_range[0], clipped_action 
+                            )
+
+                if self.train_agent.action_clipping_type == 'clip':
+                    clipped_action=torch.clip(action,-3,3).cpu().numpy().ravel()
+                    action = action.cpu().numpy().ravel()
+                    if self.MV_res:
+                        unscaled_action = unscale_asymmetric_action(
+                            self.action_space.action_range[0],self.action_space.action_range[1], clipped_action
                         )
+                    else:
+                        
+                        if self.action_space.asymmetric:
+                            unscaled_action = unscale_asymmetric_action(
+                                self.action_space.action_range[0],
+                                self.action_space.action_range[1], 
+                                clipped_action,
+                                3
+                            )
+                        else:
+                            unscaled_action = unscale_action(
+                                self.action_space.action_range[0], clipped_action,3 
+                            )
+                
+
 
             elif self.train_agent.policy_type == "discrete":
                 action = dist.sample()
@@ -340,7 +381,7 @@ class PPO_runner(MixinCore):
 
             }
 
-            # pdb.set_trace()
+            
             exp['mw_action'] = np.array([self.env.MV_res_step(state, unscaled_action, i, output_action=True)], dtype='float32')
             exp['rl_action'] = unscaled_action
 
@@ -350,7 +391,6 @@ class PPO_runner(MixinCore):
 
             # # benchmark agent
             if self.store_insample:
-                # pdb.set_trace()
                 nextoptstate, optresult = self.env.opt_step(
                     optstate, optrate, discfactorloads, i
                 )
@@ -370,7 +410,16 @@ class PPO_runner(MixinCore):
             self.mw_rew.append(np.cumsum(mw_temp)[-1])
 
         
-        # pdb.set_trace()
+        if self.train_agent.scale_reward:
+            rew = np.array(self.train_agent.experience['reward'],dtype='float')
+            # runn_stats = np.cumsum(self.train_agent.experience['reward'])*self.train_agent.gamma
+            # mean_stats = np.array([rew[:x].mean() for x in range(1,len(rew)+1)])
+            mean_stats = np.cumsum(rew)/np.arange(1,len(rew)+1)
+            # https://stackoverflow.com/questions/18419871/improving-code-efficiency-standard-deviation-on-sliding-windows
+            std_stats = np.sqrt((np.cumsum(rew**2)/np.arange(1,len(rew)+1)) - mean_stats**2)
+            std_stats[0] = 1.0
+            self.train_agent.experience['reward'] = list((self.train_agent.experience['reward']-mean_stats)/std_stats)
+
         _, self.next_value = self.train_agent.act(next_state)
         # compute the advantage estimate from the given rollout
         self.train_agent.compute_gae(self.next_value.detach().cpu().numpy().ravel())

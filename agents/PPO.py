@@ -33,7 +33,6 @@ class PPOActorCritic(nn.Module):
         min_std: float = 0.003,
         std_transform: str = "softplus",
         init_last_layers: str = "rescaled",
-        action_clipping_type: str = 'env',
         modelname: str = "PPO",
     ):
 
@@ -47,8 +46,7 @@ class PPOActorCritic(nn.Module):
         self.policy_type = policy_type
         self.std_transform = std_transform
         self.init_last_layers = init_last_layers
-        self.action_clipping_type = action_clipping_type
-
+        
         # set flag for batch norm as attribute
         self.bnflag_input = batch_norm_input
 
@@ -258,6 +256,9 @@ class PPO:
         augadv: bool = False,
         eta1: float = 0.1,
         eta2: float = 0.5,
+        action_clipping_type: str = 'env',
+        tanh_stretching: float = 1.0,
+        scale_reward: bool = False,
         modelname: str = "PPO act_crt",
     ):
 
@@ -281,6 +282,10 @@ class PPO:
         self.augadv= augadv
         self.eta1 = eta1
         self.eta2 = eta2
+        self.action_clipping_type = action_clipping_type
+        self.tanh_stretching = tanh_stretching
+        self.scale_reward = scale_reward
+
 
         if gin.query_parameter('%MULTIASSET'):
             self.num_actions = len(gin.query_parameter('%HALFLIFE'))
@@ -470,7 +475,7 @@ class PPO:
             self.model.eval()
             with torch.no_grad():
                 _, values = self.model(
-                    torch.Tensor(self.experience["state"]).to(self.device)
+                    torch.Tensor(np.array(self.experience["state"])).to(self.device)
                 )
             self.experience["value"] = [
                 np.array(v, dtype=float) for v in values.detach().cpu().tolist()
@@ -478,9 +483,11 @@ class PPO:
             # for i in range(len(self.experience["value"])):
             #     _, value = self.act(self.experience["state"][i])
             #     self.experience["value"][i] = value.detach().cpu().numpy().ravel()
-
+        
         rewards = self.experience["reward"]
         values = self.experience["value"]
+
+
 
 
         values = values + [next_value]

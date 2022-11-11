@@ -276,8 +276,9 @@ def return_sampler_GP(
         fig,ax = plt.subplots(figsize=(10,5))
         ax.plot(realret)
         ax.set_title('GP Ret')
-        plt.show()
-
+        # plt.show()
+    # pdb.set_trace()
+    # sys.exit()
     return realret.astype(np.float32), factors.astype(np.float32), f_speed
 
 

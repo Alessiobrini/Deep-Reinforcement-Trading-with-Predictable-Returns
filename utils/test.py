@@ -82,7 +82,9 @@ class Out_sample_vs_gp:
         avg_pdist = []
         abs_wealth_rl = []
         abs_wealth_gp = []
-
+        
+        # gin.bind_parameter('%SIGMAF',[0.005])
+        # gin.bind_parameter('%SIGMA',0.9)
         for s in range(self.n_seeds):
             if 'alpha' in gin.query_parameter('%INP_TYPE'):
                 data_handler = DataHandler(N_train=self.N_test, rng=self.rng_test)
@@ -113,7 +115,7 @@ class Out_sample_vs_gp:
                 returns=data_handler.returns,
                 factors=data_handler.factors,
             )
-
+            # pdb.set_trace()
             CurrState = self.test_env.reset()
 
             CurrOptState = self.test_env.opt_reset()
@@ -160,25 +162,34 @@ class Out_sample_vs_gp:
                         dist, qvalues = test_agent.model(CurrState.unsqueeze(0))
 
                     if test_agent.policy_type == "continuous":
-
+                        
+                        # pdb.set_trace()
+                        self.stochastic_policy=False
                         if self.stochastic_policy:
                             action = dist.sample()
                         else:
                             action = dist.mean
-                        action = nn.Tanh()(action).cpu().numpy().ravel()[0]
+                        # test_agent.tanh_stretching = 0.8
+                        action = nn.Tanh()(test_agent.tanh_stretching*action).cpu().numpy().ravel()[0]
 
                         if self.MV_res:
                             action = unscale_asymmetric_action(
                                 test_agent.action_space.action_range[0],test_agent.action_space.action_range[1], action
                             )
                         else:
+                            # pdb.set_trace()
+                            # test_agent.action_space.asymmetric = True
+                            # test_agent.action_space.action_range = [-2162.64453125, 2162.64453125] #[-2162.64453125, 1771.396484375]
                             if test_agent.action_space.asymmetric:
                                 action = unscale_asymmetric_action(
-                                    test_agent.action_space.action_range[0],test_agent.action_space.action_range[1], action
+                                    test_agent.action_space.action_range[0],
+                                    test_agent.action_space.action_range[1],
+                                    action,
+                                    3
                                 )
                             else:
                                 action = unscale_action(
-                                    test_agent.action_space.action_range[0], action
+                                    test_agent.action_space.action_range[0], action,3
                                 )
 
 
