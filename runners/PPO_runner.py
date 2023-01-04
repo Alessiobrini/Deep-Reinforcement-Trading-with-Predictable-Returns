@@ -216,14 +216,15 @@ class PPO_runner(MixinCore):
             self.update(e)
             
             
-            if e>0 and self.ppo_rew[e]>self.ppo_rew[e-1]:
+            if e>0 and self.ppo_rew[e]>np.max(self.ppo_rew[:-1]):
                 torch.save(
                     self.train_agent.model.state_dict(),
                     os.path.join(
                         self.savedpath, "ckpt", "PPO_best_ep_weights.pth"
                     ),
                 )
-
+                with open(os.path.join(self.savedpath, "best_ep.txt"), 'w') as f:
+                    f.write('Best ep is {}'.format(e))
 
             if self.save_freq and ((e + 1) % self.save_freq == 0):  # TODO or e+1?
 
@@ -318,8 +319,10 @@ class PPO_runner(MixinCore):
                                 self.action_space.action_range[0], clipped_action 
                             )
 
-                if self.train_agent.action_clipping_type == 'clip':
-                    clipped_action=torch.clip(action,-3,3).cpu().numpy().ravel()
+                elif self.train_agent.action_clipping_type == 'clip':
+                    clipped_action=torch.clip(action,
+                                              -self.train_agent.gaussian_clipping,
+                                              self.train_agent.gaussian_clipping).cpu().numpy().ravel()
                     action = action.cpu().numpy().ravel()
                     if self.MV_res:
                         unscaled_action = unscale_asymmetric_action(
@@ -332,11 +335,11 @@ class PPO_runner(MixinCore):
                                 self.action_space.action_range[0],
                                 self.action_space.action_range[1], 
                                 clipped_action,
-                                3
+                                self.train_agent.gaussian_clipping
                             )
                         else:
                             unscaled_action = unscale_action(
-                                self.action_space.action_range[0], clipped_action,3 
+                                self.action_space.action_range[0], clipped_action,self.train_agent.gaussian_clipping 
                             )
                 
 

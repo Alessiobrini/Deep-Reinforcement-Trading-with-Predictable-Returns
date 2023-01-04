@@ -9,7 +9,7 @@ import numpy as np
 from typing import Union
 
 
-def scale_action(action_limit, action):
+def scale_action(action_limit, action, K=1):
     """
     Rescale the action from [low, high] to [-1, 1]
     (no need for symmetric action space)
@@ -18,7 +18,17 @@ def scale_action(action_limit, action):
     :return: (np.ndarray)
     """
     low, high = -action_limit, action_limit
-    return 2.0 * ((action - low) / (high - low)) - 1.0
+    return 2*K * ((action - low) / (high - low)) - K
+
+def scale_asymmetric_action(low, high, action, K=1):
+    """
+    Rescale the action from [low, high] to [-1, 1]
+    (no need for symmetric action space)
+    :param action_space: (gym.spaces.box.Box)
+    :param action: (np.ndarray)
+    :return: (np.ndarray)
+    """
+    return 2*K * ((action - low) / (high - low)) - K
 
 
 def unscale_action(action_limit, scaled_action,K=1):

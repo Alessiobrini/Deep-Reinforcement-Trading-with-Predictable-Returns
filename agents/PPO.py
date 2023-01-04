@@ -259,6 +259,7 @@ class PPO:
         action_clipping_type: str = 'env',
         tanh_stretching: float = 1.0,
         scale_reward: bool = False,
+        gaussian_clipping: int = 3,
         modelname: str = "PPO act_crt",
     ):
 
@@ -285,6 +286,7 @@ class PPO:
         self.action_clipping_type = action_clipping_type
         self.tanh_stretching = tanh_stretching
         self.scale_reward = scale_reward
+        self.gaussian_clipping = gaussian_clipping
 
 
         if gin.query_parameter('%MULTIASSET'):

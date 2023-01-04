@@ -185,7 +185,7 @@ def runplot_metrics_is(p):
     if N_test:
         var_plot = 'AbsRew_IS_{}_{}.parquet.gzip'.format(format_tousands(N_test), outputClass)
 
-
+    add = 6
     # read main folder
     fig = plt.figure(figsize=set_size(width=columnwidth)) 
     ax = fig.add_subplot()
@@ -260,7 +260,10 @@ def runplot_metrics_is(p):
             # reldiff_std_smooth = reldiff_avg.rolling(window).std()
         
 
-
+        # pdb.set_trace()
+        
+        reldiff_avg_smooth = reldiff_avg_smooth + add
+        add += 2.5
         reldiff_avg_smooth.iloc[0:len(reldiff_avg_smooth):50].plot(color=colors[k],ax=ax)
         # reldiff_avg_smooth.iloc[0:5000:100].plot(color=colors[k],ax=ax)
 
@@ -290,7 +293,7 @@ def runplot_metrics_is(p):
         ax.set_ylabel('Relative difference in average reward (\%)') #relative
 
     # ax.ticklabel_format(axis="y", style="sci", scilimits=(0, 0),useMathText=True)
-    # ax.legend(['Residual PPO','Model-free PPO'], loc=4)
+    ax.legend(['Residual PPO','Model-free PPO'], loc=4)
     # ax.legend(outputModel)
     
     # ax.set_ylim(-500,100)
@@ -440,7 +443,7 @@ def runplot_holding(p):
     # oos_test.rnd_state = 435465
     # oos_test.rnd_state = np.random.choice(10000,1)
     # todo
-    oos_test.rnd_state = 9864
+    oos_test.rnd_state = 885
     # gin.bind_parameter('%FIXED_ALPHA',False)
     
     # print(oos_test.rnd_state)
@@ -450,9 +453,9 @@ def runplot_holding(p):
     #todo
     print('PPO cumrew',res_df['Reward_PPO'].cumsum().iloc[-1])
     print('GP cumrew',res_df['OptReward'].cumsum().iloc[-1])
-    print('Ratio PPO-GP',((res_df['Reward_PPO'].cumsum().iloc[-1]-res_df['OptReward'].cumsum().iloc[-1])/res_df['OptReward'].cumsum().iloc[-1]))
-    # print('MV cumrew',res_df['MVReward'].cumsum().iloc[-1])
-    # print('Ratio MV-GP',res_df['MVReward'].cumsum().iloc[-1]/res_df['OptReward'].cumsum().iloc[-1])
+    print('Pct Ratio PPO-GP',((res_df['Reward_PPO'].cumsum().iloc[-1]-res_df['OptReward'].cumsum().iloc[-1])/res_df['OptReward'].cumsum().iloc[-1])*100)
+    print('MV cumrew',res_df['MVReward'].cumsum().iloc[-1])
+    print('Pct Ratio MV-GP',((res_df['MVReward'].cumsum().iloc[-1]-res_df['OptReward'].cumsum().iloc[-1])/res_df['OptReward'].cumsum().iloc[-1])*100)
 
     if gin.query_parameter('%MULTIASSET'):
         plot_portfolio(res_df, tag[0], ax, tbox=False)

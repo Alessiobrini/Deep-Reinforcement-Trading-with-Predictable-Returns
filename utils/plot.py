@@ -33,6 +33,7 @@ import torch
 from agents.PPO import PPOActorCritic
 from sklearn.preprocessing import MinMaxScaler
 from scipy.stats import median_abs_deviation
+from sympy import *
 
 # # LOAD UTILS
 def load_DQNmodel(
@@ -614,7 +615,7 @@ def plot_BestActions(
 
     query = gin.query_parameter
     gin.bind_parameter('alpha_term_structure_sampler.generate_plot', generate_plot)
-
+    # print(query('PPO.gaussian_clipping'))
     
     def opt_trading_rate_disc_loads(
         discount_rate, kappa, CostMultiplier, f_param, f_speed
@@ -654,7 +655,8 @@ def plot_BestActions(
             sample_Ret.sort()
         else:
             # todo
-            sample_Ret = np.linspace(-0.05, 0.05, query('%LEN_SERIES'), dtype="float")
+            sample_Ret = np.linspace(-0.1, 0.1, query('%LEN_SERIES'), dtype="float")
+            # sample_Ret = np.linspace(-0.000001, 0.000001, query('%LEN_SERIES'), dtype="float")
 
         if holding == 0:
             holdings = np.zeros(len(sample_Ret), dtype="float")
@@ -692,7 +694,7 @@ def plot_BestActions(
             # pdb.set_trace()
             mult =  gin.query_parameter('%QTS')[-1]
             # gin.bind_parameter('PPO.tanh_stretching', 1.0)
-
+            stochastic=False
             if stochastic:
                 # unscaled_max_action = torch.nn.Tanh()(dist.sample())
                 unscaled_max_action = dist.sample()
@@ -707,7 +709,10 @@ def plot_BestActions(
                     # unscaled_max_action = np.sign(dist.mean) * nthroot(torch.nn.Tanh()((dist.mean**2)**(a/2)),a)
                     # unscaled_max_action = torch.nn.Tanh()(dist.mean*2)
                 elif query('PPO.action_clipping_type') == 'clip':
-                    unscaled_max_action = torch.clip(dist.mean,-3,3)
+                    # gin.bind_parameter('PPO.gaussian_clipping',3)
+                    unscaled_max_action = torch.clip(dist.mean,
+                                                     -gin.query_parameter('PPO.gaussian_clipping'),
+                                                     gin.query_parameter('PPO.gaussian_clipping'))
                 
             
             # if query("%MV_RES"):
@@ -870,13 +875,16 @@ def plot_BestActions(
         )
 
         if query("%INP_TYPE") == "ret" or query("%INP_TYPE") == "alpha":
-
+            
             OptNextHolding = (1 - OptRate) * holding + OptRate * (
                 1 / (kappa * (sigma) ** 2)
             ) * sample_Ret
             optimal_policy = OptNextHolding - holding
+            
+            
 
             ax.plot(sample_Ret, optimal_policy, linewidth=1.5, label="GP Policy", ls='--',color='tab:orange')
+        
         # elif query("%INP_TYPE") == "f" or query("%INP_TYPE") == "alpha_f":
 
         #     OptNextHolding = (1 - OptRate) * holdings + OptRate * (
@@ -909,12 +917,15 @@ def plot_BestActions(
         else:
             max_action = unscale_action(optimal_policy[-1]*mult, unscaled_max_action)
     elif query('PPO.action_clipping_type') == 'clip':
-        num=3
+        num=query('PPO.gaussian_clipping')
         if actions_space.asymmetric:
-            max_action = unscale_asymmetric_action(optimal_policy[0]*mult,optimal_policy[-1]*mult, unscaled_max_action,num)
+            max_action = unscale_asymmetric_action(optimal_policy[0]*mult,
+                                                   optimal_policy[-1]*mult, 
+                                                   unscaled_max_action,
+                                                   num)
         else:
             max_action = unscale_action(optimal_policy[-1]*mult, unscaled_max_action, num)
-    
+
     # pdb.set_trace()
     # TODO
     ax.plot(
@@ -925,23 +936,50 @@ def plot_BestActions(
         color=color
     )
     
+
+    # pdb.set_trace()
+    # diff = (( optimal_policy-max_action.numpy().reshape(-1,)))
+    # diff[diff>100] = 3.0
+    # diff[diff<-100] = -3.0
     # ax.plot(
     #     sample_Ret,
-    #     (optimal_policy-max_action.numpy().reshape(-1,)),
+    #     diff,
     #     linewidth=1.5,
     #     label="{} Policy".format(model.modelname),
     #     color=color
     # )
+    # ax.axhline(y=0, color='grey', ls='--')
     # ax.set_xlim(-0.05,0.05)
-    # ax.set_xlim(-0.015,0.015)
-    # # ax.set_xlim(-0.0075,0.0075)
-    # ax.set_ylim(-1*10**4,1*10**4)
+    # ax.set_xlim(-0.015,0.005)
+    # ax.set_xlim(-0.0075,0.0075)
+    # ax.set_ylim(2.26*10**7,2.32*10**7)
+    # ax.set_ylim(-20,20)
+
     
 
-    pol_diff = np.round(np.mean(np.abs(optimal_policy-max_action.numpy())),0) 
-    # pol_diff = np.linalg.norm(optimal_policy-max_action.numpy())
-    txt = AnchoredText("$\Delta$: {:e}".format(pol_diff),loc= 1,prop=dict(size=6.5))
-    ax.add_artist(txt)
+    # pol_diff = np.round(np.mean(np.abs(optimal_policy-max_action.numpy())),0) 
+    # # pol_diff = np.linalg.norm(optimal_policy-max_action.numpy())
+    # txt = AnchoredText("$\Delta$: {:e}".format(pol_diff),loc= 1,prop=dict(size=6.5))
+    # ax.add_artist(txt)
+    
+    opt_d1 = np.gradient(optimal_policy,sample_Ret[1]-sample_Ret[0])
+    rl_d1 = np.gradient(max_action.numpy().reshape(-1,),sample_Ret[1]-sample_Ret[0])
+    from decimal import Decimal
+    diff ='%.2E' % Decimal(opt_d1.mean() - rl_d1.mean().astype(np.float64))
+    pctdiff = '%.2E' % Decimal((opt_d1.mean() - rl_d1.mean().astype(np.float64))/rl_d1.mean().astype(np.float64))
+    print('PCt Diff D1',pctdiff)
+    # # pdb.set_trace()
+    # # rl_d1[rl_d1==0] = rl_d1.mean()
+    # figd,axd = plt.subplots()
+    # axd.plot(sample_Ret, opt_d1, linewidth=1.5, label="GP Policy", ls='--',color='tab:orange', alpha=0.7)
+    # axd.plot(
+    #     sample_Ret,
+    #     rl_d1, # pd.Series(rl_d1).rolling(100).mean(), #
+    #     linewidth=1.5,
+    #     label="{} Policy".format(model.modelname),
+    #     color=color
+    # )
+    # axd.set_xlim(-0.005,0.005)
 
 def plot_BestActions_time(
     model, holding: float, alpha: float, ax: object = None, optimal: bool = False, 
@@ -1146,11 +1184,11 @@ def plot_portfolio(r: pd.DataFrame, tag: str, ax2: object, tbox: bool = True,col
             ax2.add_artist(norm_text)
 
     else:
-        
         ax2.plot(r["OptNextHolding"].values[1:-1], label="benchmark", color=colors[1], ls='--')
         ax2.plot(r["NextHolding_{}".format(tag)].values[1:-1], label=tag, color=colors[0])
         if tbox:
             mse = np.round(np.mean(np.abs(r["OptNextHolding"].values[1:-1] - r["NextHolding_{}".format(tag)].values[1:-1])),decimals=0)
+            # mse = np.linalg.norm(r["OptNextHolding"].values[1:-1] - r["NextHolding_{}".format(tag)].values[1:-1])
             mse_text = AnchoredText("GP - PPO: {:e}".format(mse),loc=2,prop=dict(size=10))
             ax2.add_artist(mse_text)
 

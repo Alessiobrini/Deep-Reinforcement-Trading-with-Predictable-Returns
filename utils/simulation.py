@@ -271,7 +271,7 @@ def return_sampler_GP(
         sys.exit()
     f_speed = lambdas
 
-    generate_plot = False
+    generate_plot = True
     if generate_plot:
         fig,ax = plt.subplots(figsize=(10,5))
         ax.plot(realret)
