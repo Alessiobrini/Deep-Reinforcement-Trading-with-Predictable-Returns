@@ -385,27 +385,23 @@ class PPO:
         
         if self.policy_type == 'continuous':
             new_log_probs = dist.log_prob(action)
-            # self.std_hist.append(self.model.log_std.exp().detach().cpu().numpy().ravel())
-            # self.entropy_hist.append(entropy.detach().cpu().numpy().ravel())
         elif self.policy_type == 'discrete':
             new_log_probs = dist.log_prob(action.reshape(-1)).reshape(-1,1)
-            # self.logits_hist.append(dist.logits.detach().cpu().numpy())
-            # self.entropy_hist.append(entropy.detach().cpu().numpy().ravel())
+
 
         if self.augadv:
-            # reg = np.log(new_log_probs - old_log_probs 
             reg1 = np.log(mw_action/rl_action).nan_to_num(0.0)
-
             mask = torch.sign(mw_action)*torch.sign(rl_action)
             mask[mask==1.0] = 0.0
             mask[mask==-1.0] = 1.0
             reg2 = mask * torch.log(torch.abs(mw_action) + torch.abs(rl_action))
-
             advantage = advantage - self.eta1 * reg1 - self.eta2 * reg2
 
         if gin.query_parameter('%MULTIASSET'):
+            # TODO to understand how to implement
             new_log_probs = new_log_probs.sum(1).reshape(-1,1)
             old_log_probs = old_log_probs.sum(1).reshape(-1,1)
+            # TODO #############################################
         
         ratio = (new_log_probs - old_log_probs).exp()  # log properties
         surr1 = ratio * advantage

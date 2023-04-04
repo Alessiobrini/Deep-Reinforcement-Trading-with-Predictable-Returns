@@ -91,21 +91,22 @@ class PPO_runner(MixinCore):
         try:
             self.set_up_training()
             self.training_agent()
+            pdb.set_trace()
         except (KeyboardInterrupt, SystemExit):
             # self.logging.debug("Exit on KeyboardInterrupt or SystemExit")
             sys.exit()
 
     def set_up_training(self):
         
-        # self.logging.debug("Simulating Data")
-        # Modify hyperparams to deal with a large cross section
+        # TODO Modify hyperparams to deal with a large cross section
         n_assets = gin.query_parameter('%N_ASSETS')
         if n_assets and n_assets>3:
             self._get_hyperparams_n_assets(n_assets,self.rng)
             self.start_time = time.time()
         elif n_assets and n_assets<=3:
             self.start_time = time.time()
-
+        ########################################################## TODO 
+        # Simulating Data
         self.data_handler = DataHandler(N_train=self.len_series, rng=self.rng)
         if self.experiment_type == "GP":
             self.data_handler.generate_returns()
@@ -113,8 +114,9 @@ class PPO_runner(MixinCore):
             self.data_handler.generate_returns()
             # TODO check if these method really fit and change the parameters in the gin file
             self.data_handler.estimate_parameters()
+            # TODO ########################################################################
 
-        # self.logging.debug("Instantiating action space")
+        # Instantiating action space
         if self.MV_res:
             self.action_space = ResActionSpace()
         else:
@@ -131,8 +133,8 @@ class PPO_runner(MixinCore):
             if n_assets> 1:
                 gin.query_parameter("%ACTION_RANGE")[0] = [list(arr) for arr in gin.query_parameter("%ACTION_RANGE")[0]] + [gin.query_parameter("%ACTION_RANGE")[1]]
 
-
-        # self.logging.debug("Instantiating market environment")
+        
+        # Instantiating market environment
         self.env = self.env_cls(
             N_train=self.N_train,
             f_speed=self.data_handler.f_speed,
@@ -140,14 +142,8 @@ class PPO_runner(MixinCore):
             factors=self.data_handler.factors,
         )
 
-        # self.logging.debug("Instantiating PPO model")
-        
+        # Instantiating PPO model
         input_shape = self.env.get_state_dim()
-
-        # step_size = (
-        #     self.len_series / gin.query_parameter("PPO.batch_size")
-        # ) * gin.query_parameter("%EPOCHS")
-        # gin.bind_parameter("PPO.step_size", step_size)
 
         self.train_agent = PPO(
             input_shape=input_shape, action_space=self.action_space, rng=self.rng
@@ -155,7 +151,7 @@ class PPO_runner(MixinCore):
 
         self.train_agent.add_tb_diagnostics(self.savedpath,self.epochs)
 
-        # self.logging.debug("Instantiating Out of sample tester")
+        # Instantiating Out of sample tester
         self.oos_test = Out_sample_vs_gp(
             savedpath=self.savedpath,
             tag="PPO",
@@ -184,19 +180,20 @@ class PPO_runner(MixinCore):
         are saved in `_exp/experiment_name/_backtests/`.
         """
 
-        # self.logging.debug("Start training...")
+        # Start training
         
         if self.store_insample:
             self.ppo_rew,self.opt_rew, self.mw_rew = [],[],[]
         for e in tqdm(iterable=range(self.episodes), desc="Running episodes..."):
-            # if e == 25:
             if e > 0 and self.universal_train:
+                # TODO can be modified by having a fixed boundaries for the action space
                 if self.experiment_type == "GP":
                     self.data_handler.generate_returns(disable_tqdm=True)
                 else:
                     self.data_handler.generate_returns(disable_tqdm=True)
                     # TODO check if these method really fit and change the parameters in the gin file
                     self.data_handler.estimate_parameters()
+                    # change it
 
                 self.env.returns = self.data_handler.returns
                 self.env.factors = self.data_handler.factors
@@ -214,11 +211,9 @@ class PPO_runner(MixinCore):
 
                     self.action_space = ActionSpace()
             
-            # self.logging.debug("Training...")
-
+            # Training
             self.collect_rollouts()
             
-
             self.update(e)
 
             if e>0 and self.ppo_rew[e]>np.max(self.ppo_rew[:-1]):
@@ -231,7 +226,7 @@ class PPO_runner(MixinCore):
                 with open(os.path.join(self.savedpath, "best_ep.txt"), 'w') as f:
                     f.write('Best ep is {}'.format(e))
 
-            if self.save_freq and ((e + 1) % self.save_freq == 0):  # TODO or e+1?
+            if self.save_freq and ((e + 1) % self.save_freq == 0):
 
                 torch.save(
                     self.train_agent.model.state_dict(),
@@ -293,7 +288,6 @@ class PPO_runner(MixinCore):
         for i in range(len(self.env.returns) - 2):
             # if i%100 == 0 and len(self.ppo_rew)>25:
             # if i%100 == 0:
-            #     pdb.set_trace()
             dist, value = self.train_agent.act(state)
 
             if self.train_agent.policy_type == "continuous":
@@ -301,58 +295,34 @@ class PPO_runner(MixinCore):
 
                 log_prob = dist.log_prob(action)
                 
-                if self.train_agent.action_clipping_type == 'env':
-                    clipped_action=action.cpu().numpy().ravel()
-                    action = action.cpu().numpy().ravel()
-                    unscaled_action = clipped_action*(self.action_space.action_range[0]) 
-                elif self.train_agent.action_clipping_type == 'none':
-                    clipped_action=action.cpu().numpy().ravel()
-                    action = action.cpu().numpy().ravel()
-                    unscaled_action = clipped_action
-                elif self.train_agent.action_clipping_type == 'tanh':
+                # Rescale action before sending it to the environment
+                if self.train_agent.action_clipping_type == 'tanh':
                     clipped_action = nn.Tanh()(self.train_agent.tanh_stretching*action).cpu().numpy().ravel() 
                     action = action.cpu().numpy().ravel() 
-                    if self.MV_res:
-                        unscaled_action = unscale_asymmetric_action(
-                            self.action_space.action_range[0],self.action_space.action_range[1], clipped_action
-                        )
-                    else:
-                        
-                        if self.action_space.asymmetric:
-                            unscaled_action = unscale_asymmetric_action(
-                                self.action_space.action_range[0],self.action_space.action_range[1], clipped_action
-                            )
-                        else:
-                            unscaled_action = unscale_action(
-                                self.action_space.action_range[0], clipped_action 
-                            )
-
                 elif self.train_agent.action_clipping_type == 'clip':
                     
                     clipped_action=torch.clip(action,
                                               -self.train_agent.gaussian_clipping,
                                               self.train_agent.gaussian_clipping).cpu().numpy().ravel()
                     action = action.cpu().numpy().ravel()
-                    if self.MV_res:
+                    
+                if self.MV_res:
+                    unscaled_action = unscale_asymmetric_action(
+                        self.action_space.action_range[0],self.action_space.action_range[1], clipped_action
+                    )
+                else:
+                    if self.action_space.asymmetric:
                         unscaled_action = unscale_asymmetric_action(
-                            self.action_space.action_range[0],self.action_space.action_range[1], clipped_action
+                            self.action_space.action_range[0],
+                            self.action_space.action_range[1], 
+                            clipped_action,
+                            self.train_agent.gaussian_clipping
                         )
                     else:
-                        # pdb.set_trace()
-                        if self.action_space.asymmetric:
-                            unscaled_action = unscale_asymmetric_action(
-                                self.action_space.action_range[0],
-                                self.action_space.action_range[1], 
-                                clipped_action,
-                                self.train_agent.gaussian_clipping
-                            )
-                        else:
-                            unscaled_action = unscale_action(
-                                self.action_space.action_range[0], clipped_action,self.train_agent.gaussian_clipping 
-                            )
-                
-
-
+                        unscaled_action = unscale_action(
+                            self.action_space.action_range[0], clipped_action,self.train_agent.gaussian_clipping 
+                        )
+            
             elif self.train_agent.policy_type == "discrete":
                 action = dist.sample()
                 log_prob = dist.log_prob(action)
@@ -369,7 +339,6 @@ class PPO_runner(MixinCore):
 
             if self.MV_res:
                 if len(unscaled_action)>1:
-                    
                     next_state, Result = self.env.MV_res_step(
                         state, unscaled_action, i, tag="PPO"
                     )
@@ -379,7 +348,6 @@ class PPO_runner(MixinCore):
                     )
             else:
                 if len(unscaled_action)>1:
-                    # pdb.set_trace()
                     next_state, Result, _ = self.env.step(
                         state, unscaled_action, i, tag="PPO"
                     )
@@ -428,25 +396,17 @@ class PPO_runner(MixinCore):
             self.opt_rew.append(np.cumsum(gp_temp)[-1])
             self.mw_rew.append(np.cumsum(mw_temp)[-1])
             
-            
-            
-            
 
-
-        
         if self.train_agent.scale_reward:
             rew = np.array(self.train_agent.experience['reward'],dtype='float')
-            # runn_stats = np.cumsum(self.train_agent.experience['reward'])*self.train_agent.gamma
-            # mean_stats = np.array([rew[:x].mean() for x in range(1,len(rew)+1)])
             mean_stats = np.cumsum(rew)/np.arange(1,len(rew)+1)
             # https://stackoverflow.com/questions/18419871/improving-code-efficiency-standard-deviation-on-sliding-windows
             std_stats = np.sqrt((np.cumsum(rew**2)/np.arange(1,len(rew)+1)) - mean_stats**2)
             std_stats[0] = 1.0
             self.train_agent.experience['reward'] = list((self.train_agent.experience['reward']-mean_stats)/std_stats)
-
-        _, self.next_value = self.train_agent.act(next_state)
+        
         # compute the advantage estimate from the given rollout
-
+        _, self.next_value = self.train_agent.act(next_state)
         self.train_agent.compute_gae(self.next_value.detach().cpu().numpy().ravel())
 
 
@@ -462,7 +422,7 @@ class PPO_runner(MixinCore):
                 mw_action,
                 rl_action,
             ) in enumerate(self.train_agent.ppo_iter()):
-                # pdb.set_trace()
+
                 self.train_agent.train(state, action, old_log_probs, return_, advantage, mw_action, rl_action, iteration=j, epoch=i, episode=episode)
 
             # recompute gae to avoid stale advantages
@@ -474,12 +434,6 @@ class PPO_runner(MixinCore):
                 )
 
     def _get_hyperparams_n_assets(self,n_assets,rng):
-        # gin.bind_parameter('%HALFLIFE',[[rng.randint(low=5,high=150)] for _ in range(n_assets)])
-        # gin.bind_parameter('%INITIAL_ALPHA',[[np.round(rng.uniform(low=0.05,high=0.1),5)] for _ in range(n_assets)])
-        # gin.bind_parameter('%F_PARAM',[[1.0] for _ in range(n_assets)])
-        # gin.bind_parameter('%CORRELATION',list(np.round(rng.uniform(low=-0.8,
-        #                                                             high=0.8,
-        #                                                             size=(int((n_assets**2 - n_assets)/2))),5)))
         rng = np.random.RandomState(self.seed)
         gin.bind_parameter('%HALFLIFE',[[rng.randint(low=50,high=800)] for _ in range(n_assets)])
         gin.bind_parameter('%INITIAL_ALPHA',[[np.round(rng.uniform(low=0.003,high=0.01),5)] for _ in range(n_assets)])

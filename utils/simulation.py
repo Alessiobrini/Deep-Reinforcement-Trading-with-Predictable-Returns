@@ -42,7 +42,6 @@ class DataHandler:
         rng: object,
         factor_lb: Union[list, None] = None,
     ):
-
         self.datatype = datatype
         self.N_train = N_train
         self.rng = rng

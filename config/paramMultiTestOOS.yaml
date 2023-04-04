@@ -69,7 +69,23 @@ experiment_ppo: 'seed_325' #'hidden_units_actor_20_20_20_activation_tanh_seed_88
 hyperparams_model_ppo: [50.0] #['32_32'] #[0.99,0.98,'64_64','128_64'] #[False,None]  #[True,1e-05] #[True,1e-05] #[False,None] 
 hyperparams_exp_ppo:  [1.5]  #[True,1e-05]
 plot_type: 'metrics_is' #'metrics_is' #'multi_policy' #'holding'
-outputModels_ppo: ['20230329_GP_short3_sigma_0.01_sigmaf_0.01_0.01_f_param_[0.25]_[0.25]', ]
+outputModels_ppo:  [ '20230403_GP_single_longer_tanh_universal_train_False_costmultiplier_1.0', 
+ '20230403_GP_single_longer_tanh_universal_train_False_costmultiplier_2.0', 
+ '20230403_GP_single_longer_tanh_universal_train_False_costmultiplier_5.0']
+
+
+# ['20230403_GP_single_longer_tanh_universal_train_False_costmultiplier_0.01', 
+#  '20230403_GP_single_longer_tanh_universal_train_False_costmultiplier_1.0', 
+#  '20230403_GP_single_longer_tanh_universal_train_False_costmultiplier_1e-09', 
+#  '20230403_GP_single_longer_tanh_universal_train_False_costmultiplier_2.0', 
+#  '20230403_GP_single_longer_tanh_universal_train_False_costmultiplier_5.0', 
+#  '20230403_GP_single_longer_tanh_universal_train_True_costmultiplier_0.01', 
+#  '20230403_GP_single_longer_tanh_universal_train_True_costmultiplier_1.0', 
+#  '20230403_GP_single_longer_tanh_universal_train_True_costmultiplier_1e-09', 
+#  '20230403_GP_single_longer_tanh_universal_train_True_costmultiplier_2.0', 
+#  '20230403_GP_single_longer_tanh_universal_train_True_costmultiplier_5.0']
+
+
 
 # ['20230403_GP_single_longer_universal_train_False_costmultiplier_0.01', 
 #  '20230403_GP_single_longer_universal_train_False_costmultiplier_1.0', 

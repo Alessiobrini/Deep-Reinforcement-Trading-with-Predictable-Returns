@@ -303,9 +303,8 @@ class MarketEnv(gym.Env):
         iteration: int,
         tag: str = "DQN",
     ) -> Tuple[np.ndarray, dict, np.ndarray]:
-        # This is the only environment in which we can run tests with alpha decay inputs in a model free setting
-        # It is not implemented in the enviroment with cash because we focused on Res RL setting
 
+        
         nextFactors = self.factors[iteration + 1]
         nextRet = self.returns[iteration + 1]
 

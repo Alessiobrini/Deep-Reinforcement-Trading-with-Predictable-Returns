@@ -2,18 +2,17 @@
 import os, pdb
 import pandas as pd
 import numpy as np
-import matplotlib.pyplot as plt
-import seaborn as sns
 import gin
 gin.enter_interactive_mode()
 from joblib import Parallel, delayed
-import matplotlib as mpl
 from utils.test import Out_sample_vs_gp
 from utils.env import MarketEnv, CashMarketEnv, ShortCashMarketEnv, MultiAssetCashMarketEnv, ShortMultiAssetCashMarketEnv
 from agents.PPO import PPO
 from utils.spaces import ActionSpace, ResActionSpace
 from utils.common import readConfigYaml
 from utils.plot import load_PPOmodel
+import warnings
+warnings.filterwarnings("ignore", category=DeprecationWarning)
 
 
 # Read config ----------------------------------------------------------------
@@ -31,27 +30,18 @@ def get_exp_length(modelpath):
     return length
 
 
-def parallel_test(seed,test_class,train_agent,data_dir,fullpath=False,mv_solution=False):
+def parallel_test(seed,test_class,train_agent,data_dir):
     gin.parse_config_file(os.path.join(data_dir, "config.gin"), skip_unknown=True)
-    # gin.bind_parameter('alpha_term_structure_sampler.fixed_alpha', False)
-    # change reward function in order to evaluate in the same way
-    if gin.query_parameter('%REWARD_TYPE') == 'cara':
-        gin.bind_parameter('%REWARD_TYPE', 'mean_var')
     test_class.rnd_state = seed
     res_df = test_class.run_test(train_agent, return_output=True)
-    if fullpath:
-        if not mv_solution:
-            return res_df['Reward_PPO'],res_df['OptReward']
-        else:
-            return res_df['Reward_PPO'],res_df['OptReward'],res_df['MVReward']
-    else:
-        if not mv_solution:
-            return res_df['Reward_PPO'].cumsum().values[-1],res_df['OptReward'].cumsum().values[-1]
-        else:
-            return res_df['Reward_PPO'].cumsum().values[-1],res_df['OptReward'].cumsum().values[-1],res_df['MVReward'].cumsum().values[-1]
+    return res_df
 
-N = 100
-models_experiments = [('20230403_GP_single_longer_universal_train_False_costmultiplier_1.0', 'universal_train_False_costmultiplier_1.0_seed_885')]
+N = 1000
+models_experiments = [ ('20230403_GP_single_longer_tanh_universal_train_False_costmultiplier_1.0', 'universal_train_False_costmultiplier_1.0_seed_885'),
+ ('20230403_GP_single_longer_tanh_universal_train_False_costmultiplier_2.0',  'universal_train_False_costmultiplier_2.0_seed_885'),
+ ('20230403_GP_single_longer_tanh_universal_train_False_costmultiplier_5.0', 'universal_train_False_costmultiplier_5.0_seed_885')]
+
+# [('20230403_GP_single_longer_universal_train_False_costmultiplier_1.0', 'universal_train_False_costmultiplier_1.0_seed_885')]
 
 
 
@@ -68,7 +58,7 @@ for me in models_experiments:
     experiment = me[1]
     
     
-        # Load parameters and get the path
+    # Load parameters and get the path
     query = gin.query_parameter
     outputClass = p["outputClass"]
     tag = p["algo"]
@@ -79,7 +69,6 @@ for me in models_experiments:
     gin.parse_config_file(os.path.join(data_dir, "config.gin"), skip_unknown=True)
     gin.bind_parameter('alpha_term_structure_sampler.generate_plot', p['generate_plot'])  
     p['N_test'] = gin.query_parameter('%LEN_SERIES')
-    # gin.bind_parameter('Out_sample_vs_gp.rnd_state',p['random_state'])
     rng = np.random.RandomState(query("%SEED"))
     
     # Load the elements for producing the plot
@@ -132,7 +121,6 @@ for me in models_experiments:
     else:
         env = MarketEnv
     
-    
     oos_test = Out_sample_vs_gp(
             savedpath=None,
             tag=tag[0],
@@ -143,14 +131,13 @@ for me in models_experiments:
             mv_solution=True
         )
 
-
-    rng_seeds = np.random.RandomState(14)
-    p['fullpath']=True
-    p['n_seeds'] = N
-    seeds = rng_seeds.choice(1000,p['n_seeds'])
     
+    rng_seeds = np.random.RandomState(14)
+    seeds = rng_seeds.choice(100000,N)
+    # pdb.set_trace()
+    # res_df = oos_test.run_test(train_agent, return_output=True)
     rewards = Parallel(n_jobs=p['cores'])(delayed(parallel_test)(
-            s, oos_test,train_agent,data_dir,p['fullpath'],mv_solution=p['mv_solution']) for s in seeds)
+            s, oos_test,train_agent,data_dir) for s in seeds)
     
     
 
@@ -162,9 +149,7 @@ for me in models_experiments:
     # rewards_ppo = pd.concat(list(map(list, zip(*rewards)))[0],axis=1)
     rewards_ppo = pd.concat([df['Reward_PPO'] for df in rewards], ignore_index=True)
     rewards_ppo.to_csv('outputs/cumrewards/{}_ppo.csv'.format(model))
-    # rewards_gp = pd.concat(list(map(list, zip(*rewards)))[1],axis=1)
     rewards_gp = pd.concat([df['OptReward'] for df in rewards], ignore_index=True)
     rewards_gp.to_csv('outputs/cumrewards/{}_gp.csv'.format(model))
-    # rewards_mv = pd.concat(list(map(list, zip(*rewards)))[2],axis=1)
     rewards_mv = pd.concat([df['MVReward'] for df in rewards], ignore_index=True)
     rewards_mv.to_csv('outputs/cumrewards/{}_mv.csv'.format(model))

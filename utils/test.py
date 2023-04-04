@@ -31,7 +31,6 @@ from utils.simulation import DataHandler
 class Out_sample_vs_gp:
     def __init__(
         self,
-        n_seeds: int,
         N_test: int,
         rnd_state: int,
         savedpath: str,
@@ -52,7 +51,6 @@ class Out_sample_vs_gp:
 
         self.variables = variables
         self.rnd_state = rnd_state
-        self.n_seeds = n_seeds
         self.N_test = N_test
         self.tag = tag
         self.savedpath = savedpath
@@ -83,280 +81,216 @@ class Out_sample_vs_gp:
         abs_wealth_rl = []
         abs_wealth_gp = []
         
-        # gin.bind_parameter('%F_PARAM',[0.0001])
-        # gin.bind_parameter('%SIGMA',0.001)
-        # gin.bind_parameter('%SIGMAF',[0.01])
-        # gin.bind_parameter('%HALFLIFE',[100])
-        # gin.bind_parameter('%COSTMULTIPLIER',1.5)
-        # gin.bind_parameter('%KAPPA',5e-2)
-        # print(test_agent.gaussian_clipping)
-        for s in range(self.n_seeds):
-            if 'alpha' in gin.query_parameter('%INP_TYPE'):
-                data_handler = DataHandler(N_train=self.N_test, rng=self.rng_test)
-            else:
-                data_handler = DataHandler(N_train=self.N_test, rng=self.rng_test)
+        
 
-            if self.experiment_type == "GP":
-                data_handler.generate_returns()
-            else:
-                gin.bind_parameter('return_sampler_garch.seed',s)
-                data_handler.generate_returns()
-                data_handler.estimate_parameters()
-            
-            # if data_handler.datatype == "alpha_term_structure" and not self.MV_res:
-            if not self.MV_res:
-                gin.bind_parameter('%N_ASSETS',1)
-                #temp_fix
-                env_type = MarketEnv
-                action_range, _, _ = get_action_boundaries(
-                    env_type = env_type,
-                    N_train=self.N_test,
-                    f_speed=data_handler.f_speed,
-                    returns=data_handler.returns,
-                    factors=data_handler.factors,
-                )
-                # temp fix
-                # print(gin.query_parameter("%ACTION_RANGE"))
-                gin.query_parameter("%ACTION_RANGE")[0] = action_range
-                # print(gin.query_parameter("%ACTION_RANGE"))
-                test_agent.action_space = ActionSpace()
+        if 'alpha' in gin.query_parameter('%INP_TYPE'):
+            data_handler = DataHandler(N_train=self.N_test, rng=self.rng_test)
+        else:
+            data_handler = DataHandler(N_train=self.N_test, rng=self.rng_test)
 
-            self.test_env = self.env_cls(
+        if self.experiment_type == "GP":
+            data_handler.generate_returns()
+        else:
+            # TODO Check if the seeds variaes here
+            data_handler.generate_returns()
+            data_handler.estimate_parameters()
+            # TODO ############################
+
+        if not self.MV_res:
+            action_range, _, _ = get_action_boundaries(
                 N_train=self.N_test,
                 f_speed=data_handler.f_speed,
                 returns=data_handler.returns,
                 factors=data_handler.factors,
             )
+            # temp fix
+            # print(gin.query_parameter("%ACTION_RANGE"))
+            gin.query_parameter("%ACTION_RANGE")[0] = action_range
+            # print(gin.query_parameter("%ACTION_RANGE"))
+            test_agent.action_space = ActionSpace()
 
-            CurrState = self.test_env.reset()
+        self.test_env = self.env_cls(
+            N_train=self.N_test,
+            f_speed=data_handler.f_speed,
+            returns=data_handler.returns,
+            factors=data_handler.factors,
+        )
 
-            CurrOptState = self.test_env.opt_reset()
-            OptRate, DiscFactorLoads = self.test_env.opt_trading_rate_disc_loads()
-            if self.mv_solution:
-                CurrMVState = self.test_env.opt_reset()
+        CurrState = self.test_env.reset()
 
-            for i in tqdm(iterable=range(self.N_test + 1), desc="Testing DQNetwork"):
+        CurrOptState = self.test_env.opt_reset()
+        OptRate, DiscFactorLoads = self.test_env.opt_trading_rate_disc_loads()
+        if self.mv_solution:
+            CurrMVState = self.test_env.opt_reset()
 
-                if self.tag == "DQN":
+        for i in tqdm(iterable=range(self.N_test + 1), desc="Testing DQNetwork"):
 
-                    side_only = test_agent.action_space.side_only
+            if self.tag == "DQN":
 
-                    action, qvalues = test_agent.greedy_action(
-                        CurrState, side_only=side_only
+                side_only = test_agent.action_space.side_only
+
+                action, qvalues = test_agent.greedy_action(
+                    CurrState, side_only=side_only
+                )
+                if side_only:
+                    action = get_bet_size(
+                        qvalues,
+                        action,
+                        action_limit=test_agent.action_space.action_range[0],
+                        zero_action=test_agent.action_space.zero_action,
+                        rng=self.rng,
                     )
-                    if side_only:
-                        action = get_bet_size(
-                            qvalues,
-                            action,
-                            action_limit=test_agent.action_space.action_range[0],
-                            zero_action=test_agent.action_space.zero_action,
-                            rng=self.rng,
-                        )
+
+                if self.MV_res:
+                    NextState, Result, _ = self.test_env.MV_res_step(
+                        CurrState, action, i
+                    )
+                else:
+                    NextState, Result, NextFactors = self.test_env.step(
+                        CurrState, action, i,
+                    )
+                self.test_env.store_results(Result, i)
+
+            elif self.tag == "PPO":
+                
+                test_agent.model.eval()
+                CurrState = torch.from_numpy(CurrState).float()
+                CurrState = CurrState.to(test_agent.device)
+                # PPO actions
+                with torch.no_grad():
+                    dist, qvalues = test_agent.model(CurrState.unsqueeze(0))
+                if test_agent.policy_type == "continuous":
+                    action = dist.mean
+                    if test_agent.action_clipping_type == 'tanh':
+                        action = nn.Tanh()(test_agent.tanh_stretching*action)
+                    elif test_agent.action_clipping_type == 'clip':
+                        action = torch.clip(action,-test_agent.gaussian_clipping, test_agent.gaussian_clipping)
+            
 
                     if self.MV_res:
-                        NextState, Result, _ = self.test_env.MV_res_step(
-                            CurrState, action, i
+                        action = unscale_asymmetric_action(
+                            test_agent.action_space.action_range[0],test_agent.action_space.action_range[1], action
                         )
                     else:
-                        NextState, Result, NextFactors = self.test_env.step(
-                            CurrState, action, i,
-                        )
-                    self.test_env.store_results(Result, i)
-
-                elif self.tag == "PPO":
-                    side_only = test_agent.action_space.side_only
-                    test_agent.model.eval()
-                    CurrState = torch.from_numpy(CurrState).float()
-                    CurrState = CurrState.to(test_agent.device)
-                    # pdb.set_trace()
-                    # PPO actions
-                    with torch.no_grad():
-                        dist, qvalues = test_agent.model(CurrState.unsqueeze(0))
-
-                    if test_agent.policy_type == "continuous":
-                        
-                        # pdb.set_trace()
-                        #todo
-                        # self.stochastic_policy=False
-                        # if self.stochastic_policy:
-                        #     action = dist.sample()
-                        # else:
-                        #     action = dist.mean
-                            
-
-                        if test_agent.action_clipping_type =='env':
-                            action = dist.mean
-                        elif test_agent.action_clipping_type == 'tanh':
-                            action = dist.mean
-                            action = nn.Tanh()(test_agent.tanh_stretching*action)
-                        elif test_agent.action_clipping_type == 'clip':
-                            action = dist.mean
-                            action = torch.clip(action,-test_agent.gaussian_clipping, test_agent.gaussian_clipping)
-                
-
-                        if self.MV_res:
+                        if test_agent.action_space.asymmetric:
                             action = unscale_asymmetric_action(
-                                test_agent.action_space.action_range[0],test_agent.action_space.action_range[1], action
+                                np.array(test_agent.action_space.action_range[0]),
+                                np.array(test_agent.action_space.action_range[1]),
+                                action.numpy().ravel(),
+                                test_agent.gaussian_clipping
                             )
                         else:
-                            
-                            # test_agent.action_space.asymmetric = True
-                            # test_agent.action_space.action_range = [-2162.64453125, 2162.64453125] #[-2162.64453125, 1771.396484375]
-                            if test_agent.action_space.asymmetric:
-                                # pdb.set_trace()
-                                action = unscale_asymmetric_action(
-                                    np.array(test_agent.action_space.action_range[0]),
-                                    np.array(test_agent.action_space.action_range[1]),
-                                    action.numpy().ravel(),
-                                    test_agent.gaussian_clipping
-                                )
-                                
-                            else:
-                                action = unscale_action(
-                                    test_agent.action_space.action_range[0], action,test_agent.gaussian_clipping
-                                )
+                            action = unscale_action(
+                                test_agent.action_space.action_range[0], action,test_agent.gaussian_clipping
+                            )
+
+                elif test_agent.policy_type == "discrete":
+                    action = test_agent.action_space.values[torch.max(dist.logits, axis=1)[1]]
 
 
-                    elif test_agent.policy_type == "discrete":
-                        # action = test_agent.action_space.values[dist.sample()]
-                        action = test_agent.action_space.values[torch.max(dist.logits, axis=1)[1]]
-
-                    if side_only:
-                        action = get_bet_size(
-                            qvalues,
-                            action,
-                            action_limit=test_agent.action_space.action_range[0],
-                            zero_action=test_agent.action_space.zero_action,
-                            rng=self.rng,
-                        )
-                    if self.MV_res:
-                        NextState, Result = self.test_env.MV_res_step(
-                            CurrState.cpu(), action, i, tag="PPO"
-                        )
-                    else:
-
-                        NextState, Result, _ = self.test_env.step(
-                            CurrState.cpu(), action, i, tag="PPO"
-                        )
-
-                    self.test_env.store_results(Result, i)
-                    
-
-                CurrState = NextState
-
-                # benchmark agent
-
-                NextOptState, OptResult = self.test_env.opt_step(
-                    CurrOptState, OptRate, DiscFactorLoads, i
-                )
-
-                self.test_env.store_results(OptResult, i)
-
-                CurrOptState = NextOptState
-
-                if self.mv_solution:
-                    NextMVState, MVResult = self.test_env.mv_step(
-                        CurrMVState, i
+                if self.MV_res:
+                    NextState, Result = self.test_env.MV_res_step(
+                        CurrState.cpu(), action, i, tag="PPO"
                     )
-                    self.test_env.store_results(MVResult, i)
-                    CurrMVState = NextMVState
+                else:
+                    NextState, Result, _ = self.test_env.step(
+                        CurrState.cpu(), action, i, tag="PPO"
+                    )
 
+                self.test_env.store_results(Result, i)
+            CurrState = NextState
 
-            if return_output:
-                return self.test_env.res_df
+            # benchmark agent
+            NextOptState, OptResult = self.test_env.opt_step(
+                CurrOptState, OptRate, DiscFactorLoads, i
+            )
+            self.test_env.store_results(OptResult, i)
+            CurrOptState = NextOptState
+            if self.mv_solution:
+                NextMVState, MVResult = self.test_env.mv_step(
+                    CurrMVState, i
+                )
+                self.test_env.store_results(MVResult, i)
+                CurrMVState = NextMVState
 
+        if return_output:
+            return self.test_env.res_df
+
+        else:
+
+            # select interesting variables and express as a percentage of the GP results
+            pnl_str = list(
+                filter(lambda x: "NetPNL_{}".format(self.tag) in x, self.variables)
+            )
+            opt_pnl_str = list(filter(lambda x: "OptNetPNL" in x, self.variables))
+            rew_str = list(
+                filter(lambda x: "Reward_{}".format(self.tag) in x, self.variables)
+            )
+            opt_rew_str = list(filter(lambda x: "OptReward" in x, self.variables))
+
+            # pnl
+            pnl = self.test_env.res_df[pnl_str + opt_pnl_str].iloc[:-1]
+            cum_pnl = pnl.cumsum()
+
+            if (
+                data_handler.datatype == "garch"
+                or data_handler.datatype == "garch_mr"
+            ):
+                ref_pnl = np.array(cum_pnl[pnl_str]) - np.array(
+                    cum_pnl[opt_pnl_str]
+                )
             else:
+                ref_pnl = (
+                    np.array(cum_pnl[pnl_str]) / np.array(cum_pnl[opt_pnl_str])
+                ) * 100
 
-                # select interesting variables and express as a percentage of the GP results
-                pnl_str = list(
-                    filter(lambda x: "NetPNL_{}".format(self.tag) in x, self.variables)
+            # rewards
+            rew = self.test_env.res_df[rew_str + opt_rew_str].iloc[:-1]
+            cum_rew = rew.cumsum()
+            if (
+                data_handler.datatype == "garch"
+                or data_handler.datatype == "garch_mr"
+            ):
+                ref_rew = np.array(cum_rew[rew_str]) - np.array(
+                    cum_rew[opt_rew_str]
                 )
-                opt_pnl_str = list(filter(lambda x: "OptNetPNL" in x, self.variables))
-                rew_str = list(
-                    filter(lambda x: "Reward_{}".format(self.tag) in x, self.variables)
-                )
-                opt_rew_str = list(filter(lambda x: "OptReward" in x, self.variables))
+            else:
+                ref_rew = (
+                    np.array(cum_rew[rew_str]) / np.array(cum_rew[opt_rew_str])
+                ) * 100
 
-                # pnl
-                pnl = self.test_env.res_df[pnl_str + opt_pnl_str].iloc[:-1]
-                cum_pnl = pnl.cumsum()
+            # SR
+            mean = np.array(pnl[pnl_str]).mean()
+            std = np.array(pnl[pnl_str]).std()
+            sr = (mean / std) * (252 ** 0.5)
 
-                if (
-                    data_handler.datatype == "garch"
-                    or data_handler.datatype == "garch_mr"
-                ):
-                    ref_pnl = np.array(cum_pnl[pnl_str]) - np.array(
-                        cum_pnl[opt_pnl_str]
-                    )
-                else:
-                    ref_pnl = (
-                        np.array(cum_pnl[pnl_str]) / np.array(cum_pnl[opt_pnl_str])
-                    ) * 100
+            opt_mean = np.array(pnl[opt_pnl_str]).mean()
+            opt_std = np.array(pnl[opt_pnl_str]).std()
+            optsr = (opt_mean / opt_std) * (252 ** 0.5)
 
-                # rewards
-                rew = self.test_env.res_df[rew_str + opt_rew_str].iloc[:-1]
-                cum_rew = rew.cumsum()
-                if (
-                    data_handler.datatype == "garch"
-                    or data_handler.datatype == "garch_mr"
-                ):
-                    ref_rew = np.array(cum_rew[rew_str]) - np.array(
-                        cum_rew[opt_rew_str]
-                    )
-                else:
-                    ref_rew = (
-                        np.array(cum_rew[rew_str]) / np.array(cum_rew[opt_rew_str])
-                    ) * 100
+            perc_SR = (sr / optsr) * 100
+            pnl_std = (std / opt_std) * 100
+            
+            avg_pnls.append(ref_pnl[-1])
+            avg_rews.append(ref_rew[-1])
+            avg_srs.append(perc_SR)
+            abs_pnl_rl.append(cum_pnl.iloc[-1].values[0])
+            abs_pnl_gp.append(cum_pnl.iloc[-1].values[1])
+            abs_rew_rl.append(cum_rew.iloc[-1].values[0])
+            abs_rew_gp.append(cum_rew.iloc[-1].values[1])
+            abs_sr_rl.append(sr)
+            abs_sr_gp.append(optsr)
+            abs_hold_rl.append(0.0)
+            abs_hold_gp.append(0.0)
+            avg_pnlstd.append(pnl_std)
+            avg_pdist.append(0.0)
 
-                # SR
-                mean = np.array(pnl[pnl_str]).mean()
-                std = np.array(pnl[pnl_str]).std()
-                sr = (mean / std) * (252 ** 0.5)
-
-                # # Holding
-                # hold = self.test_env.res_df["NextHolding_{}".format(self.tag)].iloc[
-                #     -2
-                # ]  # avoid last observation
-                # opthold = self.test_env.res_df["OptNextHolding"].iloc[-2]
-
-                # pdist_avg = (
-                #     (
-                #         self.test_env.res_df["NextHolding_{}".format(self.tag)].values
-                #         - self.test_env.res_df["OptNextHolding"].values
-                #     )
-                #     ** 2
-                # ).mean()
-
-                opt_mean = np.array(pnl[opt_pnl_str]).mean()
-                opt_std = np.array(pnl[opt_pnl_str]).std()
-                optsr = (opt_mean / opt_std) * (252 ** 0.5)
-
-                perc_SR = (sr / optsr) * 100
-                pnl_std = (std / opt_std) * 100
-                
-                avg_pnls.append(ref_pnl[-1])
-                avg_rews.append(ref_rew[-1])
-                avg_srs.append(perc_SR)
-                abs_pnl_rl.append(cum_pnl.iloc[-1].values[0])
-                abs_pnl_gp.append(cum_pnl.iloc[-1].values[1])
-                abs_rew_rl.append(cum_rew.iloc[-1].values[0])
-                abs_rew_gp.append(cum_rew.iloc[-1].values[1])
-                abs_sr_rl.append(sr)
-                abs_sr_gp.append(optsr)
-                abs_hold_rl.append(0.0)
-                # abs_hold_rl.append(hold)
-                abs_hold_gp.append(0.0)
-                # abs_hold_gp.append(opthold)
-                avg_pnlstd.append(pnl_std)
-                avg_pdist.append(0.0)
-                # avg_pdist.append(pdist_avg)
-
-                if self.test_env.cash:
-                    # Wealth
-                    wealth = self.test_env.res_df["Wealth_{}".format(self.tag)].iloc[:-1]  # avoid last observation
-                    abs_wealth_rl.append(wealth.iloc[-1])
-                    optwealth = self.test_env.res_df["OptWealth"].iloc[:-1] 
-                    abs_wealth_gp.append(optwealth.iloc[-1])
+            if self.test_env.cash:
+                # Wealth
+                wealth = self.test_env.res_df["Wealth_{}".format(self.tag)].iloc[:-1]  # avoid last observation
+                abs_wealth_rl.append(wealth.iloc[-1])
+                optwealth = self.test_env.res_df["OptWealth"].iloc[:-1] 
+                abs_wealth_gp.append(optwealth.iloc[-1])
 
 
         self._collect_results(

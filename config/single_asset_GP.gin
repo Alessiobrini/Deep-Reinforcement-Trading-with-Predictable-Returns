@@ -71,7 +71,7 @@ F_PARAM = [0.025] #, 0.1] # list of factor loadings
 CORRELATION = None
 DOUBLE_NOISE = True
 QTS = [0.0, 1.0, 1.0] # quantile to select action boundaries print([[0.0,1.0,np.round(i,3)] for i in np.linspace(1.0,5.0,20)])
-ACTION_TYPE = 'GPmult' # GP or MV for selecting action boundaries
+ACTION_TYPE = 'GP' # GP or MV for selecting action boundaries
 UNCORRELATED = True # generate correlated or uncorrelated factors
 T_STUD = False # Student's T noise in the simulation for GP factors
 DEGREES = 6 # degrees of freedom for Student's T
@@ -298,7 +298,6 @@ alpha_term_structure_sampler.fixed_alpha = %FIXED_ALPHA
 
 # Parameters for Out_sample_vs_gp:
 # ==============================================================================
-Out_sample_vs_gp.n_seeds = 1
 Out_sample_vs_gp.N_test = %LEN_SERIES
 Out_sample_vs_gp.rnd_state =  %SEED #3425657
 Out_sample_vs_gp.stochastic_policy =  %STOCHASTIC_POLICY
