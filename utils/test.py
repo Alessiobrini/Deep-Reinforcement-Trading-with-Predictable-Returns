@@ -102,18 +102,25 @@ class Out_sample_vs_gp:
                 gin.bind_parameter('return_sampler_garch.seed',s)
                 data_handler.generate_returns()
                 data_handler.estimate_parameters()
-
-            if data_handler.datatype == "alpha_term_structure" and not self.MV_res:
+            
+            # if data_handler.datatype == "alpha_term_structure" and not self.MV_res:
+            if not self.MV_res:
+                gin.bind_parameter('%N_ASSETS',1)
+                #temp_fix
+                env_type = MarketEnv
                 action_range, _, _ = get_action_boundaries(
+                    env_type = env_type,
                     N_train=self.N_test,
                     f_speed=data_handler.f_speed,
                     returns=data_handler.returns,
                     factors=data_handler.factors,
                 )
-
+                # temp fix
+                # print(gin.query_parameter("%ACTION_RANGE"))
                 gin.query_parameter("%ACTION_RANGE")[0] = action_range
+                # print(gin.query_parameter("%ACTION_RANGE"))
                 test_agent.action_space = ActionSpace()
-            
+
             self.test_env = self.env_cls(
                 N_train=self.N_test,
                 f_speed=data_handler.f_speed,
@@ -192,14 +199,15 @@ class Out_sample_vs_gp:
                                 test_agent.action_space.action_range[0],test_agent.action_space.action_range[1], action
                             )
                         else:
+                            
                             # test_agent.action_space.asymmetric = True
                             # test_agent.action_space.action_range = [-2162.64453125, 2162.64453125] #[-2162.64453125, 1771.396484375]
                             if test_agent.action_space.asymmetric:
                                 # pdb.set_trace()
                                 action = unscale_asymmetric_action(
-                                    test_agent.action_space.action_range[0],
-                                    test_agent.action_space.action_range[1],
-                                    action,
+                                    np.array(test_agent.action_space.action_range[0]),
+                                    np.array(test_agent.action_space.action_range[1]),
+                                    action.numpy().ravel(),
                                     test_agent.gaussian_clipping
                                 )
                                 
@@ -226,6 +234,7 @@ class Out_sample_vs_gp:
                             CurrState.cpu(), action, i, tag="PPO"
                         )
                     else:
+
                         NextState, Result, _ = self.test_env.step(
                             CurrState.cpu(), action, i, tag="PPO"
                         )
@@ -550,7 +559,7 @@ class Out_sample_vs_gp:
             compression="gzip",
         )
 
-        if self.test_env.cash:
+        if 'Cash' in str(gin.query_parameter('%ENV_CLS')):
             self.abs_series_wealth_rl.to_parquet(
                 os.path.join(
                     self.savedpath,

@@ -15,6 +15,7 @@ exp_decay_test.py
 Tcost_calibration.ipynb
 tanh_study.ipynb
 *.txt
+*.ipynb
 
 # Byte-compiled / optimized / DLL files
 __pycache__/

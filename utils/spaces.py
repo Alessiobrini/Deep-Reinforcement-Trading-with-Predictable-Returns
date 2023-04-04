@@ -28,8 +28,10 @@ class ActionSpace(Space):
     def __init__(
         self, action_range: list, zero_action: bool = True, side_only: bool = False
     ):
-        if not side_only:
+
+        if not side_only: #and len(action_range[0][0])==1
             if isinstance(action_range[0],list):
+                
                 self.values = np.round(
                     np.linspace(-action_range[0][0], action_range[0][1], action_range[1]), 2
                 )

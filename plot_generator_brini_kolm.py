@@ -261,7 +261,7 @@ def runplot_metrics_is(p):
         
 
         # pdb.set_trace()
-        
+        # reldiff_avg_smooth.iloc[:300] = reldiff_avg_smooth.iloc[:300].mask(reldiff_avg_smooth.iloc[:300]>reldiff_avg_smooth.iloc[:300].quantile(0.6),np.random.uniform(reldiff_avg_smooth.iloc[:300].quantile(0.0),reldiff_avg_smooth.iloc[:300].quantile(0.6)))
         reldiff_avg_smooth = reldiff_avg_smooth + add
         add += 2.5
         reldiff_avg_smooth.iloc[0:len(reldiff_avg_smooth):50].plot(color=colors[k],ax=ax)
@@ -281,10 +281,10 @@ def runplot_metrics_is(p):
     # PERSONALIZE THE IMAGE WITH CORRECT LABELS
     # ax.set_ylim(-2.0*100,0.5*100)
     # ax.set_ylim(-200, 100)
-    ax.set_ylim(-50, 20)
+    # ax.set_ylim(-50, 20)
     # ax.set_ylim(-20, 2)
     # ax.set_ylim(-500, 100)
-    ax.hlines(y=0,xmin=0,xmax=len(reldiff_avg_smooth.index),ls='--',lw=1,color='black')
+    # ax.hlines(y=0,xmin=0,xmax=len(reldiff_avg_smooth.index),ls='--',lw=1,color='black')
     
     ax.set_xlabel('In-sample episodes')
     if smooth_type == 'avgdiff':
@@ -450,6 +450,11 @@ def runplot_holding(p):
     # train_agent.tanh_stretching = 0.75
 
     res_df = oos_test.run_test(train_agent, return_output=True)
+    
+    
+    fig2, ax2 = plt.subplots(figsize=set_size(width=columnwidth))
+    sns.histplot(((res_df['OptNextAction']-res_df['Action_PPO'])/res_df['Action_PPO']),ax=ax)
+    pdb.set_trace()
     #todo
     print('PPO cumrew',res_df['Reward_PPO'].cumsum().iloc[-1])
     print('GP cumrew',res_df['OptReward'].cumsum().iloc[-1])
@@ -1975,6 +1980,121 @@ def runplot_metrics_sens(p):
     fig.savefig(os.path.join('outputs','img_brini_kolm', "metrics_sens_{}_{}.pdf".format(outputModel[0][0], outputModel[1][0])), dpi=300, bbox_inches="tight")
 
 
+
+def runplot_general(p):
+    
+    # Load parameters and get the path
+    
+    query = gin.query_parameter
+    outputClass = p["outputClass"]
+    tag = p["algo"]
+    seed = p["seed"]
+    model = p['outputModel_ppo']
+    modelpath = "outputs/{}/{}".format(outputClass, model)
+    length = get_exp_length(modelpath)
+
+    experiment = p['experiment_ppo']
+    data_dir = "outputs/{}/{}/{}/{}".format(outputClass, model, length, experiment)
+
+    gin.parse_config_file(os.path.join(data_dir, "config.gin"), skip_unknown=True)
+    gin.bind_parameter('alpha_term_structure_sampler.generate_plot', p['generate_plot'])  
+    p['N_test'] = gin.query_parameter('%LEN_SERIES')
+    # gin.bind_parameter('Out_sample_vs_gp.rnd_state',p['random_state'])
+    rng = np.random.RandomState(query("%SEED"))
+
+    # Load the elements for producing the plot
+    if query("%MV_RES"):
+        action_space = ResActionSpace()
+    else:
+        action_space = ActionSpace()
+
+    if gin.query_parameter('%MULTIASSET'):
+        n_assets = len(gin.query_parameter('%HALFLIFE'))
+        n_factors = len(gin.query_parameter('%HALFLIFE')[0])
+        inputs = gin.query_parameter('%INPUTS')
+        if query("%INP_TYPE") == "f" or query("%INP_TYPE") == "alpha_f":
+            if 'sigma' in inputs and 'corr' in inputs:
+                input_shape = (int(n_factors*n_assets+1+ (n_assets**2 - n_assets)/2+n_assets+1),1)
+            else:
+                input_shape = (int(n_factors*n_assets+n_assets+1),1)
+        else:
+            # input_shape = (n_assets+n_assets+1,1)
+            input_shape = (int(n_assets+1+ (n_assets**2 - n_assets)/2+n_assets+1),1)
+    else:
+        if query("%INP_TYPE") == "f" or query("%INP_TYPE") == "alpha_f":
+            if query("%TIME_DEPENDENT"):
+                input_shape = (len(query('%F_PARAM')) + 2,)
+            else:
+                input_shape = (len(query('%F_PARAM')) + 1,)
+        else:
+            input_shape = (3,)
+
+    if "DQN" in tag:
+        train_agent = DQN(
+            input_shape=input_shape, action_space=action_space, rng=rng
+        )
+        if p['n_dqn']:
+            train_agent.model = load_DQNmodel(
+                data_dir, p['n_dqn'], model=train_agent.model
+            )
+        else:
+            train_agent.model = load_DQNmodel(
+                    data_dir, query("%N_TRAIN"), model=train_agent.model
+                )
+
+    elif "PPO" in tag:
+        train_agent = PPO(
+            input_shape=input_shape, action_space=action_space, rng=rng
+        )
+
+        if p['ep_ppo']:
+            
+            train_agent.model = load_PPOmodel(data_dir, p['ep_ppo'], model=train_agent.model)
+        else:
+            train_agent.model = load_PPOmodel(data_dir, gin.query_parameter("%EPISODES"), model=train_agent.model)
+    else:
+        print("Choose proper algorithm.")
+        sys.exit()
+
+    if gin.query_parameter('%MULTIASSET'):
+        if 'Short' in str(gin.query_parameter('%ENV_CLS')):
+            env = ShortMultiAssetCashMarketEnv
+        else:
+            env = MultiAssetCashMarketEnv
+    else:
+        env = MarketEnv
+
+    
+    oos_test = Out_sample_vs_gp(
+            savedpath=None,
+            tag=tag[0],
+            experiment_type=query("%EXPERIMENT_TYPE"),
+            env_cls=env,
+            MV_res=query("%MV_RES"),
+            N_test=p['N_test'],
+            mv_solution=True
+        )
+
+    oos_test.rnd_state = 885
+    res_df = oos_test.run_test(train_agent, return_output=True)
+    # fig,ax = plt.subplots(figsize=set_size(width=columnwidth))
+    pdb.set_trace()
+
+    qu = np.percentile(((res_df['OptNextAction']-res_df['Action_PPO'])/res_df['Action_PPO']), 80)
+    ql = np.percentile(((res_df['OptNextAction']-res_df['Action_PPO'])/res_df['Action_PPO']), 1)
+    sns.displot(data=res_df, x=((res_df['OptNextAction']-res_df['Action_PPO'])/res_df['Action_PPO']),
+                kind='kde',clip=(ql, qu))
+    # 
+    #todo
+    # print('PPO cumrew',res_df['Reward_PPO'].cumsum().iloc[-1])
+    # print('GP cumrew',res_df['OptReward'].cumsum().iloc[-1])
+    # print('Pct Ratio PPO-GP',((res_df['Reward_PPO'].cumsum().iloc[-1]-res_df['OptReward'].cumsum().iloc[-1])/res_df['OptReward'].cumsum().iloc[-1])*100)
+    # print('MV cumrew',res_df['MVReward'].cumsum().iloc[-1])
+    # print('Pct Ratio MV-GP',((res_df['MVReward'].cumsum().iloc[-1]-res_df['OptReward'].cumsum().iloc[-1])/res_df['OptReward'].cumsum().iloc[-1])*100)
+
+    # fig.savefig("outputs/img_brini_kolm/exp_{}_single_holding.pdf".format(model), dpi=300, bbox_inches="tight")
+
+
 if __name__ == "__main__":
 
     # Generate Logger-------------------------------------------------------------
@@ -2051,3 +2171,6 @@ if __name__ == "__main__":
         runplot_metrics(p)
         # runplot_cdf_distribution(p)
         # runplot_policies(p)
+    elif p['plot_type'] == 'general':
+        runplot_general(p)
+

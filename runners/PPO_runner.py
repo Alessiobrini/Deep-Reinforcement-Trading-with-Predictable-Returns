@@ -57,7 +57,7 @@ class PPO_runner(MixinCore):
         store_insample: bool = False,
     ):
 
-        self.logging.info("Starting model setup")
+        # self.logging.info("Starting model setup")
         self._setattrs()
 
         self.rng = np.random.RandomState(self.seed)
@@ -84,7 +84,7 @@ class PPO_runner(MixinCore):
             os.makedirs(os.path.join(self.savedpath, "ckpt"))
         elif save_freq and os.path.exists(os.path.join(self.savedpath, "ckpt")):
             pass
-        logging.info("Successfully generated path to save outputs...")
+        # logging.info("Successfully generated path to save outputs...")
 
     def run(self):
         """Wrapper for keyboard interrupt."""
@@ -92,12 +92,12 @@ class PPO_runner(MixinCore):
             self.set_up_training()
             self.training_agent()
         except (KeyboardInterrupt, SystemExit):
-            self.logging.debug("Exit on KeyboardInterrupt or SystemExit")
+            # self.logging.debug("Exit on KeyboardInterrupt or SystemExit")
             sys.exit()
 
     def set_up_training(self):
         
-        self.logging.debug("Simulating Data")
+        # self.logging.debug("Simulating Data")
         # Modify hyperparams to deal with a large cross section
         n_assets = gin.query_parameter('%N_ASSETS')
         if n_assets and n_assets>3:
@@ -114,10 +114,11 @@ class PPO_runner(MixinCore):
             # TODO check if these method really fit and change the parameters in the gin file
             self.data_handler.estimate_parameters()
 
-        self.logging.debug("Instantiating action space")
+        # self.logging.debug("Instantiating action space")
         if self.MV_res:
             self.action_space = ResActionSpace()
         else:
+
             action_range, ret_quantile, holding_quantile = get_action_boundaries(
                 N_train=self.N_train,
                 f_speed=self.data_handler.f_speed,
@@ -127,9 +128,11 @@ class PPO_runner(MixinCore):
 
             gin.query_parameter("%ACTION_RANGE")[0] = action_range
             self.action_space = ActionSpace()
+            if n_assets> 1:
+                gin.query_parameter("%ACTION_RANGE")[0] = [list(arr) for arr in gin.query_parameter("%ACTION_RANGE")[0]] + [gin.query_parameter("%ACTION_RANGE")[1]]
 
 
-        self.logging.debug("Instantiating market environment")
+        # self.logging.debug("Instantiating market environment")
         self.env = self.env_cls(
             N_train=self.N_train,
             f_speed=self.data_handler.f_speed,
@@ -137,7 +140,8 @@ class PPO_runner(MixinCore):
             factors=self.data_handler.factors,
         )
 
-        self.logging.debug("Instantiating PPO model")
+        # self.logging.debug("Instantiating PPO model")
+        
         input_shape = self.env.get_state_dim()
 
         # step_size = (
@@ -151,7 +155,7 @@ class PPO_runner(MixinCore):
 
         self.train_agent.add_tb_diagnostics(self.savedpath,self.epochs)
 
-        self.logging.debug("Instantiating Out of sample tester")
+        # self.logging.debug("Instantiating Out of sample tester")
         self.oos_test = Out_sample_vs_gp(
             savedpath=self.savedpath,
             tag="PPO",
@@ -180,12 +184,12 @@ class PPO_runner(MixinCore):
         are saved in `_exp/experiment_name/_backtests/`.
         """
 
-        self.logging.debug("Start training...")
+        # self.logging.debug("Start training...")
         
         if self.store_insample:
             self.ppo_rew,self.opt_rew, self.mw_rew = [],[],[]
         for e in tqdm(iterable=range(self.episodes), desc="Running episodes..."):
- 
+            # if e == 25:
             if e > 0 and self.universal_train:
                 if self.experiment_type == "GP":
                     self.data_handler.generate_returns(disable_tqdm=True)
@@ -197,25 +201,26 @@ class PPO_runner(MixinCore):
                 self.env.returns = self.data_handler.returns
                 self.env.factors = self.data_handler.factors
                 self.env.f_speed = self.data_handler.f_speed
-                if self.data_handler.datatype == "alpha_term_structure" and not self.MV_res:
+                if not self.MV_res:
                     action_range, _, _ = get_action_boundaries(
                         N_train=self.N_train,
                         f_speed=self.data_handler.f_speed,
                         returns=self.data_handler.returns,
                         factors=self.data_handler.factors,
                     )
-                    
+                    # print(gin.query_parameter("%ACTION_RANGE"))
                     gin.query_parameter("%ACTION_RANGE")[0] = action_range
+                    # print(gin.query_parameter("%ACTION_RANGE"))
+
                     self.action_space = ActionSpace()
             
-            self.logging.debug("Training...")
+            # self.logging.debug("Training...")
 
             self.collect_rollouts()
-
+            
 
             self.update(e)
-            
-            
+
             if e>0 and self.ppo_rew[e]>np.max(self.ppo_rew[:-1]):
                 torch.save(
                     self.train_agent.model.state_dict(),
@@ -235,11 +240,11 @@ class PPO_runner(MixinCore):
                     ),
                 )
 
-                self.logging.debug("Testing...")
-                # n_assets = gin.query_parameter('%N_ASSETS')
-                self.oos_test.run_test(it=e + 1, test_agent=self.train_agent)
+                # self.logging.debug("Testing...")
+                n_assets = gin.query_parameter('%N_ASSETS')
+                if n_assets < 2:
+                    self.oos_test.run_test(it=e + 1, test_agent=self.train_agent)
 
-        
         n_assets = gin.query_parameter('%N_ASSETS')
         if n_assets == None:
             self.oos_test.save_series()
@@ -269,7 +274,7 @@ class PPO_runner(MixinCore):
 
 
         save_gin(os.path.join(self.savedpath, "config.gin"))
-        logging.info("Config file saved")
+        # logging.info("Config file saved")
 
     def collect_rollouts(self):
         
@@ -286,6 +291,9 @@ class PPO_runner(MixinCore):
         self.train_agent.reset_experience()
 
         for i in range(len(self.env.returns) - 2):
+            # if i%100 == 0 and len(self.ppo_rew)>25:
+            # if i%100 == 0:
+            #     pdb.set_trace()
             dist, value = self.train_agent.act(state)
 
             if self.train_agent.policy_type == "continuous":
@@ -320,6 +328,7 @@ class PPO_runner(MixinCore):
                             )
 
                 elif self.train_agent.action_clipping_type == 'clip':
+                    
                     clipped_action=torch.clip(action,
                                               -self.train_agent.gaussian_clipping,
                                               self.train_agent.gaussian_clipping).cpu().numpy().ravel()
@@ -329,7 +338,7 @@ class PPO_runner(MixinCore):
                             self.action_space.action_range[0],self.action_space.action_range[1], clipped_action
                         )
                     else:
-                        
+                        # pdb.set_trace()
                         if self.action_space.asymmetric:
                             unscaled_action = unscale_asymmetric_action(
                                 self.action_space.action_range[0],
@@ -360,6 +369,7 @@ class PPO_runner(MixinCore):
 
             if self.MV_res:
                 if len(unscaled_action)>1:
+                    
                     next_state, Result = self.env.MV_res_step(
                         state, unscaled_action, i, tag="PPO"
                     )
@@ -368,9 +378,15 @@ class PPO_runner(MixinCore):
                         state, unscaled_action[0], i, tag="PPO"
                     )
             else:
-                next_state, Result, _ = self.env.step(
-                    state, unscaled_action[0], i, tag="PPO"
-                )
+                if len(unscaled_action)>1:
+                    # pdb.set_trace()
+                    next_state, Result, _ = self.env.step(
+                        state, unscaled_action, i, tag="PPO"
+                    )
+                else:
+                    next_state, Result, _ = self.env.step(
+                        state, unscaled_action[0], i, tag="PPO"
+                    )
 
             exp = {
                 "state": state,
@@ -383,23 +399,23 @@ class PPO_runner(MixinCore):
                 "value": value.detach().cpu().numpy().ravel(),
 
             }
-
             
-            exp['mw_action'] = np.array([self.env.MV_res_step(state, unscaled_action, i, output_action=True)], dtype='float32')
-            exp['rl_action'] = unscaled_action
+            if len(unscaled_action)==1:
+                exp['mw_action'] = np.array([self.env.MV_res_step(state, unscaled_action, i, output_action=True)], dtype='float32')
+                exp['rl_action'] = unscaled_action
 
             self.train_agent.add_experience(exp)
 
             state = next_state
 
-            # # benchmark agent
+            # benchmark agent
+            
             if self.store_insample:
                 nextoptstate, optresult = self.env.opt_step(
                     optstate, optrate, discfactorloads, i
                 )
                 optstate = nextoptstate
                 gp_temp.append(optresult['OptReward'])
-
                 nextmwstate, mwresult = self.env.mv_step(
                     mwstate, i
                 )
@@ -411,6 +427,11 @@ class PPO_runner(MixinCore):
             self.ppo_rew.append(np.cumsum(self.train_agent.experience['reward'])[-1])
             self.opt_rew.append(np.cumsum(gp_temp)[-1])
             self.mw_rew.append(np.cumsum(mw_temp)[-1])
+            
+            
+            
+            
+
 
         
         if self.train_agent.scale_reward:
@@ -425,10 +446,12 @@ class PPO_runner(MixinCore):
 
         _, self.next_value = self.train_agent.act(next_state)
         # compute the advantage estimate from the given rollout
+
         self.train_agent.compute_gae(self.next_value.detach().cpu().numpy().ravel())
 
 
     def update(self,episode):
+        
         for i in range(self.epochs):  # run for more than one epochs
             for j,(
                 state,
@@ -439,7 +462,7 @@ class PPO_runner(MixinCore):
                 mw_action,
                 rl_action,
             ) in enumerate(self.train_agent.ppo_iter()):
-
+                # pdb.set_trace()
                 self.train_agent.train(state, action, old_log_probs, return_, advantage, mw_action, rl_action, iteration=j, epoch=i, episode=episode)
 
             # recompute gae to avoid stale advantages

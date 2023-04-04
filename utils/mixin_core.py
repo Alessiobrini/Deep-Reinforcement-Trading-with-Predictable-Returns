@@ -19,10 +19,10 @@ class MixinCore(LoggerMixin):
         if name is None:
             name = self.__class__.__name__
 
-        self.logging.debug(f"Creating {name}")
+        # self.logging.debug(f"Creating {name}")
 
         for k, v in args.items():
-            self.logging.debug(f" Setting key-value pair {k}: {v}")
+            # self.logging.debug(f" Setting key-value pair {k}: {v}")
             setattr(self, k, v)
 
     def flatten(self, to_flat):

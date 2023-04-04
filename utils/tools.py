@@ -13,13 +13,14 @@ import tensorflow as tf
 from typing import Union, Tuple
 import pandas as pd
 from statsmodels.regression.linear_model import OLS
-from utils.env import MarketEnv
+from utils.env import *
 from utils.math_tools import boltzmann, unscale_action
 from scipy.stats import norm
 
 
 @gin.configurable()
 def get_action_boundaries(
+    env_type: None,
     HalfLife: Union[int , list , np.ndarray],
     Startholding: Union[int , float],
     sigma: float,
@@ -96,20 +97,27 @@ def get_action_boundaries(
 
     """
 
-    env = MarketEnv(
-        HalfLife,
-        Startholding,
-        sigma,
-        CostMultiplier,
-        kappa,
-        N_train,
-        discount_rate,
-        f_param,
-        f_speed,
-        returns,
-        factors,
+    env = env_type(
+        N_train=N_train,
+        f_speed=f_speed,
+        returns=returns,
+        factors=factors,
     )
-
+    
+    # env = MarketEnv(
+    #     HalfLife,
+    #     Startholding,
+    #     sigma,
+    #     CostMultiplier,
+    #     kappa,
+    #     N_train,
+    #     discount_rate,
+    #     f_param,
+    #     f_speed,
+    #     returns,
+    #     factors,
+    # )
+    
     if action_type == "GP" or action_type == "GPext" or action_type == "GPasym" or action_type == "GPsign" or action_type == "GPmult":
         CurrOptState = env.opt_reset()
         OptRate, DiscFactorLoads = env.opt_trading_rate_disc_loads()
@@ -121,9 +129,12 @@ def get_action_boundaries(
             )
             env.store_results(OptResult, i)
             CurrOptState = NextOptState
-
-        action_quantiles = env.res_df["OptNextAction"].quantile(qts[:2]).values
-        print(action_quantiles)
+        
+        if gin.query_parameter('%N_ASSETS')>1:
+            action_quantiles = np.array(pd.DataFrame(np.array(env.optaction)).quantile(qts[:2]))
+        else:
+            action_quantiles = env.res_df["OptNextAction"].quantile(qts[:2]).values
+        # print(action_quantiles)
         # action_quantiles_correct = action_quantiles.copy()
         # action_quantiles_gp = action_quantiles.copy()
 
@@ -138,7 +149,7 @@ def get_action_boundaries(
         # action_quantiles_mv = env.res_df["MVNextAction"].quantile(qts[:2]).values
         # # TODO temp code
 
-
+        
         if action_type == "GPext":
             action_quantiles[0] = action_quantiles[0] + action_quantiles[0]*qts[2] #put - if you want to revert tot he previous cases
             action_quantiles[1] = action_quantiles[1] + action_quantiles[1]*qts[2]
@@ -162,8 +173,13 @@ def get_action_boundaries(
             else:
                 action_quantiles[0] = 0.0
         elif action_type == "GPmult":
-            action_quantiles[0] = action_quantiles[0]*qts[2] #put - if you want to revert tot he previous cases
-            action_quantiles[1] = action_quantiles[1]*qts[2]
+
+            if gin.query_parameter('%N_ASSETS')>1:
+                action_quantiles[0] = action_quantiles[0]*qts[2] #put - if you want to revert tot he previous cases
+                action_quantiles[1] = action_quantiles[1]*qts[2]
+            else:
+                action_quantiles[0] = action_quantiles[0]*qts[2] #put - if you want to revert tot he previous cases
+                action_quantiles[1] = action_quantiles[1]*qts[2]
 
     elif action_type == "MV" or action_type == "MVasym" or action_type == "MVmax":
         CurrMVState = env.opt_reset()
@@ -194,14 +210,19 @@ def get_action_boundaries(
     ret_range = float(max(np.abs(returns.min()), returns.max()))
 
     if action_type == "GP" or action_type == "GPext" or action_type == "GPasym" or action_type == "GPsign" or action_type == "GPmult":
-        holding_quantiles = env.res_df["OptNextHolding"].quantile(qts[:2]).values
+        if gin.query_parameter('%N_ASSETS')>1:
+            holding_quantiles = None #maybe useless for multiasset
+        else:
+            holding_quantiles = env.res_df["OptNextHolding"].quantile(qts[:2]).values
     elif action_type == "MV" or action_type == "MVasym" or action_type == "MVmax":
         holding_quantiles = env.res_df["MVNextHolding"].quantile(qts[:2]).values
-
-    if np.abs(holding_quantiles[0]) - np.abs(holding_quantiles[1]) < 1000:
-        holding_ranges = int(np.abs(np.round(holding_quantiles[0], -2)))
+    if gin.query_parameter('%N_ASSETS')>1:
+        holding_ranges=None 
     else:
-        holding_ranges = int(np.round(np.min(np.abs(holding_quantiles)), -2))
+        if np.abs(holding_quantiles[0]) - np.abs(holding_quantiles[1]) < 1000:
+            holding_ranges = int(np.abs(np.round(holding_quantiles[0], -2)))
+        else:
+            holding_ranges = int(np.round(np.min(np.abs(holding_quantiles)), -2))
 
     return action_range, ret_range, holding_ranges
 

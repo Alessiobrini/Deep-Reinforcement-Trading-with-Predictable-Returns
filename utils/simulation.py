@@ -16,7 +16,7 @@ import seaborn as sns
 import gin
 from utils.tools import CalculateLaggedSharpeRatio, RunModels
 
-seaborn.set_style("darkgrid")
+seaborn.set_style("white")
 plt.rcParams["figure.figsize"] = (20.0, 10.0)
 plt.rcParams["savefig.dpi"] = 90
 plt.rcParams["font.family"] = "serif"
@@ -56,9 +56,14 @@ class DataHandler:
             elif self.datatype == "t_stud_mfit" or self.datatype == "t_stud":
                 self.returns, self.factors, self.f_speed = return_sampler_GP(N_train=self.N_train + self.factor_lb[-1], rng=self.rng, disable_tqdm=disable_tqdm)
             else:
-                self.returns, self.factors, self.f_speed = return_sampler_GP(
-                    N_train=self.N_train, rng=self.rng, disable_tqdm=disable_tqdm
-                )
+                if gin.query_parameter('%MULTIASSET'):
+                    self.returns, self.factors, self.f_speed = multi_return_sampler_GP(
+                        N_train=self.N_train, rng=self.rng, disable_tqdm=disable_tqdm
+                    )
+                else:
+                    self.returns, self.factors, self.f_speed = return_sampler_GP(
+                        N_train=self.N_train, rng=self.rng, disable_tqdm=disable_tqdm
+                    )
 
         elif self.datatype == "garch":
             self.returns, self.params = return_sampler_garch(
@@ -176,6 +181,8 @@ def return_sampler_GP(
 
     lambdas = np.around(np.log(2) / HalfLife, 4)
 
+
+
     f0 = np.zeros(shape=(len(lambdas),))
 
     if vol == "omosk":
@@ -201,6 +208,10 @@ def return_sampler_GP(
             # multiply makes the hadamard (componentwise) product
             # if we want to add different volatility for different factors we could
             # add multiply also the the second part of the equation
+            # pct = 1.1
+            # if i> N_train*pct: # temporary add
+            #     f1 = np.multiply((1 - lambdas*2*dt), f0) + np.multiply(np.array(sigmaf)*np.sqrt(dt), eps[i])
+            # else:
             f1 = np.multiply((1 - lambdas*dt), f0) + np.multiply(np.array(sigmaf)*np.sqrt(dt), eps[i])
             f.append(f1)
             f0 = f1
@@ -253,7 +264,6 @@ def return_sampler_GP(
             u = rng.standard_t(degrees, N_train + offset)
         else:
             u = rng.randn(N_train + offset)
-
         realret = np.sum(f_param * factors, axis=1) + sigma * u
 
     elif vol == "heterosk":
@@ -271,14 +281,147 @@ def return_sampler_GP(
         sys.exit()
     f_speed = lambdas
 
-    generate_plot = True
+    generate_plot = False
+    from utils.common import set_size
     if generate_plot:
-        fig,ax = plt.subplots(figsize=(10,5))
+        fig,ax = plt.subplots(figsize=set_size(360))
         ax.plot(realret)
-        ax.set_title('GP Ret')
+        ax.set_xlabel('Time', fontsize=11)
+        ax.set_ylabel('Return', fontsize=11)
+        plt.xticks(fontsize=11)
+        plt.yticks(fontsize=11)
+        fig.tight_layout()
         # plt.show()
     # pdb.set_trace()
     # sys.exit()
+    return realret.astype(np.float32), factors.astype(np.float32), f_speed
+
+
+@gin.configurable()
+def multi_return_sampler_GP(
+    N_train: int,
+    sigmaf: Union[float , list , np.ndarray],
+    f_param: Union[float , list , np.ndarray],
+    sigma: Union[float , list , np.ndarray],
+    HalfLife: Union[int , list , np.ndarray],
+    rng: np.random.mtrand.RandomState = None,
+    offset: int = 2,
+    uncorrelated: bool = False,
+    t_stud: bool = False,
+    degrees: int = 8,
+    vol: str = "omosk",
+    dt: int = 1,
+    disable_tqdm: bool = False,
+) -> Tuple[
+    Union[list , np.ndarray], Union[list , np.ndarray], Union[list , np.ndarray]
+]:
+    """
+    Generates financial returns driven by mean-reverting factors.
+
+    Parameters
+    ----------
+    N_train : int
+        Length of the experiment
+
+    sigmaf : Union[float or list or np.ndarray]
+        Volatilities of the mean reverting factors
+
+    f_param: Union[float or list or np.ndarray]
+        Factor loadings of the mean reverting factors
+
+    sigma: Union[float or list or np.ndarray]
+        volatility of the asset return (additional noise other than the intrinsic noise
+                                        in the factors)
+
+    HalfLife: Union[int or list or np.ndarray]
+        HalfLife of mean reversion to simulate factors with different speeds
+
+    rng: np.random.mtrand.RandomState
+        Random number generator for reproducibility
+
+    offset: int = 2
+        Amount of additional observation to simulate
+
+    uncorrelated: bool = False
+        Boolean to regulate if the simulated factor are correlated or not
+
+    t_stud : bool = False
+        Bool to regulate if Student\'s t noises are needed
+
+    degrees : int = 8
+        Degrees of freedom for Student\'s t noises
+
+    vol: str = 'omosk'
+        Choose between 'omosk' and 'eterosk' for the kind of volatility
+    Returns
+    -------
+    realret: Union[list or np.ndarray]
+        Simulated series of returns
+    factors: Union[list or np.ndarray]
+        Simulated series of factors
+    f_speed: Union[list or np.ndarray]
+        Speed of mean reversion computed form HalfLife argument
+    """
+
+    # use samplesize +2 because when iterating the algorithm is necessary to
+    # have one observation more (the last space representation) and because
+    # we want be able to plot insample operation every tousand observation.
+    # Therefore we don't want the index ending at 999 instead of 1000
+
+    # Generate stochastic factor component and compute speed of mean reversion
+    # simulate the single factor according to OU process
+    # select proper speed of mean reversion and initialization point
+    # it is faster to increase the size of a python list than a numpy array
+    # therefore we convert later the list
+    # https://www.jmp.com/en_us/statistics-knowledge-portal/t-test/t-distribution.html#:~:text=The%20shape%20of%20the%20t,%E2%80%9D%20than%20the%20z%2Ddistribution.
+
+    lambdas = np.around(np.log(2) / HalfLife, 4).reshape(-1,)
+    
+    f0 = np.zeros(shape=lambdas.shape).reshape(-1,)
+    eps = rng.randn(N_train + offset, len(lambdas))
+    f = []
+
+    for i in tqdm(
+        iterable=range(N_train + offset),
+        desc="Simulating Factors",
+        disable=disable_tqdm,
+    ):
+        f1 = np.multiply((1 - lambdas*dt), f0) + np.multiply(np.array(sigmaf)*np.sqrt(dt), eps[i])
+        f.append(f1)
+        f0 = f1
+
+    factors = np.vstack(f)
+    
+    # Generate covariance matrix
+    correlations = gin.query_parameter("%CORRELATION")
+    n_series = len(lambdas)
+    cov = np.eye(n_series)
+    for i in range(n_series):
+        for j in range(i+1, n_series):
+            if i < len(correlations) and j < len(correlations)+1:
+                cov[i, j] = correlations[i]
+                cov[j, i] = correlations[i]  # mirror lower triangular part
+            else:
+                cov[i, j] = 0.0
+        
+    #     # Generate correlated random series
+    #     mean = np.zeros(n_series)
+    #     u = rng.multivariate_normal(mean, cov, N)
+
+
+    # u = rng.randn(N_train + offset, len(lambdas))
+    u = rng.multivariate_normal(np.zeros(len(lambdas)), cov, N_train + offset)
+    
+    realret = (factors * np.array(f_param).reshape(-1,)) + sigma * u
+    f_speed = lambdas
+
+    generate_plot = True
+    if generate_plot:
+        fig,ax = plt.subplots(figsize=(10,5))
+        pd.DataFrame(realret).plot(ax=ax)
+        ax.set_title('GP Ret')
+        plt.show()
+        pdb.set_trace()
     return realret.astype(np.float32), factors.astype(np.float32), f_speed
 
 

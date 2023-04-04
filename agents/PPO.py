@@ -262,7 +262,7 @@ class PPO:
         gaussian_clipping: int = 3,
         modelname: str = "PPO act_crt",
     ):
-
+        
         if rng is not None:
             self.rng = rng
         else:
@@ -382,7 +382,7 @@ class PPO:
 
         self.model.train()
         dist, value = self.model(state)
-        entropy = dist.entropy().mean()
+        
         if self.policy_type == 'continuous':
             new_log_probs = dist.log_prob(action)
             # self.std_hist.append(self.model.log_std.exp().detach().cpu().numpy().ravel())
@@ -403,7 +403,9 @@ class PPO:
 
             advantage = advantage - self.eta1 * reg1 - self.eta2 * reg2
 
-
+        if gin.query_parameter('%MULTIASSET'):
+            new_log_probs = new_log_probs.sum(1).reshape(-1,1)
+            old_log_probs = old_log_probs.sum(1).reshape(-1,1)
         
         ratio = (new_log_probs - old_log_probs).exp()  # log properties
         surr1 = ratio * advantage
@@ -411,10 +413,11 @@ class PPO:
             torch.clamp(ratio, 1.0 / (1 + self.clip_param), 1.0 + self.clip_param)
             * advantage
         )
+        
 
         actor_loss = -torch.min(surr1, surr2).mean()
         critic_loss = (return_ - value).pow(2).mean()
-
+        entropy = dist.entropy().mean()
         # the loss is negated in order to be maximized
         self.loss = self.vf_c * critic_loss + actor_loss - self.ent_c * entropy
 
@@ -539,17 +542,28 @@ class PPO:
         ids = self.rng.permutation(len_rollout)
         ids = np.array_split(ids, len_rollout // self.batch_size)
         self.n_batches = len(ids)
-        for i in range(len(ids)):
 
-            yield (
-                torch.from_numpy(states[ids[i], :]).float().to(self.device),
-                torch.from_numpy(actions[ids[i], :]).float().to(self.device),
-                torch.from_numpy(log_probs[ids[i], :]).float().to(self.device),
-                torch.from_numpy(returns[ids[i], :]).float().to(self.device),
-                torch.from_numpy(advantage[ids[i], :]).float().to(self.device),
-                torch.from_numpy(mw_actions[ids[i], :]).float().to(self.device),
-                torch.from_numpy(rl_actions[ids[i], :]).float().to(self.device),
-            )
+        for i in range(len(ids)):
+            if actions.shape[-1]>1:
+                yield (
+                    torch.from_numpy(states[ids[i], :]).float().to(self.device),
+                    torch.from_numpy(actions[ids[i], :]).float().to(self.device),
+                    torch.from_numpy(log_probs[ids[i], :]).float().to(self.device),
+                    torch.from_numpy(returns[ids[i], :]).float().to(self.device),
+                    torch.from_numpy(advantage[ids[i], :]).float().to(self.device),
+                    None,
+                    None,
+                )
+            else:
+                yield (
+                    torch.from_numpy(states[ids[i], :]).float().to(self.device),
+                    torch.from_numpy(actions[ids[i], :]).float().to(self.device),
+                    torch.from_numpy(log_probs[ids[i], :]).float().to(self.device),
+                    torch.from_numpy(returns[ids[i], :]).float().to(self.device),
+                    torch.from_numpy(advantage[ids[i], :]).float().to(self.device),
+                    torch.from_numpy(mw_actions[ids[i], :]).float().to(self.device),
+                    torch.from_numpy(rl_actions[ids[i], :]).float().to(self.device),
+                )
 
     def add_tb_diagnostics(self,path,n_epochs):
         log_dir = os.path.join(path, "tb")

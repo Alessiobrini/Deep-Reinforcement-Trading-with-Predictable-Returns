@@ -236,7 +236,7 @@ class MarketEnv(gym.Env):
                 self.cash_ts = [cash]
                 self.traded_amount = 0.0
                 self.costs = 0.0
-            
+
             if isinstance(self.corr,float):
                 cov_matrix = np.eye(self.n_assets,self.n_assets) * self.sigma**2
                 cov_matrix[cov_matrix==0] = self.corr * self.sigma**2 
@@ -387,7 +387,7 @@ class MarketEnv(gym.Env):
         iteration: int,
     ) -> Tuple[
         np.ndarray, dict, np.ndarray
-    ]:  # TODO implement here decoupling if needed
+    ]:  
         discretenextRet = self._find_nearest_return(self.returns[iteration + 1])
         discretenextHolding = self._find_nearest_holding(
             discretecurrState[1] + shares_traded
@@ -840,7 +840,7 @@ class CashMarketEnv(MarketEnv):
         )
 
         return nextOptState, OptResult
-
+    
 
     def _getreward(
         self,
@@ -992,7 +992,6 @@ class CashMarketEnv(MarketEnv):
             return shares_traded + state[1]* (1 + self.returns[index+1])
 
 
-
 @gin.configurable()
 class ShortCashMarketEnv(CashMarketEnv):
 
@@ -1057,18 +1056,27 @@ class MultiAssetCashMarketEnv(CashMarketEnv):
         iteration: int,
         tag: str = "DQN",
     ) -> Tuple[np.ndarray, dict, np.ndarray]:
-        # TODO Adapt to multi asset. I adapted only Mv_res step
+
         nextFactors = self.factors[iteration + 1]
         nextRet = self.returns[iteration + 1]
-        
         # buy/sell here
-        if action > 0:
-            shares_traded = self._buy(index=iteration, cash=self.cash_ts[iteration], action=action)
-        elif action < 0:
-            shares_traded = self._sell(index=iteration, holding=self.holding_ts[iteration], action=action)
-        else:
-            shares_traded = 0.0
-            self.costs, self.traded_amount = 0.0, 0.0
+        shares_traded = []
+        
+        for i,a in enumerate(action):
+            if a > 0:
+                trade = self._buy(
+                    index=iteration, cash=currState[-1], action=a
+                )
+            elif a < 0:
+                trade = self._sell(
+                    index=iteration, holding=currState[-1-self.n_assets+i], action=a
+                )
+            else:
+                trade = 0.0
+                self.costs += 0.0 
+                self.traded_amount += 0.0
+            shares_traded.append(trade)
+        shares_traded = np.array(shares_traded)
 
         # update rules
         nextHolding = (1+nextRet) * self.holding_ts[iteration] + shares_traded
@@ -1076,14 +1084,14 @@ class MultiAssetCashMarketEnv(CashMarketEnv):
         nextCash = self.cash_ts[iteration] + self.traded_amount
         self.cash_ts.append(nextCash)
 
-        if self.inp_type == "ret":
-            nextState = np.array([nextRet, nextHolding, nextCash], dtype=np.float32)
-        elif self.inp_type == "f":
-            nextState = np.append(nextFactors, [nextHolding, nextCash])
+        input_list = self._get_inputs(reset=False,iteration=iteration)
+        nextState = np.array(input_list).reshape(-1,)  # long vector
 
-        Result = self._getreward(currState, nextState, iteration, tag)
+        Result = self._getreward(iteration, tag)
+        # pdb.set_trace()
 
         return nextState, Result, nextFactors
+    
 
     def MV_res_step(
         self,
@@ -1122,7 +1130,8 @@ class MultiAssetCashMarketEnv(CashMarketEnv):
                 )
             else:
                 trade = 0.0
-                self.costs, self.traded_amount = 0.0, 0.0
+                self.costs += 0.0
+                self.traded_amount += 0.0
             res_shares_traded.append(trade)
         res_shares_traded = np.array(res_shares_traded)
         
@@ -1158,19 +1167,22 @@ class MultiAssetCashMarketEnv(CashMarketEnv):
         tag: str = "Opt",
     ) -> Tuple[np.ndarray, dict]:
         
+        #TODO
+        # pdb.set_trace()
         CurrFactors = self.factors[iteration].reshape(self.n_assets,self.n_factors)
         OptCurrHolding = np.array(currOptState[-1-self.n_assets:-1])
         # Optimal traded quantity between period
-        
-        DiscFactors = CurrFactors/ (1+self.f_speed * ((OptRate * self.CostMultiplier) / self.kappa))
+        DiscFactors = CurrFactors/ (1+self.f_speed.reshape(CurrFactors.shape) * ((OptRate * self.CostMultiplier) / self.kappa))
         OptNextHolding = np.dot(np.linalg.inv(self.cov_matrix* self.kappa), np.dot(
-            DiscFactors,self.f_param[0]
+            DiscFactors,np.array(self.f_param)[0]
         ))
-        
+        # pdb.set_trace()
+
         action = OptNextHolding - OptCurrHolding
 
         # buy/sell here
         OptTrades = []
+        
         for i,a in enumerate(action):
             opt_t = self._opt_trade(
                 index=iteration, holding=currOptState[-1-self.n_assets+i], cash=currOptState[-1], action=a
@@ -1196,11 +1208,11 @@ class MultiAssetCashMarketEnv(CashMarketEnv):
         CurrFactors = self.factors[iteration].reshape(self.n_assets,self.n_factors)
         OptCurrHolding = np.array(currOptState[-1-self.n_assets:-1])
 
-        # Traded quantity as for the Markovitz framework  (Mean-Variance framework)
+        # Traded quantity as for the Markovitz framework  (Mean-Variance framework)s
         OptNextHolding = np.dot(np.linalg.inv(self.cov_matrix* self.kappa), np.dot(
-            CurrFactors,self.f_param[0]
+            CurrFactors,np.array(self.f_param)[0]
         ))
-
+        # self_param above needs to be equal for all of the assets
         action = OptNextHolding - OptCurrHolding
 
         # buy/sell here
@@ -1254,12 +1266,13 @@ class MultiAssetCashMarketEnv(CashMarketEnv):
         currHolding = self.holding_ts[iteration]
         nextHolding = self.holding_ts[iteration+1] 
         nextCash = self.cash_ts[iteration+1] 
-
+        # pdb.set_trace()
         shares_traded = nextHolding - currHolding
         NetPNL = np.dot(nextHolding,nextRet) - self.costs
         Risk = 0.5 * self.kappa * np.dot(np.dot(nextHolding.T,self.cov_matrix),nextHolding)
         Reward = NetPNL - Risk
         nextWealth = nextHolding.sum() + nextCash
+        # pdb.set_trace()
 
         Result = {
             "CurrHolding_{}".format(tag): currHolding,
@@ -1295,8 +1308,9 @@ class MultiAssetCashMarketEnv(CashMarketEnv):
         else:
             shares_traded = 0.0
 
-            self.costs, self.traded_amount = 0.0, 0.0
-
+            self.costs += 0.0
+            self.traded_amount +=  0.0
+            
 
         return -shares_traded
 
@@ -1304,9 +1318,9 @@ class MultiAssetCashMarketEnv(CashMarketEnv):
 
         max_tradable_amount = cash
         shares_traded = min(max_tradable_amount, action)
-
-        self.costs += self._totalcost(shares_traded)
-        self.traded_amount += -shares_traded - self.costs
+        temp_cost = self._totalcost(shares_traded)
+        self.costs += temp_cost
+        self.traded_amount += -shares_traded - temp_cost
 
 
         return shares_traded
@@ -1335,7 +1349,7 @@ class MultiAssetCashMarketEnv(CashMarketEnv):
         OptReward = OptNetPNL - OptRisk
 
         nextWealth = OptNextHolding.sum() + NextOptcash #self.prices[iteration + 1] * 
-        
+                
         # Store quantities
         Result = {
             "{}NextAction".format(tag): OptNextAction,
@@ -1374,22 +1388,27 @@ class MultiAssetCashMarketEnv(CashMarketEnv):
                 # Sell only if current asset is > 0
                 shares_traded = min(abs(action), currholding)
 
-                self.costs = self._totalcost(shares_traded)
-                self.traded_amount = shares_traded - self.costs
+                self.costs += self._totalcost(shares_traded)
+                self.traded_amount += shares_traded - self.costs
 
                 return -shares_traded
 
             else:
                 shares_traded = 0.0
-                self.costs, self.traded_amount = 0.0, 0.0
+                self.costs += 0.0
+                self.traded_amount +=  0.0
 
                 return shares_traded
 
         else:
             shares_traded = 0.0
-            self.costs, self.traded_amount = 0.0, 0.0
+            self.costs += 0.0
+            self.traded_amount +=  0.0
 
             return shares_traded
+        
+
+
 
 
     def store_results(self, Result: dict, iteration: int):
@@ -1458,11 +1477,11 @@ class ShortMultiAssetCashMarketEnv(MultiAssetCashMarketEnv):
 
 
     def _sell(self, index: int, holding: np.ndarray, action: float):
- 
         shares_traded = action
-        self.costs += self._totalcost(shares_traded)
+        temp_cost = self._totalcost(shares_traded)
+        self.costs += temp_cost
         # absolute quantity because now you can sell short and shares_traded can be negative
-        self.traded_amount += np.abs(shares_traded) - self.costs
+        self.traded_amount += np.abs(shares_traded) - temp_cost
 
         return shares_traded
 
@@ -1478,7 +1497,7 @@ class ShortMultiAssetCashMarketEnv(MultiAssetCashMarketEnv):
             self.traded_amount += -shares_traded - self.costs
 
             return shares_traded
-
+       
         elif action < 0.0:
 
             # one could insert a stop to consider cost of short selling
@@ -1491,6 +1510,7 @@ class ShortMultiAssetCashMarketEnv(MultiAssetCashMarketEnv):
 
         else:
             shares_traded = 0.0
-            self.costs, self.traded_amount = 0.0, 0.0
+            self.costs += 0.0
+            self.traded_amount +=  0.0
 
             return shares_traded
