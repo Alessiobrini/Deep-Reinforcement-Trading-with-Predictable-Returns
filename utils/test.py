@@ -95,19 +95,22 @@ class Out_sample_vs_gp:
             data_handler.generate_returns()
             data_handler.estimate_parameters()
             # TODO ############################
-
-        if not self.MV_res:
+        cond = not isinstance(gin.query_parameter("%ACTION_RANGE")[0],list)
+        # cond = (np.abs(gin.query_parameter("%ACTION_RANGE")[0][0]) != np.abs(gin.query_parameter("%ACTION_RANGE")[0][1]) ) 
+        if cond and not self.MV_res:
             action_range, _, _ = get_action_boundaries(
                 N_train=self.N_test,
                 f_speed=data_handler.f_speed,
                 returns=data_handler.returns,
                 factors=data_handler.factors,
             )
-            # temp fix
-            # print(gin.query_parameter("%ACTION_RANGE"))
             gin.query_parameter("%ACTION_RANGE")[0] = action_range
-            # print(gin.query_parameter("%ACTION_RANGE"))
+        
+        if self.MV_res:
+            test_agent.action_space = ResActionSpace()
+        else:
             test_agent.action_space = ActionSpace()
+
 
         self.test_env = self.env_cls(
             N_train=self.N_test,

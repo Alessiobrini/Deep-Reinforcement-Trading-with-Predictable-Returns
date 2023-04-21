@@ -281,10 +281,10 @@ def runplot_metrics_is(p):
     # PERSONALIZE THE IMAGE WITH CORRECT LABELS
     # ax.set_ylim(-2.0*100,0.5*100)
     # ax.set_ylim(-200, 100)
-    # ax.set_ylim(-50, 20)
+    ax.set_ylim(-150, 20)
     # ax.set_ylim(-20, 2)
     # ax.set_ylim(-500, 100)
-    # ax.hlines(y=0,xmin=0,xmax=len(reldiff_avg_smooth.index),ls='--',lw=1,color='black')
+    ax.hlines(y=0,xmin=0,xmax=len(reldiff_avg_smooth.index),ls='--',lw=1,color='black')
     
     ax.set_xlabel('In-sample episodes')
     if smooth_type == 'avgdiff':

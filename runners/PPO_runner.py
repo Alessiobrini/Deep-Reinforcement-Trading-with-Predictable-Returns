@@ -91,7 +91,6 @@ class PPO_runner(MixinCore):
         try:
             self.set_up_training()
             self.training_agent()
-            pdb.set_trace()
         except (KeyboardInterrupt, SystemExit):
             # self.logging.debug("Exit on KeyboardInterrupt or SystemExit")
             sys.exit()
@@ -109,18 +108,16 @@ class PPO_runner(MixinCore):
         # Simulating Data
         self.data_handler = DataHandler(N_train=self.len_series, rng=self.rng)
         if self.experiment_type == "GP":
-            self.data_handler.generate_returns()
+            self.data_handler.generate_returns(disable_tqdm=True)
         else:
-            self.data_handler.generate_returns()
+            self.data_handler.generate_returns(disable_tqdm=True)
             # TODO check if these method really fit and change the parameters in the gin file
             self.data_handler.estimate_parameters()
             # TODO ########################################################################
 
         # Instantiating action space
-        if self.MV_res:
-            self.action_space = ResActionSpace()
-        else:
-
+        # If it's None, it will select an action space, otherwis will use the interval passed in the config
+        if (gin.query_parameter("%ACTION_RANGE")[0] == None) and (not self.MV_res):
             action_range, ret_quantile, holding_quantile = get_action_boundaries(
                 N_train=self.N_train,
                 f_speed=self.data_handler.f_speed,
@@ -129,6 +126,10 @@ class PPO_runner(MixinCore):
             )
 
             gin.query_parameter("%ACTION_RANGE")[0] = action_range
+        
+        if self.MV_res:
+            self.action_space = ResActionSpace()
+        else:
             self.action_space = ActionSpace()
             if n_assets> 1:
                 gin.query_parameter("%ACTION_RANGE")[0] = [list(arr) for arr in gin.query_parameter("%ACTION_RANGE")[0]] + [gin.query_parameter("%ACTION_RANGE")[1]]
@@ -149,7 +150,7 @@ class PPO_runner(MixinCore):
             input_shape=input_shape, action_space=self.action_space, rng=self.rng
         )
 
-        self.train_agent.add_tb_diagnostics(self.savedpath,self.epochs)
+        # self.train_agent.add_tb_diagnostics(self.savedpath,self.epochs)
 
         # Instantiating Out of sample tester
         self.oos_test = Out_sample_vs_gp(
@@ -198,7 +199,9 @@ class PPO_runner(MixinCore):
                 self.env.returns = self.data_handler.returns
                 self.env.factors = self.data_handler.factors
                 self.env.f_speed = self.data_handler.f_speed
-                if not self.MV_res:
+                # act range is fixed this way
+
+                if (gin.query_parameter("%ACTION_RANGE")[0] == None) and (not self.MV_res):
                     action_range, _, _ = get_action_boundaries(
                         N_train=self.N_train,
                         f_speed=self.data_handler.f_speed,
