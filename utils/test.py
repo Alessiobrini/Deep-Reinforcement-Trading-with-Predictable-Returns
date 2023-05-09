@@ -24,7 +24,9 @@ import torch
 import torch.nn as nn
 from utils.math_tools import unscale_action, unscale_asymmetric_action, scale_asymmetric_action
 from utils.simulation import DataHandler
-
+from utils.plot import optimal_vf
+import matplotlib.pyplot as plt
+import seaborn as sns
 
 
 @gin.configurable()
@@ -118,6 +120,10 @@ class Out_sample_vs_gp:
             returns=data_handler.returns,
             factors=data_handler.factors,
         )
+        
+        # Store also the value functions
+        self.test_env.res_df['Vf_PPO'] = np.nan
+        self.test_env.res_df['OptVf'] = np.nan
 
         CurrState = self.test_env.reset()
 
@@ -132,12 +138,12 @@ class Out_sample_vs_gp:
 
                 side_only = test_agent.action_space.side_only
 
-                action, qvalues = test_agent.greedy_action(
+                action, values = test_agent.greedy_action(
                     CurrState, side_only=side_only
                 )
                 if side_only:
                     action = get_bet_size(
-                        qvalues,
+                        values,
                         action,
                         action_limit=test_agent.action_space.action_range[0],
                         zero_action=test_agent.action_space.zero_action,
@@ -161,7 +167,7 @@ class Out_sample_vs_gp:
                 CurrState = CurrState.to(test_agent.device)
                 # PPO actions
                 with torch.no_grad():
-                    dist, qvalues = test_agent.model(CurrState.unsqueeze(0))
+                    dist, values = test_agent.model(CurrState.unsqueeze(0))
                 if test_agent.policy_type == "continuous":
                     action = dist.mean
                     if test_agent.action_clipping_type == 'tanh':
@@ -203,6 +209,24 @@ class Out_sample_vs_gp:
                 self.test_env.store_results(Result, i)
             CurrState = NextState
 
+
+            
+            
+            self.test_env.res_df.loc[i,'Vf_PPO'] = values.numpy()[0,0]
+            opt_values = optimal_vf(np.asarray(CurrOptState,dtype=float)[1:], 
+             self.test_env.discount_rate, 
+             self.test_env.kappa, 
+             self.test_env.CostMultiplier, 
+             self.test_env.f_param, 
+             self.test_env.HalfLife, 
+             self.test_env.sigma)
+            # TODO get just the first value because they are all equal. 
+            # Function adapted to when I was creating multiple different states
+            self.test_env.res_df.loc[i,'OptVf'] = opt_values[0]
+            
+            
+            
+            
             # benchmark agent
             NextOptState, OptResult = self.test_env.opt_step(
                 CurrOptState, OptRate, DiscFactorLoads, i
@@ -215,7 +239,35 @@ class Out_sample_vs_gp:
                 )
                 self.test_env.store_results(MVResult, i)
                 CurrMVState = NextMVState
+        
+        
+        # value function plot
 
+        # fig,ax = plt.subplots(figsize=(12,8))
+        # sns.scatterplot(x='Vf_PPO', y='OptVf', data=self.test_env.res_df, ax=ax)
+        
+        # # Fit regression line
+        # sns.regplot(x='Vf_PPO', y='OptVf', data=self.test_env.res_df, ax=ax)
+        
+        # # Add labels and title
+        # ax.set_xlabel('PPO Vf')
+        # ax.set_ylabel('GP Vf')
+        # plt.show()
+        # # pdb.set_trace()
+        # # self.test_env.res_df['OptVf'] = (self.test_env.res_df['OptVf']-self.test_env.res_df['OptVf'].mean())/self.test_env.res_df['OptVf'].std() * 100
+        # fig,(ax1,ax2) = plt.subplots(2,1, figsize=(12,8))
+        
+        # self.test_env.res_df['Vf_PPO'].plot(ax=ax1)
+        # self.test_env.res_df['OptVf'].plot(ax=ax2)
+        # ax1.set_xlabel('Time')
+        # ax1.set_ylabel('PPO Vf')        
+        # ax2.set_xlabel('Time')
+        # ax2.set_ylabel('GP Vf')
+        # fig.suptitle('Corr Coeff {}'.format(np.round(self.test_env.res_df[['Vf_PPO','OptVf']].corr().values[0,1],2)))
+        # plt.show()
+        
+
+        
         if return_output:
             return self.test_env.res_df
 

@@ -540,7 +540,7 @@ def optimal_vf(states, discount_rate, kappa, costmultiplier, f_param, halflife, 
         DiscFactorLoads = f_param / (1 + f_speed * ((OptRate * CostMultiplier) / kappa))
 
         return OptRate, DiscFactorLoads
-
+    
     f_speed = np.around(np.log(2) / halflife, 4)
     OptRate, DiscFactorLoads = opt_trading_rate_disc_loads(
         discount_rate, kappa, costmultiplier, f_param, f_speed
@@ -568,22 +568,37 @@ def optimal_vf(states, discount_rate, kappa, costmultiplier, f_param, halflife, 
         kappa * sigma ** 2 + lambda_bar + Axx
     )
     Aff = aff1.reshape(-1,1) @ q.reshape(-1,1).T
-    
-    states = states.numpy()
-    
-    v1 = - 0.5 * states[:,-1]**2 * Axx
-    v2s = []
-    for i in range(states.shape[0]):
-        v2 = states[i,-1].reshape(-1,1).T @ Axf.reshape(-1,1).T @ states[i,:-1].reshape(-1,1)
-        v2s.append(v2)
-    v2 = np.array(v2s).ravel()
-    v3s = []
-    for i in range(states.shape[0]):
-        v3 = states[i,:-1].reshape(-1,1).T @ Aff @ states[i,:-1].reshape(-1,1)
-        v3s.append(v3)
-    v3 = 0.5 * np.array(v3s).ravel()
 
-    V = v1 + v2 + v3
+    if not isinstance(states,np.ndarray):
+        states = states.numpy()
+        v1 = - 0.5 * states[:,-1]**2 * Axx
+        v2s = []
+        for i in range(states.shape[0]):
+            v2 = states[i,-1].reshape(-1,1).T @ Axf.reshape(-1,1).T @ states[i,:-1].reshape(-1,1)
+            v2s.append(v2)
+        v2 = np.array(v2s).ravel()
+        v3s = []
+        for i in range(states.shape[0]):
+            v3 = states[i,:-1].reshape(-1,1).T @ Aff @ states[i,:-1].reshape(-1,1)
+            v3s.append(v3)
+        v3 = 0.5 * np.array(v3s).ravel()
+    
+        V = v1 + v2 + v3
+    else:
+        states = np.vstack(np.tile(states, (3, 1)))
+        v1 = - 0.5 * states[:,-1]**2 * Axx
+        v2s = []
+        for i in range(states.shape[0]):
+            v2 = states[i,-1].reshape(-1,1).T @ Axf.reshape(-1,1).T @ states[i,:-1].reshape(-1,1)
+            v2s.append(v2)
+        v2 = np.array(v2s).ravel()
+        v3s = []
+        for i in range(states.shape[0]):
+            v3 = states[i,:-1].reshape(-1,1).T @ Aff @ states[i,:-1].reshape(-1,1)
+            v3s.append(v3)
+        v3 = 0.5 * np.array(v3s).ravel()
+    
+        V = v1 + v2 + v3
 
 
     return V

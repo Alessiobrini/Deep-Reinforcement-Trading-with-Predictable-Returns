@@ -187,7 +187,6 @@ class PPO_runner(MixinCore):
             self.ppo_rew,self.opt_rew, self.mw_rew = [],[],[]
         for e in tqdm(iterable=range(self.episodes), desc="Running episodes..."):
             if e > 0 and self.universal_train:
-                # TODO can be modified by having a fixed boundaries for the action space
                 if self.experiment_type == "GP":
                     self.data_handler.generate_returns(disable_tqdm=True)
                 else:
@@ -398,6 +397,7 @@ class PPO_runner(MixinCore):
             self.ppo_rew.append(np.cumsum(self.train_agent.experience['reward'])[-1])
             self.opt_rew.append(np.cumsum(gp_temp)[-1])
             self.mw_rew.append(np.cumsum(mw_temp)[-1])
+            
             
 
         if self.train_agent.scale_reward:

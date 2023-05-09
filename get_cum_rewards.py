@@ -37,24 +37,11 @@ def parallel_test(seed,test_class,train_agent,data_dir):
     return res_df
 
 N = 1000
-models_experiments = [('20230415_GP_univ_lr_0.0001_epochs_10', 'lr_0.0001_epochs_10_seed_120'),
- ('20230415_GP_univ_lr_0.0001_epochs_3', 'lr_0.0001_epochs_3_seed_120'),
- ('20230415_GP_univ_lr_0.0001_epochs_5', 'lr_0.0001_epochs_5_seed_120'),
- ('20230415_GP_univ_lr_0.0003_epochs_10', 'lr_0.0003_epochs_10_seed_120'),
- ('20230415_GP_univ_lr_0.0003_epochs_3', 'lr_0.0003_epochs_3_seed_120'),
- ('20230415_GP_univ_lr_0.0003_epochs_5', 'lr_0.0003_epochs_5_seed_120'),
- ('20230415_GP_univ_lr_0.0006_epochs_10', 'lr_0.0006_epochs_10_seed_120'),
- ('20230415_GP_univ_lr_0.0006_epochs_3', 'lr_0.0006_epochs_3_seed_120'),
- ('20230415_GP_univ_lr_0.0006_epochs_5', 'lr_0.0006_epochs_5_seed_120'),
- ('20230415_GP_univ_lr_0.0009_epochs_10', 'lr_0.0009_epochs_10_seed_120'),
- ('20230415_GP_univ_lr_0.0009_epochs_3', 'lr_0.0009_epochs_3_seed_120'),
- ('20230415_GP_univ_lr_0.0009_epochs_5', 'lr_0.0009_epochs_5_seed_120'),
- ('20230415_GP_univ_lr_5e-05_epochs_10', 'lr_5e-05_epochs_10_seed_120'),
- ('20230415_GP_univ_lr_5e-05_epochs_3', 'lr_5e-05_epochs_3_seed_120')]
+models_experiments = [('20230412_GP_clip_action_range_[-100000.0, 100000.0]_9',  'action_range_[-100000.0, 100000.0]_9_seed_120')]
 
 
 # [('20230414_GP_action_range_[-100000.0, 100000.0]_9', 'action_range_[-100000.0, 100000.0]_9_seed_120'),
-#  ('20230414_GP_action_range_[-400000.0, 400000.0]_9', 'action_range_[-400000.0, 400000.0]_9_seed_120')]
+#   ('20230414_GP_action_range_[-400000.0, 400000.0]_9', 'action_range_[-400000.0, 400000.0]_9_seed_120')]
 
 for me in models_experiments:
     model = me[0]
@@ -138,22 +125,25 @@ for me in models_experiments:
     rng_seeds = np.random.RandomState(14)
     seeds = rng_seeds.choice(100000,N)
     # pdb.set_trace()
-    # res_df = oos_test.run_test(train_agent, return_output=True)
-    rewards = Parallel(n_jobs=p['cores'])(delayed(parallel_test)(
-            s, oos_test,train_agent,data_dir) for s in seeds)
+    rndseeds = np.random.choice(100000)
+    print(rndseeds)
+    oos_test.rnd_state = rndseeds # 80164 #
+    res_df = oos_test.run_test(train_agent, return_output=True)
+    # rewards = Parallel(n_jobs=p['cores'])(delayed(parallel_test)(
+    #         s, oos_test,train_agent,data_dir) for s in seeds)
     
     
 
-    # create an HDF5 file and store the dataframes in it
-    with pd.HDFStore('outputs/full_results/{}.h5'.format(model)) as store:
-        for i, df in enumerate(rewards):
-            store[f'df_{i+1}'] = df
+    # # create an HDF5 file and store the dataframes in it
+    # with pd.HDFStore('outputs/full_results/{}.h5'.format(model)) as store:
+    #     for i, df in enumerate(rewards):
+    #         store[f'df_{i+1}'] = df
 
 
-    # rewards_ppo = pd.concat(list(map(list, zip(*rewards)))[0],axis=1)
-    rewards_ppo = pd.concat([df['Reward_PPO'] for df in rewards], ignore_index=True, axis=1)
-    rewards_ppo.to_csv('outputs/cumrewards/{}_ppo.csv'.format(model))
-    rewards_gp = pd.concat([df['OptReward'] for df in rewards], ignore_index=True, axis=1)
-    rewards_gp.to_csv('outputs/cumrewards/{}_gp.csv'.format(model))
-    rewards_mv = pd.concat([df['MVReward'] for df in rewards], ignore_index=True, axis=1)
-    rewards_mv.to_csv('outputs/cumrewards/{}_mv.csv'.format(model))
+    # # rewards_ppo = pd.concat(list(map(list, zip(*rewards)))[0],axis=1)
+    # rewards_ppo = pd.concat([df['Reward_PPO'] for df in rewards], ignore_index=True, axis=1)
+    # rewards_ppo.to_csv('outputs/cumrewards/{}_ppo.csv'.format(model))
+    # rewards_gp = pd.concat([df['OptReward'] for df in rewards], ignore_index=True, axis=1)
+    # rewards_gp.to_csv('outputs/cumrewards/{}_gp.csv'.format(model))
+    # rewards_mv = pd.concat([df['MVReward'] for df in rewards], ignore_index=True, axis=1)
+    # rewards_mv.to_csv('outputs/cumrewards/{}_mv.csv'.format(model))
