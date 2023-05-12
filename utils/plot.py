@@ -33,7 +33,7 @@ import torch
 from agents.PPO import PPOActorCritic
 from sklearn.preprocessing import MinMaxScaler
 from scipy.stats import median_abs_deviation
-from sympy import *
+# from sympy import *
 
 # # LOAD UTILS
 def load_DQNmodel(
@@ -548,13 +548,14 @@ def optimal_vf(states, discount_rate, kappa, costmultiplier, f_param, halflife, 
 
     disc_rate_bar = 1 - discount_rate
     lambda_bar = (costmultiplier * sigma ** 2) / disc_rate_bar
-    costmultiplier_bar = costmultiplier / disc_rate_bar
+    # costmultiplier_bar = costmultiplier / disc_rate_bar
 
     axx1 = disc_rate_bar * kappa * lambda_bar * sigma ** 2
     axx2 = 0.25 * (
         discount_rate ** 2 * lambda_bar ** 2
         + 2 * discount_rate * kappa * lambda_bar * sigma ** 2
-        + (kappa ** 2 * lambda_bar * sigma ** 2) / lambda_bar
+        # + (kappa ** 2 * lambda_bar * sigma ** 2) / lambda_bar
+        + (kappa ** 2 * sigma ** 2) / (lambda_bar**2)
     )
     axx3 = -0.5 * (discount_rate * lambda_bar + kappa * sigma ** 2)
     Axx = np.sqrt(axx1 + axx2) + axx3
@@ -567,7 +568,8 @@ def optimal_vf(states, discount_rate, kappa, costmultiplier, f_param, halflife, 
     q = (np.array(f_param) + Axf * (1 - f_speed)) ** 2 / (
         kappa * sigma ** 2 + lambda_bar + Axx
     )
-    Aff = aff1.reshape(-1,1) @ q.reshape(-1,1).T
+    # Aff = aff1.reshape(-1,1) @ q.reshape(-1,1).T
+    Aff = aff1.reshape(-1,1) @ q.reshape(-1,1) @ aff1.reshape(-1,1).T
 
     if not isinstance(states,np.ndarray):
         states = states.numpy()
@@ -600,7 +602,7 @@ def optimal_vf(states, discount_rate, kappa, costmultiplier, f_param, halflife, 
     
         V = v1 + v2 + v3
 
-
+    
     return V
 
 

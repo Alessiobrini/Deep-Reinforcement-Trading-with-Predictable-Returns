@@ -55,6 +55,7 @@ class PPO_runner(MixinCore):
         num_cores: int = None,
         universal_train: bool = False,
         store_insample: bool = False,
+        load_pretrained_path: str = None,
     ):
 
         # self.logging.info("Starting model setup")
@@ -149,7 +150,15 @@ class PPO_runner(MixinCore):
         self.train_agent = PPO(
             input_shape=input_shape, action_space=self.action_space, rng=self.rng
         )
-
+        # load previous weights here
+        if self.load_pretrained_path:
+            modelpath = "outputs/PPO/{}".format(self.load_pretrained_path[0])
+            length = self._get_exp_length(modelpath)
+            data_dir = "{}/{}/{}".format(modelpath, length, self.load_pretrained_path[1])
+            fullpath = os.path.join(data_dir, "ckpt", "PPO_best_ep_weights.pth")
+            self.train_agent.model.load_state_dict(torch.load(fullpath))
+            
+            
         # self.train_agent.add_tb_diagnostics(self.savedpath,self.epochs)
 
         # Instantiating Out of sample tester
@@ -444,3 +453,14 @@ class PPO_runner(MixinCore):
         gin.bind_parameter('%CORRELATION',list(np.round(rng.uniform(low=-0.8,
                                                                     high=0.8,
                                                                     size=(int((n_assets**2 - n_assets)/2))),5)))
+        
+    def _get_exp_length(self,modelpath):
+        # get the latest created folder "length"
+        all_subdirs = [
+            os.path.join(modelpath, d)
+            for d in os.listdir(modelpath)
+            if os.path.isdir(os.path.join(modelpath, d))
+        ]
+        latest_subdir = max(all_subdirs, key=os.path.getmtime)
+        length = os.path.split(latest_subdir)[-1]    
+        return length
