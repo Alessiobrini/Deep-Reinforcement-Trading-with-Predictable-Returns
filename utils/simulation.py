@@ -290,7 +290,7 @@ def return_sampler_GP(
         plt.xticks(fontsize=11)
         plt.yticks(fontsize=11)
         fig.tight_layout()
-        # plt.show()
+        plt.show()
     # pdb.set_trace()
     # sys.exit()
     return realret.astype(np.float32), factors.astype(np.float32), f_speed

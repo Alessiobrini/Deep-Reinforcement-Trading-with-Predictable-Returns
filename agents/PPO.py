@@ -410,7 +410,6 @@ class PPO:
             * advantage
         )
         
-
         actor_loss = -torch.min(surr1, surr2).mean()
         critic_loss = (return_ - value).pow(2).mean()
         entropy = dist.entropy().mean()

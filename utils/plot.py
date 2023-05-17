@@ -555,8 +555,8 @@ def optimal_vf(states, discount_rate, kappa, costmultiplier, f_param, halflife, 
         discount_rate ** 2 * lambda_bar ** 2
         + 2 * discount_rate * kappa * lambda_bar * sigma ** 2
         # + (kappa ** 2 * lambda_bar * sigma ** 2) / lambda_bar
-        + (kappa ** 2 * sigma ** 2) / (lambda_bar**2)
-    )
+        + (kappa ** 2 * (np.sqrt(lambda_bar)*sigma**2*(1/lambda_bar)*sigma**2*np.sqrt(lambda_bar))
+    ))
     axx3 = -0.5 * (discount_rate * lambda_bar + kappa * sigma ** 2)
     Axx = np.sqrt(axx1 + axx2) + axx3
 
@@ -570,7 +570,7 @@ def optimal_vf(states, discount_rate, kappa, costmultiplier, f_param, halflife, 
     )
     # Aff = aff1.reshape(-1,1) @ q.reshape(-1,1).T
     Aff = aff1.reshape(-1,1) @ q.reshape(-1,1) @ aff1.reshape(-1,1).T
-
+    
     if not isinstance(states,np.ndarray):
         states = states.numpy()
         v1 = - 0.5 * states[:,-1]**2 * Axx

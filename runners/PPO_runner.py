@@ -152,6 +152,7 @@ class PPO_runner(MixinCore):
         )
         # load previous weights here
         if self.load_pretrained_path:
+            print('Loading pretrained model...')
             modelpath = "outputs/PPO/{}".format(self.load_pretrained_path[0])
             length = self._get_exp_length(modelpath)
             data_dir = "{}/{}/{}".format(modelpath, length, self.load_pretrained_path[1])
