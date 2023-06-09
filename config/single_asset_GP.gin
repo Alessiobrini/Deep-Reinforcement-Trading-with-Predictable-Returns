@@ -11,11 +11,11 @@ ALGO = 'PPO' # 'PPO', 'DQN' or 'DDPG'
 ENV_CLS = @MarketEnv #ShortMultiAssetCash
 
 
-EXPERIMENT_TYPE = 'GP' # GP or Misspec
+EXPERIMENT_TYPE = 'Real' # GP or Misspec or Real
 MV_RES = False # Decide which actions to take (trading quantity or MVresiduals)
 MV_PENALTY = False #[True,False]
 MV_PENALTY_COEF = None #1e-4 #[5e-2,1e-2,5e-3,1e-3,5e-4,1e-4,5e-5,1e-5,5e-6,1e-6,5e-7,1e-7,5e-8,1e-8,5e-9,1e-9,5e-10,1e-10,5e-11,1e-11]
-UNIVERSAL_TRAIN = True
+UNIVERSAL_TRAIN = False
 LOAD_PRETRAINED_PATH = None #[('202305120_GP_scratch_universal_train_False_action_range_[-100000.0, 100000.0]_9_t_stud_False', 'universal_train_False_action_range_[-100000.0, 100000.0]_9_t_stud_False_seed_120')]
 
 EPISODES = 4 #None # episode to run the algorithm. Put None if you want to train DQN online
@@ -24,8 +24,8 @@ LEN_SERIES = 1200 #None # length of simulated series, if null the legth is N_tra
 EPOCHS = 3
 OUTPUTDIR = 'outputs' # main directory for the experiment
 OUTPUTCLASS = %ALGO # first subdirectory
-OUTPUTMODEL = '202305126_test'
-SAVE_FREQ = 1000 #200  # number of checkpoints to save during training
+OUTPUTMODEL = '20230609_test1'
+SAVE_FREQ = 2 #200  # number of checkpoints to save during training
 SEED =  120
 START_TRAIN = 100 # steps after which the training starts
 USE_GPU = True
@@ -40,7 +40,7 @@ SIDE_ONLY = False # set the action space so that only the side of the bet is cap
 ZERO_ACTION = True # include the zero action (hold) in the action space
 
 # env and data simulation
-DATATYPE = 'gauss' # type of data to simulate # 'garch','t_stud','t_stud_mfit', 'garch_mr', 'alpha_term_structure'
+DATATYPE = 'real' # type of data to simulate # 'garch','t_stud','t_stud_mfit', 'garch_mr', 'alpha_term_structure'
 TIME_DEPENDENT = True #[False,True]
 
 FACTOR_LB = [50] # list of lags for fitting autoregressive vairables of the return series
@@ -296,6 +296,9 @@ alpha_term_structure_sampler.sigmaf = %SIGMAF
 alpha_term_structure_sampler.multiasset = %MULTIASSET
 alpha_term_structure_sampler.double_noise = %DOUBLE_NOISE
 alpha_term_structure_sampler.fixed_alpha = %FIXED_ALPHA 
+
+load_real_data.get_returns = True
+load_real_data.universal_train = %UNIVERSAL_TRAIN
 
 # Parameters for Out_sample_vs_gp:
 # ==============================================================================

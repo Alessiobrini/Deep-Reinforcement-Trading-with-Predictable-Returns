@@ -54,6 +54,8 @@ class DataHandler:
                 self.returns, self.factors, self.f_speed = alpha_term_structure_sampler(N_train=self.N_train, rng=self.rng)
             elif self.datatype == "t_stud_mfit" or self.datatype == "t_stud":
                 self.returns, self.factors, self.f_speed = return_sampler_GP(N_train=self.N_train + self.factor_lb[-1], rng=self.rng, disable_tqdm=disable_tqdm)
+            elif self.datatype == "real":
+                self.returns = load_real_data()
             else:
                 if gin.query_parameter('%MULTIASSET'):
                     self.returns, self.factors, self.f_speed = multi_return_sampler_GP(
@@ -791,3 +793,16 @@ def alpha_term_structure_sampler(
 
         return alpha_structure, alpha_terms, f_speed
 
+@gin.configurable()
+def load_real_data(get_returns=True, universal_train=False):
+    data  = pd.read_csv('data/dows.csv',index_col=0, header = [0,1])
+    if universal_train:
+        s = np.random.choice(data.columns.get_level_values(0).unique(),1)[0]
+        p = data[s,'CLOSE']
+    else:
+        p = data['DIA','CLOSE']
+    if get_returns:
+        ret = p.pct_change().dropna().values
+    else:
+        ret = p.values
+    return ret

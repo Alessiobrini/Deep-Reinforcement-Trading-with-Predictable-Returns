@@ -117,7 +117,7 @@ class PPO_runner(MixinCore):
             # TODO ########################################################################
 
         # Instantiating action space
-        # If it's None, it will select an action space, otherwis will use the interval passed in the config
+        # If it's None, it will select an action space, otherwise will use the interval passed in the config
         if (gin.query_parameter("%ACTION_RANGE")[0] == None) and (not self.MV_res):
             action_range, ret_quantile, holding_quantile = get_action_boundaries(
                 N_train=self.N_train,
@@ -207,6 +207,7 @@ class PPO_runner(MixinCore):
                 if self.experiment_type == "GP":
                     self.data_handler.generate_returns(disable_tqdm=True)
                 else:
+        
                     self.data_handler.generate_returns(disable_tqdm=True)
                     # TODO check if these method really fit and change the parameters in the gin file
                     self.data_handler.estimate_parameters()
