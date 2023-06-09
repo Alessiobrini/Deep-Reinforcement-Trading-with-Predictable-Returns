@@ -1,7 +1,6 @@
 import utils.env
 import utils.spaces
 import utils.simulation
-import agents.DQN
 import agents.PPO
 
 # Macros:
@@ -16,27 +15,27 @@ EXPERIMENT_TYPE = 'GP' # GP or Misspec
 MV_RES = False # Decide which actions to take (trading quantity or MVresiduals)
 MV_PENALTY = False #[True,False]
 MV_PENALTY_COEF = None #1e-4 #[5e-2,1e-2,5e-3,1e-3,5e-4,1e-4,5e-5,1e-5,5e-6,1e-6,5e-7,1e-7,5e-8,1e-8,5e-9,1e-9,5e-10,1e-10,5e-11,1e-11]
-UNIVERSAL_TRAIN = False #True
-LOAD_PRETRAINED_PATH = None #['20230412_GP_clip_action_range_[-100000.0, 100000.0]_9',  'action_range_[-100000.0, 100000.0]_9_seed_120']
+UNIVERSAL_TRAIN = True
+LOAD_PRETRAINED_PATH = None #[('202305120_GP_scratch_universal_train_False_action_range_[-100000.0, 100000.0]_9_t_stud_False', 'universal_train_False_action_range_[-100000.0, 100000.0]_9_t_stud_False_seed_120')]
 
-EPISODES = 4000 #None # episode to run the algorithm. Put None if you want to train DQN online
+EPISODES = 4 #None # episode to run the algorithm. Put None if you want to train DQN online
 N_TRAIN = None
 LEN_SERIES = 1200 #None # length of simulated series, if null the legth is N_train
 EPOCHS = 3
 OUTPUTDIR = 'outputs' # main directory for the experiment
 OUTPUTCLASS = %ALGO # first subdirectory
-OUTPUTMODEL = '20230516_GP_vf_test'
-SAVE_FREQ = 1000 #1000 #200  # number of checkpoints to save during training
-SEED = 120 #[120] # [885]
+OUTPUTMODEL = '202305126_test'
+SAVE_FREQ = 1000 #200  # number of checkpoints to save during training
+SEED =  120
 START_TRAIN = 100 # steps after which the training starts
 USE_GPU = True
-VARYING_PARS = None #['PPO.vf_c', '%SEED'] 
+VARYING_PARS = None # ['PPO.lr','%ACTION_RANGE', '%T_STUD', '%SEED'] 
 VARYING_TYPE = 'chunk'
 NUM_CORES = 2
 
 # spaces
-ACTION_RANGE =  [[-100000.0, 100000.0], 9] # action range for standard RL [boundary,number of actions]
-ACTION_RANGE_RES = [0.0, 1.0, 10] #[[0.0, 1.0, 10],[0.25, 1.0, 10],[0.5, 1.0, 10],[-0.25, 1.0, 10],[-0.5, 1.0, 10],[-1.0, 1.0, 10],[-1.5, 1.0, 10],[-2.0, 1.0, 10],[-2.5, 1.0, 10],[-3.0, 1.0, 10], [-3.5, 1.0, 10],[-4.0, 1.0, 10]] #[0.0, 1.0, 10] #[[-0.5, 1.0, 10],[-1.0, 1.0, 10],[0.0, 1.0, 10],[0.5, 1.0, 10]] # action range for residual RL [LB,UB,number of actions]
+ACTION_RANGE = [[-100000.0, 100000.0], 9] # action range for standard RL [boundary,number of actions]
+ACTION_RANGE_RES = [0.0, 1.0, 10]  # action range for residual RL [LB,UB,number of actions]
 SIDE_ONLY = False # set the action space so that only the side of the bet is captured by the algorithm
 ZERO_ACTION = True # include the zero action (hold) in the action space
 
@@ -74,9 +73,9 @@ DOUBLE_NOISE = True
 QTS = [0.0, 1.0, 1.0] # quantile to select action boundaries print([[0.0,1.0,np.round(i,3)] for i in np.linspace(1.0,5.0,20)])
 ACTION_TYPE = 'GP' # GP or MV for selecting action boundaries
 UNCORRELATED = True # generate correlated or uncorrelated factors
-T_STUD = False # Student's T noise in the simulation for GP factors
+T_STUD = False #[False,True] # Student's T noise in the simulation for GP factors
 DEGREES = 6 # degrees of freedom for Student's T
-VOL = 'omosk' #'omosk' or 'heterosk' to simulate GP-like return with stoch vol
+VOL = 'omosk' #['omosk','heterosk'] #'omosk' or 'eterosk' to simulate GP-like return with stoch vol
 
 MEAN_PROCESS = 'AR' # choice for mean process ['AR', 'Constant']
 LAGS_MEAN_PROCESS = 1 # lag or list of lags for the autoregressive component in the mean return
@@ -184,12 +183,12 @@ PPO.seed = %SEED
 PPO.gamma = 0.99 #0.8 # discounting factor for the Q target
 PPO.tau = 0.98 # lambda in the original GAE paper
 PPO.clip_param = 0.2  # clipping of objective function
-PPO.vf_c = 1.0 #[1.0,1.5,2.0,4.0,10.0] # coefficient for the value error
+PPO.vf_c = 0.5 # coefficient for the value error
 PPO.ent_c = 0.0001 # coefficient for entropy
 PPO.hidden_units_value = [20,20]
 PPO.hidden_units_actor = [20,20] #[[30,30],[40,40],[100,100],[20,20,20],[20,20],[10,10],[5,5],[5],[10],[20],[30],[50],[100,100,100]] #[[20,20],[20],[10],[6],[4],[3],[2]] #[20,20] #[20,20]
 PPO.batch_size =  500 #250
-PPO.lr = 0.0003 # [0.0003,0.0006,0.0009,0.0001] #0.0003 # initial learning rate
+PPO.lr = 0.0003 #[0.0003,0.00003] #[0.0003,0.00003,0.000003,0.0000003] # initial learning rate 10 times smaller for fine-tuning
 PPO.activation = 'tanh'
 PPO.batch_norm_input = True # batch norm at input layer level
 PPO.batch_norm_value_out = False # normalize value function output
@@ -209,10 +208,10 @@ PPO.store_diagnostics = False
 PPO.augadv = False
 PPO.eta1 = 0.01
 PPO.eta2 = 0.05
-PPO.action_clipping_type = 'tanh' #[,'tanh'] #['tanh','env','none'] # env or tanh
+PPO.action_clipping_type = 'clip' #['tanh','clip'] #[,'tanh'] #['tanh','env','none'] # env or tanh
 PPO.tanh_stretching = 1.0 #0.3 # [0.28,0.3,0.32] # [0.05, 0.1 , 0.15, 0.2 , 0.25, 0.3 , 0.35, 0.4 , 0.45, 0.5 , 0.55, 0.6 , 0.65, 0.7 , 0.75, 0.8 , 0.85, 0.9 , 0.95, 1.0] # stretching the tanh
 PPO.scale_reward = True
-PPO.gaussian_clipping = 3.3 #[3.0 , 3.1, 3.2, 3.3, 3.4, 3.5, 3.6, 3.7, 3.8, 3.9, 4.0 ]
+PPO.gaussian_clipping =  3.3
 
 
 

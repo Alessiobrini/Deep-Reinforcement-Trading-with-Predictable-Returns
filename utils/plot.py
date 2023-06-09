@@ -8,8 +8,8 @@ import gin
 
 gin.enter_interactive_mode()
 import numpy as np
-import tensorflow as tf
-from agents.DQN import DeepNetworkModel
+# import tensorflow as tf
+# from agents.DQN import DeepNetworkModel
 import os, pdb
 import pandas as pd
 from utils.spaces import (

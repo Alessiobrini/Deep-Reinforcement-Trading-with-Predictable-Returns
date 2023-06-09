@@ -107,7 +107,7 @@ def return_sampler_GP(
     f_param: Union[float , list , np.ndarray],
     sigma: Union[float , list , np.ndarray],
     HalfLife: Union[int , list , np.ndarray],
-    rng: np.random.mtrand.RandomState = None,
+    rng = None,
     offset: int = 2,
     uncorrelated: bool = False,
     t_stud: bool = False,
@@ -303,7 +303,7 @@ def multi_return_sampler_GP(
     f_param: Union[float , list , np.ndarray],
     sigma: Union[float , list , np.ndarray],
     HalfLife: Union[int , list , np.ndarray],
-    rng: np.random.mtrand.RandomState = None,
+    rng= None,
     offset: int = 2,
     uncorrelated: bool = False,
     t_stud: bool = False,
@@ -434,7 +434,7 @@ def return_sampler_garch(
     seed: int = None,
     p_arg: list = None,
     disable_tqdm: bool = False,
-    rng: np.random.mtrand.RandomState = None,
+    rng= None,
 ) -> Tuple[np.ndarray, pd.Series]:
     # https://stats.stackexchange.com/questions/61824/how-to-interpret-garch-parameters
     # https://arch.readthedocs.io/en/latest/univariate/introduction.html
@@ -661,7 +661,7 @@ def alpha_term_structure_sampler(
     f_param: Union[int , list , np.ndarray],
     sigma: Union[int , list , np.ndarray]= None,
     sigmaf: Union[int , list , np.ndarray]= None,
-    rng: np.random.mtrand.RandomState = None,
+    rng= None,
     offset: int = 2,
     generate_plot:bool = False,
     multiasset: bool = False,

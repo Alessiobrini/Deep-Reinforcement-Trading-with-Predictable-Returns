@@ -68,23 +68,66 @@ experiment_ppo: 'seed_325' #'hidden_units_actor_20_20_20_activation_tanh_seed_88
 hyperparams_model_ppo: [50.0] #['32_32'] #[0.99,0.98,'64_64','128_64'] #[False,None]  #[True,1e-05] #[True,1e-05] #[False,None] 
 hyperparams_exp_ppo:  [1.5]  #[True,1e-05]
 plot_type: 'metrics_is' #'metrics_is' #'multi_policy' #'holding'
-outputModels_ppo: [  '20230414_GP_univ_lr_5e-05_epochs_10', 
-  '20230414_GP_univ_lr_5e-05_epochs_3', 
-  '20230414_GP_univ_lr_5e-05_epochs_5']
- 
- 
-# [ '20230414_GP_univ_lr_0.0006_epochs_10', 
-#  '20230414_GP_univ_lr_0.0006_epochs_3', 
-#  '20230414_GP_univ_lr_0.0006_epochs_5', 
-#  '20230414_GP_univ_lr_0.0009_epochs_10', 
-#  '20230414_GP_univ_lr_0.0009_epochs_3', 
-#  '20230414_GP_univ_lr_0.0009_epochs_5', 
-  # '20230414_GP_univ_lr_5e-05_epochs_10', 
-  # '20230414_GP_univ_lr_5e-05_epochs_3', 
-  # '20230414_GP_univ_lr_5e-05_epochs_5']
- 
- 
- 
- 
- 
+outputModels_ppo: ['20230606_GP_ftune_single_stud_degrees_10', '20230606_GP_ftune_single_stud_degrees_6', '20230606_GP_ftune_single_stud_degrees_8',
+'20230605_GP_ftune_single_stud_degrees_10', '20230605_GP_ftune_single_stud_degrees_6', '20230605_GP_ftune_single_stud_degrees_8']
+
+
+# ['20230605_GP_ftune_single_stud_degrees_10', '20230605_GP_ftune_single_stud_degrees_6', '20230605_GP_ftune_single_stud_degrees_8']
+
+
+# ['20230527_GP_ftune_t_stud_False', 
+# '20230527_GP_ftune_t_stud_True',
+# '20230525_GP_ftune_t_stud_False', 
+# '20230525_GP_ftune_t_stud_True']
+
+
+# ['20230525_GP_ftune_t_stud_False', '20230525_GP_ftune_t_stud_True']
+
+
+# ['20230525_GP_ftune_t_stud_False', '20230525_GP_ftune_t_stud_True']
+
+# ['20230524_GP_ftune_t_stud_False', '20230524_GP_ftune_t_stud_True']
+
+#  ['20230523_GP_ftune_lr_0.0003_t_stud_False', 
+# '20230523_GP_ftune_lr_0.0003_t_stud_True', 
+# '20230523_GP_ftune_lr_3e-05_t_stud_False', 
+# '20230523_GP_ftune_lr_3e-05_t_stud_True']
+
+
+
+
+# ['202305122_GP_ftune_lr_3e-05_action_range_[-100000.0, 100000.0]_9_t_stud_True', 
+#         '202305122_GP_ftune_lr_3e-05_action_range_[-500000.0, 500000.0]_9_t_stud_True', 
+#         '202305120_GP_ftune_lr_3e-05_action_range_[-1000000.0, 1000000.0]_9_t_stud_True'] 
+
+
+
+# comparison between universal training from scratch and ftuning
+# [ '202305120_GP_scratch_universal_train_True_action_range_[-100000.0, 100000.0]_9_t_stud_False', 
+# '202305120_GP_ftune_lr_3e-05_action_range_[-1000000.0, 1000000.0]_9_t_stud_False',]
+
+# [ '202305120_GP_scratch_universal_train_True_action_range_[-100000.0, 100000.0]_9_t_stud_True', 
+# '202305120_GP_ftune_lr_3e-05_action_range_[-1000000.0, 1000000.0]_9_t_stud_True',]
+
+
+# ftune gauss and t stud
+# ['202305120_GP_ftune_lr_0.0003_action_range_[-1000000.0, 1000000.0]_9_t_stud_True', 
+#     '202305120_GP_ftune_lr_3e-05_action_range_[-1000000.0, 1000000.0]_9_t_stud_True',]
+# ['202305120_GP_ftune_lr_0.0003_action_range_[-1000000.0, 1000000.0]_9_t_stud_False', 
+#     '202305120_GP_ftune_lr_3e-05_action_range_[-1000000.0, 1000000.0]_9_t_stud_False']
+
+     
+#scratch conv 
+# ['202305120_GP_scratch_universal_train_False_action_range_[-100000.0, 100000.0]_9_t_stud_True', 
+#   '202305120_GP_scratch_universal_train_False_action_range_[-1000000.0, 1000000.0]_9_t_stud_True']
+
+# ['202305120_GP_scratch_pt',
+#   '202305120_GP_scratch_universal_train_False_action_range_[-1000000.0, 1000000.0]_9_t_stud_False']
+
+#scratch conv with unive training
+# ['202305120_GP_scratch_universal_train_False_action_range_[-1000000.0, 1000000.0]_9_t_stud_False',
+# '202305120_GP_scratch_universal_train_True_action_range_[-1000000.0, 1000000.0]_9_t_stud_False', 
+# '202305120_GP_scratch_universal_train_False_action_range_[-1000000.0, 1000000.0]_9_t_stud_True',
+#   '202305120_GP_scratch_universal_train_True_action_range_[-1000000.0, 1000000.0]_9_t_stud_True']
+
  

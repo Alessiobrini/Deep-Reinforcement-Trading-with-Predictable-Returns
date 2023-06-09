@@ -159,6 +159,13 @@ class PPO_runner(MixinCore):
             fullpath = os.path.join(data_dir, "ckpt", "PPO_best_ep_weights.pth")
             self.train_agent.model.load_state_dict(torch.load(fullpath))
             
+            torch.save(
+                self.train_agent.model.state_dict(),
+                os.path.join(
+                    self.savedpath, "ckpt", "PPO_pretrained_ep_weights.pth"
+                ),
+            )
+            
             
         # self.train_agent.add_tb_diagnostics(self.savedpath,self.epochs)
 
@@ -225,6 +232,7 @@ class PPO_runner(MixinCore):
             
             # Training
             self.collect_rollouts()
+
             
             self.update(e)
 
@@ -402,7 +410,7 @@ class PPO_runner(MixinCore):
                 mwstate = nextmwstate
                 mw_temp.append(mwresult['MVReward'])
 
-                
+
         if self.store_insample:
             self.ppo_rew.append(np.cumsum(self.train_agent.experience['reward'])[-1])
             self.opt_rew.append(np.cumsum(gp_temp)[-1])
@@ -421,7 +429,7 @@ class PPO_runner(MixinCore):
         # compute the advantage estimate from the given rollout
         _, self.next_value = self.train_agent.act(next_state)
         self.train_agent.compute_gae(self.next_value.detach().cpu().numpy().ravel())
-
+          
 
     def update(self,episode):
         

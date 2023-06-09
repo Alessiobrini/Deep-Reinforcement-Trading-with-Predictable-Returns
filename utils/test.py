@@ -255,17 +255,17 @@ class Out_sample_vs_gp:
         # plt.show()
         # pdb.set_trace()
         # self.test_env.res_df['OptVf'] = (self.test_env.res_df['OptVf']-self.test_env.res_df['OptVf'].mean())/self.test_env.res_df['OptVf'].std() * 100
-        fig,(ax1,ax2) = plt.subplots(2,1, figsize=(12,8))
+        # fig,(ax1,ax2) = plt.subplots(2,1, figsize=(12,8))
         
-        self.test_env.res_df['Vf_PPO'].plot(ax=ax1)
-        self.test_env.res_df['OptVf'].plot(ax=ax2, color='tab:orange')
-        ax1.set_xlabel('Time')
-        ax1.set_ylabel('PPO Vf')        
-        ax2.set_xlabel('Time')
-        ax2.set_ylabel('GP Vf')
-        fig.suptitle('Corr Coeff fullpath {} \n Corr Coeff t=600 on {}'.format(np.round(self.test_env.res_df[['Vf_PPO','OptVf']].corr().values[0,1],2),
-                                                                                np.round(self.test_env.res_df[['Vf_PPO','OptVf']].loc[600:].corr().values[0,1],2)))
-        plt.show()
+        # self.test_env.res_df['Vf_PPO'].plot(ax=ax1)
+        # self.test_env.res_df['OptVf'].plot(ax=ax2, color='tab:orange')
+        # ax1.set_xlabel('Time')
+        # ax1.set_ylabel('PPO Vf')        
+        # ax2.set_xlabel('Time')
+        # ax2.set_ylabel('GP Vf')
+        # fig.suptitle('Corr Coeff fullpath {} \n Corr Coeff t=600 on {}'.format(np.round(self.test_env.res_df[['Vf_PPO','OptVf']].corr().values[0,1],2),
+        #                                                                         np.round(self.test_env.res_df[['Vf_PPO','OptVf']].loc[600:].corr().values[0,1],2)))
+        # plt.show()
         # fig.savefig('outputs/vf_figs/vf_{}.png'.format(self.rnd_state))
         # pdb.set_trace()
         

@@ -9,10 +9,10 @@ import sys
 import gin
 from tqdm import tqdm
 import numpy as np
-import tensorflow as tf
+# import tensorflow as tf
 from typing import Union, Tuple
 import pandas as pd
-from statsmodels.regression.linear_model import OLS
+# from statsmodels.regression.linear_model import OLS
 from utils.env import *
 from utils.math_tools import boltzmann, unscale_action
 from scipy.stats import norm

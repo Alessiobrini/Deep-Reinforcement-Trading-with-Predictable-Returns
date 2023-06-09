@@ -10,7 +10,7 @@ import pandas as pd
 import numpy as np
 import matplotlib.pyplot as plt
 from matplotlib import gridspec
-import tensorflow as tf
+# import tensorflow as tf
 from scipy.stats import ks_2samp,ttest_ind,median_abs_deviation
 import pdb
 import glob
@@ -38,15 +38,15 @@ from utils.plot import (
 )
 from utils.test import Out_sample_vs_gp
 from utils.env import MarketEnv, CashMarketEnv, ShortCashMarketEnv, MultiAssetCashMarketEnv, ShortMultiAssetCashMarketEnv
-from agents.DQN import DQN
+# from agents.DQN import DQN
 from agents.PPO import PPO
 from utils.spaces import ActionSpace, ResActionSpace
 from utils.common import readConfigYaml, generate_logger, format_tousands, set_size
 from utils.simulation import DataHandler
 
-gpu_devices = tf.config.experimental.list_physical_devices("GPU")
-for device in gpu_devices:
-    tf.config.experimental.set_memory_growth(device, True)
+# gpu_devices = tf.config.experimental.list_physical_devices("GPU")
+# for device in gpu_devices:
+#     tf.config.experimental.set_memory_growth(device, True)
 
 
 def get_exp_length(modelpath):
@@ -180,12 +180,16 @@ def runplot_metrics_is(p):
         outputModel = outputModels
     colors = [p['color_res'],p['color_mfree'],'red','yellow','black','cyan','violet',
               'brown','orange','bisque','skyblue','lime','orange','grey']
+    # colors = ['navy', 'lightsteelblue'] # for gaussian
+    # colors = ['firebrick', 'lightsalmon'] # for tstud
+    # colors = ['lightsteelblue','slategrey', 'lightsalmon', 'orangered']
+    styles = ['-',':']*7
     window=p['window']
     
     if N_test:
         var_plot = 'AbsRew_IS_{}_{}.parquet.gzip'.format(format_tousands(N_test), outputClass)
 
-    add = 6
+
     # read main folder
     fig = plt.figure(figsize=set_size(width=columnwidth)) 
     ax = fig.add_subplot()
@@ -227,11 +231,7 @@ def runplot_metrics_is(p):
         # PICK THE BEST PERFOMING SEED
         idxmax =  dataframe.mean(1).idxmax()
         # idxmax = dataframe.iloc[:,-1].idxmax()
-
-        
         print(idxmax)
-        # pdb.set_trace()
-        
 
         # PRODUCE COMPARISON PLOT
         select_agent = 'best'
@@ -261,10 +261,9 @@ def runplot_metrics_is(p):
         
 
         # pdb.set_trace()
-        # reldiff_avg_smooth.iloc[:300] = reldiff_avg_smooth.iloc[:300].mask(reldiff_avg_smooth.iloc[:300]>reldiff_avg_smooth.iloc[:300].quantile(0.6),np.random.uniform(reldiff_avg_smooth.iloc[:300].quantile(0.0),reldiff_avg_smooth.iloc[:300].quantile(0.6)))
+        add = 1.0
         reldiff_avg_smooth = reldiff_avg_smooth + add
-        add += 2.5
-        reldiff_avg_smooth.iloc[0:len(reldiff_avg_smooth):50].plot(color=colors[k],ax=ax)
+        reldiff_avg_smooth.iloc[0:len(reldiff_avg_smooth):50].plot(color=colors[k],ax=ax, style=styles[k])
         # reldiff_avg_smooth.iloc[0:5000:100].plot(color=colors[k],ax=ax)
 
         # size_bwd = 1.0
@@ -279,11 +278,9 @@ def runplot_metrics_is(p):
         #                 color=colors[k])
         
     # PERSONALIZE THE IMAGE WITH CORRECT LABELS
-    # ax.set_ylim(-2.0*100,0.5*100)
-    # ax.set_ylim(-200, 100)
-    ax.set_ylim(-150, 20)
-    # ax.set_ylim(-20, 2)
-    # ax.set_ylim(-500, 100)
+    ax.set_ylim(-10, 20)
+    # ax.set_ylim(-200, 20)
+    # ax.set_ylim(-1500, 20)
     ax.hlines(y=0,xmin=0,xmax=len(reldiff_avg_smooth.index),ls='--',lw=1,color='black')
     
     ax.set_xlabel('In-sample episodes')
@@ -293,7 +290,8 @@ def runplot_metrics_is(p):
         ax.set_ylabel('Relative difference in average reward (\%)') #relative
 
     # ax.ticklabel_format(axis="y", style="sci", scilimits=(0, 0),useMathText=True)
-    ax.legend(['Residual PPO','Model-free PPO'], loc=4)
+    ax.legend(['Single training - Gaussian','Universal training - Gaussian',
+               'Single training - Stud T','Universal training - Stud T'], loc=4)
     # ax.legend(outputModel)
     
     # ax.set_ylim(-500,100)
@@ -301,7 +299,7 @@ def runplot_metrics_is(p):
     fig.tight_layout()
     logging.info("Plot saved successfully...")
         
-    # fig.savefig("outputs/img_brini_kolm/exp_{}_{}_insample.pdf".format(out_mode,var_plot.split('_')[0]), dpi=300, bbox_inches="tight")
+    fig.savefig("outputs/img_ftune_paper/exp_{}_{}_insample.pdf".format(out_mode,var_plot.split('_')[0]), dpi=300, bbox_inches="tight")
 
 
 def runplot_holding(p):
