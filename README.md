@@ -1,6 +1,6 @@
 # Deep Reinforcement Trading with Predictable Returns
 
-This code repository comes with the paper [Deep reinforcement trading with predictable returns]([https://arxiv.org/abs/2104.14683](https://www.sciencedirect.com/science/article/abs/pii/S0378437123004569)) published on *Physica A: Statistical Mechanics and its Applications*. It contains the main scripts and the utilities that allow to run the experiments and produce the figures attached to the paper. 
+This code repository comes with the paper [Deep reinforcement trading with predictable returns](https://www.sciencedirect.com/science/article/abs/pii/S0378437123004569)) published on *Physica A: Statistical Mechanics and its Applications*. It contains the main scripts and the utilities that allow to run the experiments and produce the figures attached to the paper. 
 
 ## Requirements
 
