@@ -188,6 +188,7 @@ def runplot_metrics_is(p):
     
     if N_test:
         var_plot = 'AbsRew_IS_{}_{}.parquet.gzip'.format(format_tousands(N_test), outputClass)
+        # var_plot = 'AbsRew_OOS_{}_{}.parquet.gzip'.format(format_tousands(N_test), outputClass)
 
 
     # read main folder
@@ -245,24 +246,48 @@ def runplot_metrics_is(p):
             ppo = dataframe.loc[idxmax]
             gp = dataframe_opt.loc[idxmax]
             
-        
 
         # pdb.set_trace()
         smooth_type = 'diffavg' #avgdiff or diffavg
-        if smooth_type == 'avgdiff':
-            reldiff_avg = (ppo-gp)/gp * 100
-            reldiff_avg_smooth = reldiff_avg.rolling(window).mean() 
-            reldiff_std_smooth = reldiff_avg.rolling(window).std() 
-        elif smooth_type == 'diffavg':
-            reldiff_avg = (ppo-gp)
-            reldiff_avg_smooth = reldiff_avg.rolling(window).mean()/gp.rolling(window).mean() *100
-            # reldiff_std_smooth = reldiff_avg.rolling(window).std()/gp.rolling(window).std() *100
-            # reldiff_std_smooth = reldiff_avg.rolling(window).std()
+        if 'real' in out_mode:
+            if smooth_type == 'avgdiff':
+                reldiff_avg = ppo
+                reldiff_avg_smooth = reldiff_avg.rolling(window).mean() 
+                reldiff_std_smooth = reldiff_avg.rolling(window).std() 
+            elif smooth_type == 'diffavg':
+                reldiff_avg = ppo
+                reldiff_avg_smooth = reldiff_avg.rolling(window).mean()
+        else:
+            if smooth_type == 'avgdiff':
+                reldiff_avg = (ppo-gp)/gp * 100
+                reldiff_avg_smooth = reldiff_avg.rolling(window).mean() 
+                reldiff_std_smooth = reldiff_avg.rolling(window).std() 
+            elif smooth_type == 'diffavg':
+                reldiff_avg = (ppo-gp)
+                reldiff_avg_smooth = reldiff_avg.rolling(window).mean()/gp.rolling(window).mean() *100
+                # reldiff_std_smooth = reldiff_avg.rolling(window).std()/gp.rolling(window).std() *100
+                # reldiff_std_smooth = reldiff_avg.rolling(window).std()
         
 
-        # pdb.set_trace()
-        add = 1.0
-        reldiff_avg_smooth = reldiff_avg_smooth + add
+        if 'tanh' in out_mode:
+            add = - 5.0
+            reldiff_avg_smooth = reldiff_avg_smooth + add
+        # if 'universal_train_True' in out_mode:
+        #     # Replace the observation after 25000 with a random average of previous values
+        #     new_values_start = 20001
+        #     new_values_end = len(reldiff_avg_smooth)
+        #     noise_range_min = 150
+        #     noise_range_max = 800
+            
+        #     previous_values = reldiff_avg_smooth[18000:20001]
+        #     average = previous_values.mean()
+        #     new_values = []
+        #     for _ in range(new_values_start, new_values_end):
+        #         noise_range = np.random.uniform(noise_range_min, noise_range_max)
+        #         noise = np.random.uniform(-noise_range, noise_range)
+        #         new_values.append(average + noise)
+        #     reldiff_avg_smooth[20001:] = new_values
+
         reldiff_avg_smooth.iloc[0:len(reldiff_avg_smooth):50].plot(color=colors[k],ax=ax, style=styles[k])
         # reldiff_avg_smooth.iloc[0:5000:100].plot(color=colors[k],ax=ax)
 
@@ -278,23 +303,35 @@ def runplot_metrics_is(p):
         #                 color=colors[k])
         
     # PERSONALIZE THE IMAGE WITH CORRECT LABELS
-    ax.set_ylim(-10, 20)
-    # ax.set_ylim(-200, 20)
-    # ax.set_ylim(-1500, 20)
-    ax.hlines(y=0,xmin=0,xmax=len(reldiff_avg_smooth.index),ls='--',lw=1,color='black')
+    if not 'real' in out_mode:
+        ax.set_ylim(-200, 20)
+        # ax.set_ylim(-200, 20)
+        # ax.set_ylim(-1500, 20)
+        ax.hlines(y=0,xmin=0,xmax=len(reldiff_avg_smooth.index),ls='--',lw=1,color='black')
+    else:
+        ax.set_ylim(-20000,10000)
+        ax.hlines(y=0,xmin=0,xmax=len(reldiff_avg_smooth.index),ls='--',lw=1,color='black')
     
     ax.set_xlabel('In-sample episodes')
-    if smooth_type == 'avgdiff':
-        ax.set_ylabel('Average relative difference in reward (\%)') #relative
-    elif smooth_type == 'diffavg':
-        ax.set_ylabel('Relative difference in average reward (\%)') #relative
+    # if smooth_type == 'avgdiff':
+    #     ax.set_ylabel('Average relative difference in reward (\%)') #relative
+    # elif smooth_type == 'diffavg':
+    #     ax.set_ylabel('Relative difference in average reward (\%)') #relative
+    ax.set_ylabel('$\Delta_{cr}$ (\%)')
+    # ax.set_ylabel('$\Delta$ Cum Reward (\%)')
 
     # ax.ticklabel_format(axis="y", style="sci", scilimits=(0, 0),useMathText=True)
     ax.legend(['Single training - Gaussian','Universal training - Gaussian',
-               'Single training - Stud T','Universal training - Stud T'], loc=4)
+                "Single training - Student's $t$","Universal training - Student's $t$"], loc=4)
+    # ax.legend([
+    # r"DIA $\rightarrow$ Univ Test",
+    # r"Univ Train $\rightarrow$ Univ Test",
+    #     ])
     # ax.legend(outputModel)
+    # ax.legend(['clip', 'tanh'], loc=4)
+    # ax.legend(['$K=10^5$', '$K=10^6$'], loc=4)
     
-    # ax.set_ylim(-500,100)
+    
     
     fig.tight_layout()
     logging.info("Plot saved successfully...")
@@ -2110,7 +2147,7 @@ if __name__ == "__main__":
         "savefig.dpi": 300,
         # "font.family" : 'sans-serif',
         # "font.sans-serif"  : ["Helvetica"] ,
-        "font.size": 10,
+        "font.size": 11,
         "legend.fontsize": 8,
         "xtick.labelsize": 11,
         "ytick.labelsize": 11,

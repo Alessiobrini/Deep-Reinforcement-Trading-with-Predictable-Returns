@@ -47,7 +47,7 @@ class DataHandler:
         self.rng = rng
         self.factor_lb = factor_lb
 
-    def generate_returns(self, disable_tqdm: bool = False):
+    def generate_returns(self, disable_tqdm: bool = False, training = True):
 
         if self.datatype != "garch":
             if self.datatype == "alpha_term_structure":
@@ -55,7 +55,7 @@ class DataHandler:
             elif self.datatype == "t_stud_mfit" or self.datatype == "t_stud":
                 self.returns, self.factors, self.f_speed = return_sampler_GP(N_train=self.N_train + self.factor_lb[-1], rng=self.rng, disable_tqdm=disable_tqdm)
             elif self.datatype == "real":
-                self.returns = load_real_data()
+                self.returns = load_real_data(training=training)
             else:
                 if gin.query_parameter('%MULTIASSET'):
                     self.returns, self.factors, self.f_speed = multi_return_sampler_GP(
@@ -794,15 +794,29 @@ def alpha_term_structure_sampler(
         return alpha_structure, alpha_terms, f_speed
 
 @gin.configurable()
-def load_real_data(get_returns=True, universal_train=False):
+def load_real_data(get_returns=True, universal_train=False, split_pct = 0.8, training = True):
     data  = pd.read_csv('data/dows.csv',index_col=0, header = [0,1])
+    
     if universal_train:
         s = np.random.choice(data.columns.get_level_values(0).unique(),1)[0]
         p = data[s,'CLOSE']
     else:
         p = data['DIA','CLOSE']
+
     if get_returns:
         ret = p.pct_change().dropna().values
     else:
         ret = p.values
-    return ret
+
+    # Calculate the index to split at
+    split_index = int(len(ret) * split_pct)
+
+    # Split the data into two parts
+    training_data = ret[:split_index]
+    validation_data = ret[split_index:]
+    
+    # Return the appropriate part based on the 'training' flag
+    if training:
+        return training_data
+    else:
+        return validation_data

@@ -275,6 +275,8 @@ class MarketEnv(gym.Env):
         self.dates = dates
         res_df = res_df.astype(np.float32)
         self.res_df = res_df
+
+
         
 
     def get_state_dim(self):
@@ -1087,7 +1089,7 @@ class MultiAssetCashMarketEnv(CashMarketEnv):
         nextState = np.array(input_list).reshape(-1,)  # long vector
 
         Result = self._getreward(iteration, tag)
-        # pdb.set_trace()
+
 
         return nextState, Result, nextFactors
     
@@ -1167,7 +1169,6 @@ class MultiAssetCashMarketEnv(CashMarketEnv):
     ) -> Tuple[np.ndarray, dict]:
         
         #TODO
-        # pdb.set_trace()
         CurrFactors = self.factors[iteration].reshape(self.n_assets,self.n_factors)
         OptCurrHolding = np.array(currOptState[-1-self.n_assets:-1])
         # Optimal traded quantity between period
@@ -1175,7 +1176,7 @@ class MultiAssetCashMarketEnv(CashMarketEnv):
         OptNextHolding = np.dot(np.linalg.inv(self.cov_matrix* self.kappa), np.dot(
             DiscFactors,np.array(self.f_param)[0]
         ))
-        # pdb.set_trace()
+
 
         action = OptNextHolding - OptCurrHolding
 
@@ -1265,13 +1266,12 @@ class MultiAssetCashMarketEnv(CashMarketEnv):
         currHolding = self.holding_ts[iteration]
         nextHolding = self.holding_ts[iteration+1] 
         nextCash = self.cash_ts[iteration+1] 
-        # pdb.set_trace()
         shares_traded = nextHolding - currHolding
         NetPNL = np.dot(nextHolding,nextRet) - self.costs
         Risk = 0.5 * self.kappa * np.dot(np.dot(nextHolding.T,self.cov_matrix),nextHolding)
         Reward = NetPNL - Risk
         nextWealth = nextHolding.sum() + nextCash
-        # pdb.set_trace()
+
 
         Result = {
             "CurrHolding_{}".format(tag): currHolding,

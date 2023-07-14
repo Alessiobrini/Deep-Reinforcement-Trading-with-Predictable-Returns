@@ -125,7 +125,7 @@ class PPO_runner(MixinCore):
                 returns=self.data_handler.returns,
                 factors=self.data_handler.factors,
             )
-
+            
             gin.query_parameter("%ACTION_RANGE")[0] = action_range
         
         if self.MV_res:

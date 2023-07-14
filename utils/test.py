@@ -94,8 +94,10 @@ class Out_sample_vs_gp:
             data_handler.generate_returns()
         else:
             # TODO Check if the seeds variaes here
-            data_handler.generate_returns()
+            data_handler.generate_returns(training=False)
             data_handler.estimate_parameters()
+            if self.experiment_type == "Real":
+                self.N_test = len(data_handler.returns) - 2
             # TODO ############################
         cond = not isinstance(gin.query_parameter("%ACTION_RANGE")[0],list)
         # cond = (np.abs(gin.query_parameter("%ACTION_RANGE")[0][0]) != np.abs(gin.query_parameter("%ACTION_RANGE")[0][1]) ) 

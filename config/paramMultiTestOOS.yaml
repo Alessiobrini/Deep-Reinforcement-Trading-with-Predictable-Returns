@@ -56,7 +56,7 @@ outputModel_dqn: '20210503_GPGAUSS_1f_n_train_{}_halflife_{}_sigmaf_{}_mv_res_{}
 outputModels_dqn: ['20211101_DQNGARCH_pickseeds']
 N_test: 1200 #1500 #200 # Length of OOS test
 stochastic: False
-window: 1 #150 #250 # 25
+window: 1 #150 #150 #250 # 25
 load_rewards: False
 mv_solution: True
 load_holdings: False
@@ -68,8 +68,53 @@ experiment_ppo: 'seed_325' #'hidden_units_actor_20_20_20_activation_tanh_seed_88
 hyperparams_model_ppo: [50.0] #['32_32'] #[0.99,0.98,'64_64','128_64'] #[False,None]  #[True,1e-05] #[True,1e-05] #[False,None] 
 hyperparams_exp_ppo:  [1.5]  #[True,1e-05]
 plot_type: 'metrics_is' #'metrics_is' #'multi_policy' #'holding'
-outputModels_ppo: ['20230606_GP_ftune_single_stud_degrees_10', '20230606_GP_ftune_single_stud_degrees_6', '20230606_GP_ftune_single_stud_degrees_8',
-'20230605_GP_ftune_single_stud_degrees_10', '20230605_GP_ftune_single_stud_degrees_6', '20230605_GP_ftune_single_stud_degrees_8']
+outputModels_ppo:    ['20230713_real_universal_train_False_split_pct_0.5', 
+  '20230713_real_universal_train_False_split_pct_0.7']
+  # '20230713_real_universal_train_False_split_pct_0.8', 
+  # '20230713_real_universal_train_False_split_pct_0.9']
+
+
+# ['20230713_real_universal_train_True_split_pct_0.7', 
+#     '20230713_real_universal_train_True_split_pct_0.8', 
+#     '20230713_real_universal_train_True_split_pct_0.9']
+
+
+# ['20230713_real_universal_train_False_split_pct_0.5', 
+#   '20230713_real_universal_train_False_split_pct_0.7', 
+#   '20230713_real_universal_train_False_split_pct_0.8', 
+#   '20230713_real_universal_train_False_split_pct_0.9']
+  
+   
+   # '20230713_real_universal_train_True_split_pct_0.5', 
+   # '20230713_real_universal_train_True_split_pct_0.7', 
+   # '20230713_real_universal_train_True_split_pct_0.8', 
+   # '20230713_real_universal_train_True_split_pct_0.9']
+
+
+
+
+# ['20230611_real_universal_train_False',
+#                        '20230611_real_universal_train_True']
+
+
+# ['20230612_real_universal_train_False', '20230612_real_universal_train_True']
+
+# ['20230411_GP_action_clipping_type_clip_universal_train_False', 
+# '20230411_GP_action_clipping_type_tanh_universal_train_False']
+
+
+# ['20230612_real_universal_train_False', '20230612_real_universal_train_True']
+
+# ['20230609_real_universal_train_False', '20230609_real_universal_train_True']
+
+# ['20230611_real_universal_train_False', '20230611_real_universal_train_True']
+
+
+# ['20230609_real_universal_train_False', '20230609_real_universal_train_True']
+
+
+# ['20230606_GP_ftune_single_stud_degrees_10', '20230606_GP_ftune_single_stud_degrees_6', '20230606_GP_ftune_single_stud_degrees_8',
+# '20230605_GP_ftune_single_stud_degrees_10', '20230605_GP_ftune_single_stud_degrees_6', '20230605_GP_ftune_single_stud_degrees_8']
 
 
 # ['20230605_GP_ftune_single_stud_degrees_10', '20230605_GP_ftune_single_stud_degrees_6', '20230605_GP_ftune_single_stud_degrees_8']
@@ -117,7 +162,7 @@ outputModels_ppo: ['20230606_GP_ftune_single_stud_degrees_10', '20230606_GP_ftun
 #     '202305120_GP_ftune_lr_3e-05_action_range_[-1000000.0, 1000000.0]_9_t_stud_False']
 
      
-#scratch conv 
+# scratch conv 
 # ['202305120_GP_scratch_universal_train_False_action_range_[-100000.0, 100000.0]_9_t_stud_True', 
 #   '202305120_GP_scratch_universal_train_False_action_range_[-1000000.0, 1000000.0]_9_t_stud_True']
 

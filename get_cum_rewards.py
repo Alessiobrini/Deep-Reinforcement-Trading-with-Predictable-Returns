@@ -34,88 +34,21 @@ def parallel_test(seed,test_class,train_agent,data_dir):
     gin.parse_config_file(os.path.join(data_dir, "config.gin"), skip_unknown=True)
     test_class.rnd_state = seed
     # TODO temp
-    gin.bind_parameter('%T_STUD', True)  
+    # gin.bind_parameter('%T_STUD', True)  
+    gin.bind_parameter('%UNIVERSAL_TRAIN', True)
     res_df = test_class.run_test(train_agent, return_output=True)
     return res_df
 
-N = 1000
+N = 250
 model_to_change = None #'202305120_GP_scratch_pt'
-models_experiments = [('20230606_GP_ftune_single_stud_degrees_10', 'degrees_10_seed_7'),
-                       ('20230606_GP_ftune_single_stud_degrees_6', 'degrees_6_seed_128'),
-                       ('20230606_GP_ftune_single_stud_degrees_8','degrees_8_seed_7')]
+models_experiments =  [('20230612_real_universal_train_False', 'universal_train_False_seed_16'),
+                       ('20230612_real_universal_train_True', 'universal_train_True_seed_16')]
 
 
-# ('20230605_GP_ftune_single_stud_degrees_10', 'degrees_10_seed_120'),
-#                        ('20230605_GP_ftune_single_stud_degrees_6', 'degrees_6_seed_120'),
-('20230605_GP_ftune_single_stud_degrees_8','degrees_8_seed_120')
-
-
-# [('202305120_GP_scratch_pt', 'seed_120')]
-
-
-
-# [('20230522_GP_ftune2_lr_0.0003_action_range_[-100000.0, 100000.0]_9_t_stud_False', 'lr_0.0003_action_range_[-100000.0, 100000.0]_9_t_stud_False_seed_120'),
-#                       ('20230522_GP_ftune2_lr_0.0003_action_range_[-100000.0, 100000.0]_9_t_stud_True', 'lr_0.0003_action_range_[-100000.0, 100000.0]_9_t_stud_True_seed_120'),
-#                       ('20230522_GP_ftune2_lr_0.0003_action_range_[-500000.0, 500000.0]_9_t_stud_False', 'lr_0.0003_action_range_[-500000.0, 500000.0]_9_t_stud_False_seed_120'),
-#                       ('20230522_GP_ftune2_lr_0.0003_action_range_[-500000.0, 500000.0]_9_t_stud_True', 'lr_0.0003_action_range_[-500000.0, 500000.0]_9_t_stud_True_seed_120'),
-#                       ('20230522_GP_ftune2_lr_0.003_action_range_[-100000.0, 100000.0]_9_t_stud_False', 'lr_0.003_action_range_[-100000.0, 100000.0]_9_t_stud_False_seed_120'),
-#                       ('20230522_GP_ftune2_lr_0.003_action_range_[-100000.0, 100000.0]_9_t_stud_True', 'lr_0.003_action_range_[-100000.0, 100000.0]_9_t_stud_True_seed_120'),
-#                       ('20230522_GP_ftune2_lr_0.003_action_range_[-500000.0, 500000.0]_9_t_stud_False', 'lr_0.003_action_range_[-500000.0, 500000.0]_9_t_stud_False_seed_120'),
-#                       ('20230522_GP_ftune2_lr_0.003_action_range_[-500000.0, 500000.0]_9_t_stud_True''lr_0.003_action_range_[-500000.0, 500000.0]_9_t_stud_True_seed_120')]
-
-
-
-
-
-# [('202305120_GP_ftune2_lr_0.0003_action_range_[-1000000.0, 1000000.0]_9_t_stud_False', 'lr_0.0003_action_range_[-1000000.0, 1000000.0]_9_t_stud_False_seed_120'),
-#                       ('202305120_GP_ftune2_lr_0.0003_action_range_[-1000000.0, 1000000.0]_9_t_stud_True', 'lr_0.0003_action_range_[-1000000.0, 1000000.0]_9_t_stud_True_seed_120'),
-#                       ('202305120_GP_ftune2_lr_0.0003_action_range_[-10000000.0, 10000000.0]_9_t_stud_False', 'lr_0.0003_action_range_[-10000000.0, 10000000.0]_9_t_stud_False_seed_120'),
-#                       ('202305120_GP_ftune2_lr_0.0003_action_range_[-10000000.0, 10000000.0]_9_t_stud_True', 'lr_0.0003_action_range_[-10000000.0, 10000000.0]_9_t_stud_True_seed_120'),
-#                       ('202305120_GP_ftune2_lr_0.0003_action_range_[-100000.0, 100000.0]_9_t_stud_False', 'lr_0.0003_action_range_[-100000.0, 100000.0]_9_t_stud_False_seed_120'),
-#                       ('202305120_GP_ftune2_lr_0.0003_action_range_[-100000.0, 100000.0]_9_t_stud_True', 'lr_0.0003_action_range_[-100000.0, 100000.0]_9_t_stud_True_seed_120'),
-#                       ('202305120_GP_ftune2_lr_3e-05_action_range_[-1000000.0, 1000000.0]_9_t_stud_False', 'lr_3e-05_action_range_[-1000000.0, 1000000.0]_9_t_stud_False_seed_120'),
-#                       ('202305120_GP_ftune2_lr_3e-05_action_range_[-1000000.0, 1000000.0]_9_t_stud_True', 'lr_3e-05_action_range_[-1000000.0, 1000000.0]_9_t_stud_True_seed_120'),
-#                       ('202305120_GP_ftune2_lr_3e-05_action_range_[-10000000.0, 10000000.0]_9_t_stud_False', 'lr_3e-05_action_range_[-10000000.0, 10000000.0]_9_t_stud_False_seed_120'), 
-#                       ('202305120_GP_ftune2_lr_3e-05_action_range_[-10000000.0, 10000000.0]_9_t_stud_True', 'lr_3e-05_action_range_[-10000000.0, 10000000.0]_9_t_stud_True_seed_120'),
-#                       ('202305120_GP_ftune2_lr_3e-05_action_range_[-100000.0, 100000.0]_9_t_stud_False', 'lr_3e-05_action_range_[-100000.0, 100000.0]_9_t_stud_False_seed_120'),
-#                       ('202305120_GP_ftune2_lr_3e-05_action_range_[-100000.0, 100000.0]_9_t_stud_True', 'lr_3e-05_action_range_[-100000.0, 100000.0]_9_t_stud_True_seed_120')]
-
-
-
-
-# [('202305120_GP_scratch_universal_train_False_action_range_[-100000.0, 100000.0]_9_t_stud_False', 'universal_train_False_action_range_[-100000.0, 100000.0]_9_t_stud_False_seed_120'),
-#                       ('202305120_GP_scratch_universal_train_False_action_range_[-100000.0, 100000.0]_9_t_stud_True', 'universal_train_False_action_range_[-100000.0, 100000.0]_9_t_stud_True_seed_120'),
-#                       ('202305120_GP_scratch_universal_train_False_action_range_[-1000000.0, 1000000.0]_9_t_stud_False', 'universal_train_False_action_range_[-1000000.0, 1000000.0]_9_t_stud_False_seed_120'),
-#                       ('202305120_GP_scratch_universal_train_False_action_range_[-1000000.0, 1000000.0]_9_t_stud_True', 'universal_train_False_action_range_[-1000000.0, 1000000.0]_9_t_stud_True_seed_120'),
-#                       ('202305120_GP_scratch_universal_train_True_action_range_[-100000.0, 100000.0]_9_t_stud_False', 'universal_train_True_action_range_[-100000.0, 100000.0]_9_t_stud_False_seed_120'),
-#                       ('202305120_GP_scratch_universal_train_True_action_range_[-100000.0, 100000.0]_9_t_stud_True', 'universal_train_True_action_range_[-100000.0, 100000.0]_9_t_stud_True_seed_120'),
-#                       ('202305120_GP_scratch_universal_train_True_action_range_[-1000000.0, 1000000.0]_9_t_stud_False', 'universal_train_True_action_range_[-1000000.0, 1000000.0]_9_t_stud_False_seed_120'),
-#                       ('202305120_GP_scratch_universal_train_True_action_range_[-1000000.0, 1000000.0]_9_t_stud_True', 'universal_train_True_action_range_[-1000000.0, 1000000.0]_9_t_stud_True_seed_120'),
-                      # ('202305120_GP_ftune_lr_0.0003_action_range_[-1000000.0, 1000000.0]_9_t_stud_False', 'lr_0.0003_action_range_[-1000000.0, 1000000.0]_9_t_stud_False_seed_120'),
-                      # ('202305120_GP_ftune_lr_0.0003_action_range_[-1000000.0, 1000000.0]_9_t_stud_True', 'lr_0.0003_action_range_[-1000000.0, 1000000.0]_9_t_stud_True_seed_120'),
-                      # ('202305120_GP_ftune_lr_0.0003_action_range_[-10000000.0, 10000000.0]_9_t_stud_False', 'lr_0.0003_action_range_[-10000000.0, 10000000.0]_9_t_stud_False_seed_120'),
-                      # ('202305120_GP_ftune_lr_0.0003_action_range_[-10000000.0, 10000000.0]_9_t_stud_True', 'lr_0.0003_action_range_[-10000000.0, 10000000.0]_9_t_stud_True_seed_120'),
-                      # ('202305120_GP_ftune_lr_3e-05_action_range_[-1000000.0, 1000000.0]_9_t_stud_False', 'lr_3e-05_action_range_[-1000000.0, 1000000.0]_9_t_stud_False_seed_120'),
-                      # ('202305120_GP_ftune_lr_3e-05_action_range_[-1000000.0, 1000000.0]_9_t_stud_True', 'lr_3e-05_action_range_[-1000000.0, 1000000.0]_9_t_stud_True_seed_120'),
-                      # ('202305120_GP_ftune_lr_3e-05_action_range_[-10000000.0, 10000000.0]_9_t_stud_False', 'lr_3e-05_action_range_[-10000000.0, 10000000.0]_9_t_stud_False_seed_120'), 
-                      # ('202305120_GP_ftune_lr_3e-05_action_range_[-10000000.0, 10000000.0]_9_t_stud_True', 'lr_3e-05_action_range_[-10000000.0, 10000000.0]_9_t_stud_True_seed_120')]
-
-
-  
-
-# [('20230519_GP_tstud_noft_universal_train_False', 'universal_train_False_seed_120'),
-#                       ('20230519_GP_tstud_noft_universal_train_True', 'universal_train_True_seed_120')]
-
-
-# [('20230518_GP_pt_t_stud_False', 't_stud_False_seed_120'),
-#                      ('20230518_GP_pt_t_stud_True', 't_stud_True_seed_120'),
-#                      ('20230518_GP_tstud_nopt_universal_train_False', 'universal_train_False_seed_120'),
-#                      ('20230518_GP_tstud_nopt_universal_train_True', 'universal_train_True_seed_120')]
-
-
-
-# [ ('20230517_GP_pt2_t_stud_False_action_range_[-1000000.0, 1000000.0]_9_lr_3e-05', 't_stud_False_action_range_[-1000000.0, 1000000.0]_9_lr_3e-05_seed_120'),
-#   ('20230517_GP_pt2_t_stud_True_action_range_[-1000000.0, 1000000.0]_9_lr_3e-05', 't_stud_True_action_range_[-1000000.0, 1000000.0]_9_lr_3e-05_seed_120')]
+ # [('20230612_real_universal_train_False', 'universal_train_False_seed_16'),
+ #                       ('20230612_real_universal_train_True', 'universal_train_True_seed_16'),
+ #                       ('20230611_real_universal_train_False', 'universal_train_False_seed_16'),
+ #                       ('20230611_real_universal_train_True', 'universal_train_True_seed_16'),]
 
 for me in models_experiments:
     model = me[0]
