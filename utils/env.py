@@ -157,7 +157,8 @@ class MarketEnv(gym.Env):
         mv_penalty_coef : float = None,
         daily_volume : float = None,
         daily_price : float = None,
-        time_dependent : bool = False
+        time_dependent : bool = False,
+        rho_boot : float = 0.1
     ):
 
         # super(MarketEnv, self).__init__()
@@ -188,6 +189,7 @@ class MarketEnv(gym.Env):
         self.daily_volume = daily_volume
         self.daily_price = daily_price
         self.time_dependent = time_dependent
+        self.rho_boot = rho_boot
 
         
         if cost_type == 'nondiff':
@@ -253,15 +255,56 @@ class MarketEnv(gym.Env):
 
         else:
             
-            colnames = ["returns"] + ["factor_" + str(hl) for hl in HalfLife]
-
-            res_df = pd.DataFrame(
-                np.concatenate(
-                    [np.array(self.returns).reshape(-1, 1), np.array(self.factors)], axis=1
-                ),
-                columns=colnames,
-            )
-
+            
+            if gin.query_parameter('%EXPERIMENT_TYPE') == 'Real':
+                # Modify vol and create bootstrapping alphas
+                conditional_variance = np.var(self.returns, axis=0)
+                self.sigma = np.sqrt(conditional_variance)
+                
+                if self.rho_boot:
+                    # Generate random vectors from a normal distribution with conditional variances.
+                    rng = np.random.RandomState(42)
+                    random_vectors = rng.normal(size=self.returns.shape) * np.sqrt(conditional_variance)
+                
+                    # Compute the bootstrapped returns.
+    
+                    bootstrapped_returns = np.empty_like(self.returns)
+                    bootstrapped_returns[:-1] = self.rho_boot * self.returns[1:] + np.sqrt(1 - self.rho_boot**2) * random_vectors[:-1]
+                    bootstrapped_returns[-1] = self.rho_boot * returns[-1] + np.sqrt(1 - self.rho_boot**2) * random_vectors[-1]
+                    self.bootstrapped_returns = bootstrapped_returns
+                    
+                    
+                    # import statsmodels.api as sm
+                    # model = sm.OLS(self.bootstrapped_returns, self.returns)
+                    # result = model.fit()
+                    # pdb.set_trace()
+                    colnames = ["returns"] + ["factor_" + str(hl) for hl in HalfLife] + ['bootstrap_returns']
+    
+                    res_df = pd.DataFrame(
+                        np.concatenate(
+                            [np.array(self.returns).reshape(-1, 1), np.array(self.factors), bootstrapped_returns.reshape(-1, 1)], axis=1
+                        ),
+                        columns=colnames,
+                    )
+                else:
+                    colnames = ["returns"] + ["factor_" + str(hl) for hl in HalfLife] 
+    
+                    res_df = pd.DataFrame(
+                        np.concatenate(
+                            [np.array(self.returns).reshape(-1, 1), np.array(self.factors)], axis=1
+                        ),
+                        columns=colnames,
+                    )
+                
+            else:
+                colnames = ["returns"] + ["factor_" + str(hl) for hl in HalfLife]
+                res_df = pd.DataFrame(
+                    np.concatenate(
+                        [np.array(self.returns).reshape(-1, 1), np.array(self.factors)], axis=1
+                    ),
+                    columns=colnames,
+                )
+    
             self.n_assets = 1
             self.n_factors = len(HalfLife)
 
@@ -275,6 +318,15 @@ class MarketEnv(gym.Env):
         self.dates = dates
         res_df = res_df.astype(np.float32)
         self.res_df = res_df
+        
+        
+        # check the correlation of the alphas.
+        # c_alpharet = np.corrcoef(self.res_df['bootstrap_returns'].iloc[:-1],self.res_df['returns'].shift(-1).dropna())
+        # c_retret = np.corrcoef(self.res_df['returns'].iloc[1:],self.res_df['returns'].shift(1).dropna())
+        # print(c_alpharet[0][1],c_retret[0][1])
+        # pdb.set_trace()
+        
+        
 
 
         
@@ -460,6 +512,7 @@ class MarketEnv(gym.Env):
                     else:
                         self.res_df.at[iteration, key] = Result[key]
             self.res_df = self.res_df.astype(np.float32)
+
         else:
 
             for key in Result.keys():
@@ -574,7 +627,6 @@ class MarketEnv(gym.Env):
 
         # Remember that a state is a tuple (price, holding)
         # currRet = currState[0]
-
         nextRet = self.returns[iteration + 1]
         currHolding = currState[-1]
         nextHolding = nextState[-1]
@@ -713,6 +765,66 @@ class MarketEnv(gym.Env):
                 input_list.append(self.cash_ts[iteration+1])
 
         return input_list
+
+
+
+@gin.configurable()
+class RealMarketEnv(MarketEnv):
+
+    def reset(self) -> Tuple[np.ndarray, np.ndarray]:
+        if self.inp_type == "ret" or self.inp_type == "alpha":
+            if self.time_dependent:
+                if self.rho_boot:
+                    currState = np.array([self.bootstrapped_returns[0],len(self.returns) - 2, self.Startholding])
+                else:
+                    currState = np.array([self.returns[0],len(self.returns) - 2, self.Startholding])
+            else:
+                if self.rho_boot:
+                    currState = np.array([self.bootstrapped_returns[0], self.Startholding])
+                else:
+                    currState = np.array([self.returns[0], self.Startholding])
+            return currState
+        elif self.inp_type == "f" or self.inp_type == "alpha_f":
+            if self.time_dependent:
+                currState = np.append(self.factors[0],[len(self.returns) - 2, self.Startholding])
+            else:
+                currState = np.append(self.factors[0], self.Startholding)
+            return currState
+
+    def step(
+        self,
+        currState: Union[Tuple , np.ndarray],
+        shares_traded: int,
+        iteration: int,
+        tag: str = "DQN",
+    ) -> Tuple[np.ndarray, dict, np.ndarray]:
+
+        
+        nextFactors = self.factors[iteration + 1]
+        nextRet = self.returns[iteration + 1]
+        nextHolding = currState[-1] + shares_traded
+        if self.inp_type == "ret" or self.inp_type == "alpha":
+            if self.time_dependent:
+                if self.rho_boot:
+                    nextState = np.array([self.bootstrapped_returns[iteration + 1],len(self.returns) - 2 - (iteration+1), nextHolding], dtype=np.float32)
+                else:
+                    nextState = np.array([nextRet,len(self.returns) - 2 - (iteration+1), nextHolding], dtype=np.float32)
+            else:
+                if self.rho_boot:
+                    nextState = np.array([self.bootstrapped_returns[iteration + 1], nextHolding], dtype=np.float32)
+                else:
+                    nextState = np.array([nextRet, nextHolding], dtype=np.float32)
+        elif self.inp_type == "f" or self.inp_type == "alpha_f":
+            if self.time_dependent:
+                nextState = np.append(nextFactors,[len(self.returns) - 2 - (iteration+1), nextHolding])
+            else:
+                nextState = np.append(nextFactors, nextHolding)
+        
+        Result = self._getreward(currState, nextState, iteration, tag)
+
+        return nextState, Result, nextFactors
+    
+
 
 
 @gin.configurable()

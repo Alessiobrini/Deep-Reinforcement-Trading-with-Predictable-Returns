@@ -309,7 +309,7 @@ def runplot_metrics_is(p):
         # ax.set_ylim(-1500, 20)
         ax.hlines(y=0,xmin=0,xmax=len(reldiff_avg_smooth.index),ls='--',lw=1,color='black')
     else:
-        ax.set_ylim(-20000,10000)
+        ax.set_ylim(-200000,1000)
         ax.hlines(y=0,xmin=0,xmax=len(reldiff_avg_smooth.index),ls='--',lw=1,color='black')
     
     ax.set_xlabel('In-sample episodes')
@@ -317,12 +317,11 @@ def runplot_metrics_is(p):
     #     ax.set_ylabel('Average relative difference in reward (\%)') #relative
     # elif smooth_type == 'diffavg':
     #     ax.set_ylabel('Relative difference in average reward (\%)') #relative
-    ax.set_ylabel('$\Delta_{cr}$ (\%)')
-    # ax.set_ylabel('$\Delta$ Cum Reward (\%)')
+    ax.set_ylabel('$\Delta_{CR}$ (\%)')
 
     # ax.ticklabel_format(axis="y", style="sci", scilimits=(0, 0),useMathText=True)
-    ax.legend(['Single training - Gaussian','Universal training - Gaussian',
-                "Single training - Student's $t$","Universal training - Student's $t$"], loc=4)
+    # ax.legend(['Single training - Gaussian','Universal training - Gaussian',
+    #             "Single training - Student's $t$","Universal training - Student's $t$"], loc=4)
     # ax.legend([
     # r"DIA $\rightarrow$ Univ Test",
     # r"Univ Train $\rightarrow$ Univ Test",

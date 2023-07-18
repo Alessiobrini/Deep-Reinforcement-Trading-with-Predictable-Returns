@@ -36,8 +36,10 @@ def get_exp_length(modelpath):
     return length
 
 
-model = '20230713_real_universal_train_False_split_pct_0.5' #'20230712_real_universal_train_False'
-experiment = 'universal_train_False_split_pct_0.5_seed_16' #'universal_train_False_seed_16'
+model = '20230713_real2_universal_train_True_split_pct_0.5' #'20230712_real_universal_train_False'
+experiment = 'universal_train_True_split_pct_0.5_seed_16' #'universal_train_False_seed_16'
+
+
 
 # Load parameters and get the path
 query = gin.query_parameter
@@ -52,7 +54,11 @@ gin.parse_config_file(os.path.join(data_dir, "config.gin"), skip_unknown=True)
 
 gin.bind_parameter('load_real_data.universal_train', True)  
 # gin.bind_parameter('load_real_data.split_pct', 0.9)  
-p['ep_ppo'] = 2500 #'best'
+p['ep_ppo'] = 2000 #'best'
+
+
+# df =  pd.read_parquet(os.path.join(data_dir, 'AbsRew_OOS_753_PPO.parquet.gzip'))
+
 
 rng = np.random.RandomState(query("%SEED"))
 

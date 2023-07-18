@@ -8,7 +8,7 @@ import agents.PPO
 # Set up
 ALGO = 'PPO' # 'PPO', 'DQN' or 'DDPG'  
 
-ENV_CLS = @MarketEnv #ShortMultiAssetCash
+ENV_CLS = @RealMarketEnv #ShortMultiAssetCash
 
 
 EXPERIMENT_TYPE = 'Real' # GP or Misspec or Real
@@ -16,26 +16,28 @@ MV_RES = False # Decide which actions to take (trading quantity or MVresiduals)
 MV_PENALTY = False #[True,False]
 MV_PENALTY_COEF = None #1e-4 #[5e-2,1e-2,5e-3,1e-3,5e-4,1e-4,5e-5,1e-5,5e-6,1e-6,5e-7,1e-7,5e-8,1e-8,5e-9,1e-9,5e-10,1e-10,5e-11,1e-11]
 UNIVERSAL_TRAIN = False #[True,False]
-LOAD_PRETRAINED_PATH = None # ['202305120_GP_scratch_pt', 'seed_120']
-SPLIT_PCT = 0.8
+LOAD_PRETRAINED_PATH =  None #['20230716_real_rho_boot_0.4','rho_boot_0.4_seed_635'] #['202305120_GP_scratch_pt', 'seed_120']
+SPLIT_PCT =  0.8
+RHO_BOOT = 0.4
+DATAFILE = 'dows_hourly'
 
-EPISODES = 4 #None # episode to run the algorithm. Put None if you want to train DQN online
+EPISODES = 4000 #None # episode to run the algorithm. Put None if you want to train DQN online
 N_TRAIN = None
 LEN_SERIES = 1200 #None # length of simulated series, if null the legth is N_train
 EPOCHS = 3
 OUTPUTDIR = 'outputs' # main directory for the experiment
 OUTPUTCLASS = %ALGO # first subdirectory
-OUTPUTMODEL = '20230612_real'
-SAVE_FREQ = 2 #200  # number of checkpoints to save during training
-SEED =  22 #[16]
+OUTPUTMODEL = '20230717_real_daily_local'
+SAVE_FREQ = 1000 #200  # number of checkpoints to save during training
+SEED =  34 #[635]
 START_TRAIN = 100 # steps after which the training starts
 USE_GPU = True
-VARYING_PARS = None #['%UNIVERSAL_TRAIN', '%SEED'] 
+VARYING_PARS = None #['PPO.lr', '%SEED'] 
 VARYING_TYPE = 'chunk'
-NUM_CORES = 30
+NUM_CORES = 2
 
 # spaces
-ACTION_RANGE = [[-100000.0, 100000.0], 9] # action range for standard RL [boundary,number of actions]
+ACTION_RANGE = [[-10000.0, 10000.0], 9] # action range for standard RL [boundary,number of actions]
 ACTION_RANGE_RES = [0.0, 1.0, 10]  # action range for residual RL [LB,UB,number of actions]
 SIDE_ONLY = False # set the action space so that only the side of the bet is captured by the algorithm
 ZERO_ACTION = True # include the zero action (hold) in the action space
@@ -44,7 +46,7 @@ ZERO_ACTION = True # include the zero action (hold) in the action space
 DATATYPE = 'real' # type of data to simulate # 'garch','t_stud','t_stud_mfit', 'garch_mr', 'alpha_term_structure'
 TIME_DEPENDENT = True #[False,True]
 
-FACTOR_LB = [100] # list of lags for fitting autoregressive vairables of the return series
+FACTOR_LB = [50] # list of lags for fitting autoregressive vairables of the return series
 COSTMULTIPLIER = 1.0 #[1e-9,0.01,1.0,2.0,5.0] # Cost multiplier to make the cost proportional to the risk
 CM1 = 0.0 #[0.01, 0.05, 0.005] #[0.01,0.001, 0.0005, 0.005] #[0.0005,0.001,0.0001,0.00005,0.00001] #[2.89E-4, 0.0]  
 CM2 = 9E-4 #7.91E-4
@@ -189,7 +191,7 @@ PPO.ent_c = 0.0001 # coefficient for entropy
 PPO.hidden_units_value = [20,20]
 PPO.hidden_units_actor = [20,20] #[[30,30],[40,40],[100,100],[20,20,20],[20,20],[10,10],[5,5],[5],[10],[20],[30],[50],[100,100,100]] #[[20,20],[20],[10],[6],[4],[3],[2]] #[20,20] #[20,20]
 PPO.batch_size =  500 #250
-PPO.lr = 0.00003 #[0.0003,0.00003,0.000003,0.0000003] # initial learning rate 10 times smaller for fine-tuning
+PPO.lr = 0.00005 #[0.00005,0.005] #0.00005 #[0.0003,0.0001,0.003, 0.001] #[0.0003,0.00003,0.000003,0.0000003] # initial learning rate 10 times smaller for fine-tuning
 PPO.activation = 'tanh'
 PPO.batch_norm_input = True # batch norm at input layer level
 PPO.batch_norm_value_out = False # normalize value function output
@@ -264,6 +266,7 @@ MarketEnv.mv_penalty_coef = %MV_PENALTY_COEF
 MarketEnv.daily_volume = %DAILY_VOLUME
 MarketEnv.daily_price = %DAILY_PRICE
 MarketEnv.time_dependent = %TIME_DEPENDENT
+MarketEnv.rho_boot = %RHO_BOOT
 
 
 # Parameters for DataHandler and its related functions:
@@ -301,6 +304,8 @@ alpha_term_structure_sampler.fixed_alpha = %FIXED_ALPHA
 load_real_data.get_returns = True
 load_real_data.universal_train = %UNIVERSAL_TRAIN
 load_real_data.split_pct = %SPLIT_PCT
+load_real_data.datafile = %DATAFILE
+
 
 # Parameters for Out_sample_vs_gp:
 # ==============================================================================

@@ -794,15 +794,20 @@ def alpha_term_structure_sampler(
         return alpha_structure, alpha_terms, f_speed
 
 @gin.configurable()
-def load_real_data(get_returns=True, universal_train=False, split_pct = 0.8, training = True):
-    data  = pd.read_csv('data/dows.csv',index_col=0, header = [0,1])
+def load_real_data(get_returns=True, universal_train=False, 
+                   split_pct = 0.8, training = True, symbol = None, datafile = 'dows_daily'):
+    # data  = pd.read_csv('data/dows.csv',index_col=0, header = [0,1])
+    data  = pd.read_csv('data/{}.csv'.format(datafile),index_col=0)
     
     if universal_train:
-        s = np.random.choice(data.columns.get_level_values(0).unique(),1)[0]
-        p = data[s,'CLOSE']
+        if symbol:
+            s = symbol
+        else:
+            s = np.random.choice(data.columns.get_level_values(0).unique(),1)[0]
+        p = data[s]
     else:
-        p = data['DIA','CLOSE']
-
+        p = data['DIA']
+    
     if get_returns:
         ret = p.pct_change().dropna().values
     else:

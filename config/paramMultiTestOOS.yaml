@@ -68,30 +68,92 @@ experiment_ppo: 'seed_325' #'hidden_units_actor_20_20_20_activation_tanh_seed_88
 hyperparams_model_ppo: [50.0] #['32_32'] #[0.99,0.98,'64_64','128_64'] #[False,None]  #[True,1e-05] #[True,1e-05] #[False,None] 
 hyperparams_exp_ppo:  [1.5]  #[True,1e-05]
 plot_type: 'metrics_is' #'metrics_is' #'multi_policy' #'holding'
-outputModels_ppo:    ['20230713_real_universal_train_False_split_pct_0.5', 
-  '20230713_real_universal_train_False_split_pct_0.7']
-  # '20230713_real_universal_train_False_split_pct_0.8', 
-  # '20230713_real_universal_train_False_split_pct_0.9']
+outputModels_ppo: ['20230717_real_daily_local_lr_0.005', '20230717_real_daily_local_lr_5e-05']
 
 
-# ['20230713_real_universal_train_True_split_pct_0.7', 
-#     '20230713_real_universal_train_True_split_pct_0.8', 
-#     '20230713_real_universal_train_True_split_pct_0.9']
+# [   '20230717_real_boot_universal_train_True_split_pct_0.5_rho_boot_0.4', 
+#    '20230717_real_boot_universal_train_True_split_pct_0.5_rho_boot_0.8', 
+#    '20230717_real_boot_universal_train_True_split_pct_0.8_rho_boot_0.4', 
+#    '20230717_real_boot_universal_train_True_split_pct_0.8_rho_boot_0.8']
 
 
-# ['20230713_real_universal_train_False_split_pct_0.5', 
-#   '20230713_real_universal_train_False_split_pct_0.7', 
-#   '20230713_real_universal_train_False_split_pct_0.8', 
-#   '20230713_real_universal_train_False_split_pct_0.9']
+
+
+# ['20230717_real_boot_universal_train_False_split_pct_0.5_rho_boot_0.4', 
+#   '20230717_real_boot_universal_train_False_split_pct_0.5_rho_boot_0.8', 
+#   '20230717_real_boot_universal_train_False_split_pct_0.8_rho_boot_0.4', 
+#   '20230717_real_boot_universal_train_False_split_pct_0.8_rho_boot_0.8']
   
-   
-   # '20230713_real_universal_train_True_split_pct_0.5', 
-   # '20230713_real_universal_train_True_split_pct_0.7', 
-   # '20230713_real_universal_train_True_split_pct_0.8', 
-   # '20230713_real_universal_train_True_split_pct_0.9']
+  
 
 
 
+ # ['20230716_real_boot2_lr_5e-05_rho_boot_0.1', 
+ #    '20230716_real_boot2_lr_5e-05_rho_boot_0.4', 
+ #    '20230716_real_boot2_lr_5e-05_rho_boot_0.7', 
+ #    '20230716_real_boot2_lr_5e-05_rho_boot_None']
+
+
+
+# ['20230716_real_boot2_lr_0.0001_rho_boot_0.1', 
+#   '20230716_real_boot2_lr_0.0001_rho_boot_0.4', 
+#   '20230716_real_boot2_lr_0.0001_rho_boot_0.7', 
+#   '20230716_real_boot2_lr_0.0001_rho_boot_None']
+
+
+# ['20230716_real_boot2_lr_5e-05_rho_boot_0.1', 
+#     '20230716_real_boot2_lr_5e-05_rho_boot_0.4', 
+#     '20230716_real_boot2_lr_5e-05_rho_boot_0.7', 
+#     '20230716_real_boot2_lr_5e-05_rho_boot_None']
+
+
+  # ['20230716_real_boot2_lr_5e-05_rho_boot_0.1', 
+  #   '20230716_real_boot2_lr_5e-05_rho_boot_0.4', 
+  #   '20230716_real_boot2_lr_5e-05_rho_boot_0.7', 
+  #   '20230716_real_boot2_lr_5e-05_rho_boot_None']
+
+
+# ['20230716_real_boot2_lr_0.0001_rho_boot_0.1', 
+#   '20230716_real_boot2_lr_0.0001_rho_boot_0.4', 
+#   '20230716_real_boot2_lr_0.0001_rho_boot_0.7', 
+#   '20230716_real_boot2_lr_0.0001_rho_boot_None']
+  
+  
+   # '20230716_real_boot2_lr_5e-05_rho_boot_0.1', 
+   # '20230716_real_boot2_lr_5e-05_rho_boot_0.4', 
+   # '20230716_real_boot2_lr_5e-05_rho_boot_0.7', 
+   # '20230716_real_boot2_lr_5e-05_rho_boot_None']
+
+
+# ['20230716_real_rho_boot_0.4',
+# '20230716_real_rho_boot_None']
+
+
+
+
+# ['20230716_real_rho_boot_0.4', '20230716_real_rho_boot_None']
+
+
+
+# ['20230715_real_boot2_lr_0.0001_rho_boot_0.4', 
+#   '20230715_real_boot2_lr_0.0001_rho_boot_None', 
+#   '20230715_real_boot2_lr_0.0003_rho_boot_0.4', 
+#   '20230715_real_boot2_lr_0.0003_rho_boot_None']
+  
+  
+  # '20230715_real_boot2_lr_0.001_rho_boot_0.4', 
+  # '20230715_real_boot2_lr_0.001_rho_boot_None', 
+  # '20230715_real_boot2_lr_0.003_rho_boot_0.4', 
+  # '20230715_real_boot2_lr_0.003_rho_boot_None']
+
+
+ # ['20230715_real2_rho_boot_0.4', '20230715_real2_rho_boot_None']
+
+
+ # ['20230715_real_rho_boot_0.4_split_pct_0.5', 
+ #  '20230715_real_rho_boot_0.4_split_pct_0.8', 
+ #  '20230715_real_rho_boot_None_split_pct_0.5', 
+ #  '20230715_real_rho_boot_None_split_pct_0.8']
 
 # ['20230611_real_universal_train_False',
 #                        '20230611_real_universal_train_True']

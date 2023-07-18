@@ -6,7 +6,7 @@ import gin
 gin.enter_interactive_mode()
 from joblib import Parallel, delayed
 from utils.test import Out_sample_vs_gp
-from utils.env import MarketEnv, CashMarketEnv, ShortCashMarketEnv, MultiAssetCashMarketEnv, ShortMultiAssetCashMarketEnv
+from utils.env import MarketEnv,RealMarketEnv,  CashMarketEnv, ShortCashMarketEnv, MultiAssetCashMarketEnv, ShortMultiAssetCashMarketEnv
 from agents.PPO import PPO
 from utils.spaces import ActionSpace, ResActionSpace
 from utils.common import readConfigYaml
@@ -39,16 +39,12 @@ def parallel_test(seed,test_class,train_agent,data_dir):
     res_df = test_class.run_test(train_agent, return_output=True)
     return res_df
 
-N = 250
+N = 50
 model_to_change = None #'202305120_GP_scratch_pt'
-models_experiments =  [('20230612_real_universal_train_False', 'universal_train_False_seed_16'),
-                       ('20230612_real_universal_train_True', 'universal_train_True_seed_16')]
+models_experiments =  [('20230717_real_boot_universal_train_False_split_pct_0.8_rho_boot_0.4','universal_train_False_split_pct_0.8_rho_boot_0.4_seed_635')]
 
 
- # [('20230612_real_universal_train_False', 'universal_train_False_seed_16'),
- #                       ('20230612_real_universal_train_True', 'universal_train_True_seed_16'),
- #                       ('20230611_real_universal_train_False', 'universal_train_False_seed_16'),
- #                       ('20230611_real_universal_train_True', 'universal_train_True_seed_16'),]
+                     
 
 for me in models_experiments:
     model = me[0]
@@ -64,13 +60,8 @@ for me in models_experiments:
     length = get_exp_length(modelpath)
     data_dir = "outputs/{}/{}/{}/{}".format(outputClass, model, length, experiment)
     gin.parse_config_file(os.path.join(data_dir, "config.gin"), skip_unknown=True)
-    gin.bind_parameter('alpha_term_structure_sampler.generate_plot', p['generate_plot'])  
     p['N_test'] = gin.query_parameter('%LEN_SERIES')
     rng = np.random.RandomState(query("%SEED"))
-    
-
-        
-    
     
     # Load the elements for producing the plot
     if query("%MV_RES"):
@@ -101,6 +92,10 @@ for me in models_experiments:
             else:
                 input_shape = (len(query('%F_PARAM')) + 1,)
         else:
+            # if query("%RHO_BOOT"):
+            #     input_shape = (4,)
+            # else:
+                # input_shape = (3,)
             input_shape = (3,)
     
     
@@ -108,12 +103,13 @@ for me in models_experiments:
         input_shape=input_shape, action_space=action_space, rng=rng
     )
     
+    
 
     if query('%LOAD_PRETRAINED_PATH'):
         p['ep_ppo'] = None
     else:
         p['ep_ppo'] = 'best'
-        
+    p['ep_ppo'] = 3000
     if p['ep_ppo']:
         train_agent.model = load_PPOmodel(data_dir, p['ep_ppo'], model=train_agent.model)
     else:
@@ -126,7 +122,10 @@ for me in models_experiments:
         else:
             env = MultiAssetCashMarketEnv
     else:
-        env = MarketEnv
+        if query('%EXPERIMENT_TYPE') == 'Real':
+            env = RealMarketEnv
+        else:
+            env = MarketEnv
     
     oos_test = Out_sample_vs_gp(
             savedpath=None,
@@ -145,10 +144,22 @@ for me in models_experiments:
     # oos_test.rnd_state = 120 
     # res_df = oos_test.run_test(train_agent, return_output=True)
     
-
-    rewards = Parallel(n_jobs=p['cores'])(delayed(parallel_test)(
-            s, oos_test,train_agent,data_dir) for s in seeds)
-    
+    if query('%EXPERIMENT_TYPE') == 'Real':
+        pass
+        rewards = []
+        data  = pd.read_csv('data/{}.csv'.format(gin.query_parameter('load_real_data.datafile')),index_col=0)
+        symbols = data.columns.get_level_values(0).unique()[1:]
+        for s in symbols:
+            gin.parse_config_file(os.path.join(data_dir, "config.gin"), skip_unknown=True)
+            oos_test.rnd_state = 34
+            gin.bind_parameter('%UNIVERSAL_TRAIN', True)
+            gin.bind_parameter('load_real_data.symbol',s)
+            res_df = oos_test.run_test(train_agent, return_output=True)
+            print(res_df['Reward_PPO'].cumsum().iloc[-1])
+            rewards.append(res_df)
+    else:
+        rewards = Parallel(n_jobs=p['cores'])(delayed(parallel_test)(
+                s, oos_test,train_agent,data_dir) for s in seeds)
     
     if me[0] == model_to_change:
         # create an HDF5 file and store the dataframes in it

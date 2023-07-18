@@ -11,36 +11,36 @@ ALGO = 'PPO' # 'PPO', 'DQN' or 'DDPG'
 ENV_CLS = @MarketEnv #ShortMultiAssetCash
 
 
-EXPERIMENT_TYPE = 'Real' # GP or Misspec or Real
+EXPERIMENT_TYPE = 'GP' # GP or Misspec or Real
 MV_RES = False # Decide which actions to take (trading quantity or MVresiduals)
 MV_PENALTY = False #[True,False]
 MV_PENALTY_COEF = None #1e-4 #[5e-2,1e-2,5e-3,1e-3,5e-4,1e-4,5e-5,1e-5,5e-6,1e-6,5e-7,1e-7,5e-8,1e-8,5e-9,1e-9,5e-10,1e-10,5e-11,1e-11]
-UNIVERSAL_TRAIN = True
+UNIVERSAL_TRAIN = False
 LOAD_PRETRAINED_PATH = None #[('202305120_GP_scratch_universal_train_False_action_range_[-100000.0, 100000.0]_9_t_stud_False', 'universal_train_False_action_range_[-100000.0, 100000.0]_9_t_stud_False_seed_120')]
 
-EPISODES = 10 #None # episode to run the algorithm. Put None if you want to train DQN online
+EPISODES = 4000 #None # episode to run the algorithm. Put None if you want to train DQN online
 N_TRAIN = None
 LEN_SERIES = 1200 #None # length of simulated series, if null the legth is N_train
 EPOCHS = 3
 OUTPUTDIR = 'outputs' # main directory for the experiment
 OUTPUTCLASS = %ALGO # first subdirectory
-OUTPUTMODEL = '20230609_test1'
-SAVE_FREQ = 2 #200  # number of checkpoints to save during training
-SEED =  120
+OUTPUTMODEL = '20230714_GP_discount'
+SAVE_FREQ = 1000 #200  # number of checkpoints to save during training
+SEED =  [120]
 START_TRAIN = 100 # steps after which the training starts
 USE_GPU = True
-VARYING_PARS = None # ['PPO.lr','%ACTION_RANGE', '%T_STUD', '%SEED'] 
+VARYING_PARS = ['PPO.gamma', '%SEED'] 
 VARYING_TYPE = 'chunk'
-NUM_CORES = 2
+NUM_CORES = 3
 
 # spaces
-ACTION_RANGE = [[-100000.0, 100000.0], 9] # action range for standard RL [boundary,number of actions]
+ACTION_RANGE = [[-1000000.0, 1000000.0], 9] # action range for standard RL [boundary,number of actions]
 ACTION_RANGE_RES = [0.0, 1.0, 10]  # action range for residual RL [LB,UB,number of actions]
 SIDE_ONLY = False # set the action space so that only the side of the bet is captured by the algorithm
 ZERO_ACTION = True # include the zero action (hold) in the action space
 
 # env and data simulation
-DATATYPE = 'real' # type of data to simulate # 'garch','t_stud','t_stud_mfit', 'garch_mr', 'alpha_term_structure'
+DATATYPE = 'gauss' # type of data to simulate # 'garch','t_stud','t_stud_mfit', 'garch_mr', 'alpha_term_structure'
 TIME_DEPENDENT = True #[False,True]
 
 FACTOR_LB = [50] # list of lags for fitting autoregressive vairables of the return series
@@ -180,7 +180,7 @@ PPO_runner.load_pretrained_path = %LOAD_PRETRAINED_PATH
 # Parameters for PPO:
 # ==============================================================================
 PPO.seed = %SEED
-PPO.gamma = 0.99 #0.8 # discounting factor for the Q target
+PPO.gamma = [0.99,0.9999,1.0] #0.8 # discounting factor for the Q target
 PPO.tau = 0.98 # lambda in the original GAE paper
 PPO.clip_param = 0.2  # clipping of objective function
 PPO.vf_c = 0.5 # coefficient for the value error

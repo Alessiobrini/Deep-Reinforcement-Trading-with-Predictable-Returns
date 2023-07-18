@@ -293,7 +293,7 @@ class PPO_runner(MixinCore):
         # logging.info("Config file saved")
 
     def collect_rollouts(self):
-        
+
         state = self.env.reset()
 
         if self.store_insample:
